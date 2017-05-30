@@ -1,10 +1,9 @@
-{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
-module Game where
+module SDLight where
 
 import qualified SDL as SDL
 import qualified SDL.Raw.Types as SDLR
@@ -12,33 +11,13 @@ import qualified SDL.Internal.Numbered as SDL
 import SDL.Compositor
 import SDL.Compositor.Drawer (Color(..))
 import qualified SDL.TTF as TTF
-import SDL.TTF.FFI (TTFFont)
 import Control.Lens
 import Control.Monad.State
 import qualified Data.Map as M
 import Data.IORef
 import Linear.V2
 import Linear.V4
-
-data GameInfo
-  = GameInfo
-  { _window :: SDL.Window
-  , _renderer :: SDL.Renderer
-  , _font :: TTFFont
-  , _keystates :: M.Map SDL.Scancode Int
-  }
-  deriving (Eq, Show)
-
-makeLenses ''GameInfo
-
-type GameM = StateT GameInfo IO
-
-with :: Monad m => m t -> (t -> m b) -> (t -> m a) -> m a
-with m1 m2 m = do
-  k <- m1
-  r <- m k
-  m2 k
-  return r
+import SDLight.Types
 
 renderText :: String -> Color -> SDL.V2 Int -> GameM ()
 renderText txt (Color (V4 r g b a)) pos = do
@@ -94,10 +73,5 @@ runGame world draw step keyevent = do
           SDL.pollEvent >>= \ev -> case ev of
             Just (SDL.Event _ SDL.QuitEvent) -> return ()
             z -> loop wref gref
-
-handleEventLensed :: a -> Lens' a b -> (ev -> b -> GameM b) -> ev -> GameM a
-handleEventLensed v target handleEvent ev = do
-    newB <- handleEvent ev (v^.target)
-    return $ v & target .~ newB
 
 
