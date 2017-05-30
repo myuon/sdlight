@@ -31,6 +31,11 @@ type GameM = StateT GameInfo IO
 
 handleEventLensed :: a -> Lens' a b -> (ev -> b -> GameM b) -> ev -> GameM a
 handleEventLensed v target handleEvent ev = do
-    newB <- handleEvent ev (v^.target)
-    return $ v & target .~ newB
+  newB <- handleEvent ev (v^.target)
+  return $ v & target .~ newB
+
+runLensed :: a -> Lens' a b -> (b -> GameM b) -> GameM a
+runLensed v target handler = do
+  newB <- handler (v^.target)
+  return $ v & target .~ newB
 

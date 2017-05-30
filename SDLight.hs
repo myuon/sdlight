@@ -9,25 +9,32 @@ import qualified SDL as SDL
 import qualified SDL.Raw.Types as SDLR
 import qualified SDL.Internal.Numbered as SDL
 import SDL.Compositor
-import SDL.Compositor.Drawer (Color(..))
 import qualified SDL.TTF as TTF
 import Control.Lens
 import Control.Monad.State
 import qualified Data.Map as M
 import Data.IORef
-import Linear.V2
 import Linear.V4
 import SDLight.Types
 
-renderText :: String -> Color -> SDL.V2 Int -> GameM ()
-renderText txt (Color (V4 r g b a)) pos = do
-  font' <- use font
-  rend' <- use renderer
-  with (TTF.renderUTF8Blended font' txt (SDLR.Color r g b a)) SDL.freeSurface $ \surface -> do
-    texture <- lift $ SDL.createTextureFromSurface rend' surface
-    siz <- lift $ liftM2 V2 (toEnum <$> textureWidth texture) (toEnum <$> textureHeight texture)
-    let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) siz
-    SDL.copy rend' texture Nothing (Just loc)
+data Delayed a
+  = Delayed
+  { _delayed :: a
+  , _counter :: Int
+  , _delayCount :: Int
+  }
+  deriving (Eq, Show)
+
+makeLenses ''Delayed
+
+newDelayed :: Int -> a -> Delayed a
+newDelayed n ma = Delayed ma 0 n
+
+runDelayed :: (a -> GameM a) -> Delayed a -> GameM (Delayed a)
+runDelayed ma delay = do
+  ma' <- if delay^.counter == 0 then ma (delay^.delayed) else return (delay^.delayed)
+  return $ delay & delayed .~ ma'
+                 & counter %~ (`mod` (delay^.delayCount)) . (+1)
 
 runGRenderer :: (Texture tex, Renderable SDL.Renderer tex) => CompositingNode tex -> GameM ()
 runGRenderer node = use renderer >>= \rend -> lift $ runRenderer rend node

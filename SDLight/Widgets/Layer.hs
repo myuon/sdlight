@@ -72,6 +72,6 @@ _layered = lens (\(Layered (c,_)) -> c) (\(Layered (_,l)) c' -> Layered (c',l))
 newLayered :: FilePath -> Int -> Int -> GameM a -> GameM (Layered a)
 newLayered path w h initA = Layered <$> liftM2 (,) initA (newLayer path w h)
 
-renderLayered :: Layered a -> SDL.V2 Int -> (a -> GameM ()) -> GameM ()
+renderLayered :: Layered a -> V2 Int -> (a -> GameM ()) -> GameM ()
 renderLayered (Layered (ma,layer)) pos k = renderLayer layer pos >> k ma
 
