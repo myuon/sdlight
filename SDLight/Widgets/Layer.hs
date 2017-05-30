@@ -64,3 +64,14 @@ renderLayer layer pos = do
   let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) (SDL.V2 (layer^.layerWidth) (layer^.layerHeight))
   lift $ copyEx rend (layer^.layerTexture) Nothing (Just loc) 0 Nothing (V2 False False)
 
+newtype Layered a = Layered (a, Layer)
+
+_layered :: Lens' (Layered a) a
+_layered = lens (\(Layered (c,_)) -> c) (\(Layered (_,l)) c' -> Layered (c',l))
+
+newLayered :: FilePath -> Int -> Int -> GameM a -> GameM (Layered a)
+newLayered path w h initA = Layered <$> liftM2 (,) initA (newLayer path w h)
+
+renderLayered :: Layered a -> SDL.V2 Int -> (a -> GameM ()) -> GameM ()
+renderLayered (Layered (ma,layer)) pos k = renderLayer layer pos >> k ma
+

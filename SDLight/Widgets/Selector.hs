@@ -28,8 +28,6 @@ newSelector labels selectNum = Selector labels Nothing selectNum [] False
 
 renderSelector :: Selector -> (String -> Int -> Bool -> Bool -> GameM ()) -> GameM ()
 renderSelector sel rendItem = do
---  renderLayer (sel^.selectorDisplayLayer) (SDL.V2 200 300)
-  
   forM_ (zip [0..] (sel^.labels)) $ \(i,label) ->
     rendItem label i (i `elem` (sel^.selecting)) (Just i == sel^.pointer)
 
