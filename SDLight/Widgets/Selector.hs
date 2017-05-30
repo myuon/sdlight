@@ -22,6 +22,9 @@ data Selector
 
 makeLenses ''Selector
 
+newSelector :: [String] -> Int -> Selector
+newSelector labels selectNum = Selector labels Nothing selectNum [] False
+
 renderSelector :: Selector -> (String -> Int -> Bool -> Bool -> GameM ()) -> GameM ()
 renderSelector sel rend = do
   forM_ (zip [0..] (sel^.labels)) $ \(i,label) ->
