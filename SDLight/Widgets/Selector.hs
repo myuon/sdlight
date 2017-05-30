@@ -5,20 +5,19 @@ module SDLight.Widgets.Selector where
 
 import qualified SDL as SDL
 import qualified Data.Map as M
+import Data.List
 import Data.Maybe
 import Control.Lens
 import Control.Monad
 import SDLight.Types
-
-data SelectorState = Selecting | Selected
 
 data Selector
   = Selector
   { _labels :: [String]
   , _pointer :: Maybe Int
   , _selectNum :: Int
-  , _selecting :: [String]
-  , _selectorState :: SelectorState
+  , _selecting :: [Int]
+  , _isFinished :: Bool
   }
 
 makeLenses ''Selector
@@ -26,7 +25,7 @@ makeLenses ''Selector
 renderSelector :: Selector -> (String -> Int -> Bool -> Bool -> GameM ()) -> GameM ()
 renderSelector sel rend = do
   forM_ (zip [0..] (sel^.labels)) $ \(i,label) ->
-    rend label i (label `elem` (sel^.selecting)) (Just i == sel^.pointer)
+    rend label i (i `elem` (sel^.selecting)) (Just i == sel^.pointer)
 
 handleSelectorEvent :: M.Map SDL.Scancode Int -> Selector -> GameM Selector
 handleSelectorEvent keys sel
@@ -41,9 +40,12 @@ handleSelectorEvent keys sel
         Just p | p == length (sel^.labels) - 1 -> return $ sel & pointer .~ Just 0
         Just p -> return $ sel & pointer .~ Just (p+1)
   | keys M.! SDL.ScancodeZ == 1 =
-      case sel^.selectorState of
-        Selecting | length (sel^.selecting) == sel^.selectNum -> return $ sel & selectorState .~ Selected
-        Selecting | isJust (sel^.pointer) -> return $ sel & selecting %~ ((sel^.labels) !! (fromJust $ sel^.pointer) :)
+      case sel^.isFinished of
+        False | length (sel^.selecting) == sel^.selectNum -> return $ sel & isFinished .~ True
+        False | isJust (sel^.pointer) ->
+          let p = fromJust $ sel^.pointer in
+          if p `elem` sel^.selecting then return $ sel & selecting %~ delete p
+          else return $ sel & selecting %~ (p :)
         _ -> return sel
   | otherwise = return sel
 
