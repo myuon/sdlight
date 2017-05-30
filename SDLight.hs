@@ -32,10 +32,13 @@ renderText txt (Color (V4 r g b a)) pos = do
 runGRenderer :: (Texture tex, Renderable SDL.Renderer tex) => CompositingNode tex -> GameM ()
 runGRenderer node = use renderer >>= \rend -> lift $ runRenderer rend node
 
-runGame :: s -> (s -> GameM ()) -> (s -> GameM s) -> (M.Map SDL.Scancode Int -> s -> GameM s) -> IO ()
-runGame world draw step keyevent = do
-  wref <- newIORef world
-  
+runGame
+  :: GameM s -- initial state
+  -> (s -> GameM ()) -- draw
+  -> (s -> GameM s) -- update
+  -> (M.Map SDL.Scancode Int -> s -> GameM s) -- key event handler
+  -> IO ()
+runGame initialize draw step keyevent = do
   with SDL.initializeAll (\_ -> SDL.quit) $ \_ -> do
     with (SDL.createWindow "magic labo" SDL.defaultWindow) SDL.destroyWindow $ \w' -> do
       with (SDL.createRenderer w' 0 SDL.defaultRenderer) SDL.destroyRenderer $ \r' -> do
@@ -45,6 +48,7 @@ runGame world draw step keyevent = do
           with (TTF.openFont "./resources/ipag.ttf" 24) TTF.closeFont $ \font -> do
             let g0 = GameInfo w' r' font (M.fromList $ zip (fmap SDL.Scancode [0..256]) [0,0..])
             gref <- newIORef g0
+            wref <- newIORef =<< evalStateT initialize g0
             loop wref gref
       
   where

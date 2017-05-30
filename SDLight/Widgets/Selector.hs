@@ -10,6 +10,7 @@ import Data.Maybe
 import Control.Lens
 import Control.Monad
 import SDLight.Types
+import SDLight.Widgets.Layer
 
 data Selector
   = Selector
@@ -26,9 +27,11 @@ newSelector :: [String] -> Int -> Selector
 newSelector labels selectNum = Selector labels Nothing selectNum [] False
 
 renderSelector :: Selector -> (String -> Int -> Bool -> Bool -> GameM ()) -> GameM ()
-renderSelector sel rend = do
+renderSelector sel rendItem = do
+--  renderLayer (sel^.selectorDisplayLayer) (SDL.V2 200 300)
+  
   forM_ (zip [0..] (sel^.labels)) $ \(i,label) ->
-    rend label i (i `elem` (sel^.selecting)) (Just i == sel^.pointer)
+    rendItem label i (i `elem` (sel^.selecting)) (Just i == sel^.pointer)
 
 handleSelectorEvent :: M.Map SDL.Scancode Int -> Selector -> GameM Selector
 handleSelectorEvent keys sel
