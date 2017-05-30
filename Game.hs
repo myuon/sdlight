@@ -1,3 +1,4 @@
+{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -54,8 +55,8 @@ renderText txt (Color (V4 r g b a)) pos = do
 runGRenderer :: (Texture tex, Renderable SDL.Renderer tex) => CompositingNode tex -> GameM ()
 runGRenderer node = use renderer >>= \rend -> lift $ runRenderer rend node
 
-runGame :: s -> (s -> GameM ()) -> (s -> GameM s) -> (s -> SDL.Event -> GameM s) -> IO ()
-runGame w draw step event = do
+runGame :: s -> (s -> GameM ()) -> (s -> GameM s) -> (s -> (SDL.Scancode -> Bool) -> GameM s) -> IO ()
+runGame w draw step keyevent = do
   ref <- newIORef w
   with SDL.initializeAll (\_ -> SDL.quit) $ \_ -> do
     with (SDL.createWindow "magic labo" SDL.defaultWindow) SDL.destroyWindow $ \w' -> do
@@ -76,17 +77,19 @@ runGame w draw step event = do
       SDL.delay 30
 
       readIORef ref >>= \w -> evalStateT (step w) game >>= writeIORef ref
+      keys <- SDL.getKeyboardState
+      readIORef ref >>= \w -> evalStateT (keyevent w keys) game >>= writeIORef ref
       handler
 
       where
         handler = do
           SDL.pollEvent >>= \ev -> case ev of
             Just (SDL.Event _ SDL.QuitEvent) -> return ()
-            z -> do
-              case z of
-                Just ev -> readIORef ref >>= \w -> evalStateT (event w ev) game >>= writeIORef ref
-                Nothing -> return ()
+            z -> loop game ref
 
-              loop game ref
+handleEventLensed :: a -> Lens' a b -> (ev -> b -> GameM b) -> ev -> GameM a
+handleEventLensed v target handleEvent ev = do
+    newB <- handleEvent ev (v^.target)
+    return $ v & target .~ newB
 
 
