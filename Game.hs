@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Strict #-}
@@ -50,9 +51,13 @@ renderText txt (Color (V4 r g b a)) pos = do
     let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) siz
     SDL.copy rend' texture Nothing (Just loc)
 
-runGame :: s -> (s -> GameM ()) -> (s -> GameM s) -> IO ()
-runGame w draw step = do
-  with (SDL.initialize [SDL.InitVideo]) (\_ -> SDL.quit) $ \_ -> do
+runGRenderer :: (Texture tex, Renderable SDL.Renderer tex) => CompositingNode tex -> GameM ()
+runGRenderer node = use renderer >>= \rend -> lift $ runRenderer rend node
+
+runGame :: s -> (s -> GameM ()) -> (s -> GameM s) -> (s -> SDL.Event -> GameM s) -> IO ()
+runGame w draw step event = do
+  ref <- newIORef w
+  with SDL.initializeAll (\_ -> SDL.quit) $ \_ -> do
     with (SDL.createWindow "magic labo" SDL.defaultWindow) SDL.destroyWindow $ \w' -> do
       with (SDL.createRenderer w' 0 SDL.defaultRenderer) SDL.destroyRenderer $ \r' -> do
         TTF.withInit $ do
@@ -60,22 +65,28 @@ runGame w draw step = do
 
           with (TTF.openFont "resources/ipag.ttf" 24) TTF.closeFont $ \font -> do
             let g0 = GameInfo w' r' font
-            loop g0 w
+            loop g0 ref
       
   where
-    loop z@(GameInfo window renderer _) w = do
+    loop game@(GameInfo window renderer _) ref = do
       rendererDrawColor renderer SDL.$= V4 255 255 255 255
       clear renderer
-      runStateT (draw w) z
+      readIORef ref >>= \w -> runStateT (draw w) game
       present renderer
       SDL.delay 30
 
-      w' <- evalStateT (step w) z
-      handler w'
+      readIORef ref >>= \w -> evalStateT (step w) game >>= writeIORef ref
+      handler
 
       where
-        handler w' = do
-          ev <- SDL.pollEvent
-          case ev of
+        handler = do
+          SDL.pollEvent >>= \ev -> case ev of
             Just (SDL.Event _ SDL.QuitEvent) -> return ()
-            _ -> loop z w'
+            z -> do
+              case z of
+                Just ev -> readIORef ref >>= \w -> evalStateT (event w ev) game >>= writeIORef ref
+                Nothing -> return ()
+
+              loop game ref
+
+
