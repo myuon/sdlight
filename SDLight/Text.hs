@@ -21,3 +21,8 @@ renderText txt (Color (V4 r g b a)) pos = do
     let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) siz
     SDL.copy rend' texture Nothing (Just loc)
 
+renderShadedText :: String -> Color -> Color -> SDL.V2 Int -> GameM ()
+renderShadedText txt frontc backc pos = do
+  renderText txt backc (pos + 2)
+  renderText txt frontc pos
+

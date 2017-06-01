@@ -14,6 +14,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.State
 import Linear.V2
+import SDLight.Colors
 import SDLight.Types
 import SDLight.Text
 import SDLight.Widgets.Layer
@@ -73,6 +74,6 @@ renderMessageWriter mes pos =
     _ -> do
       forM_ (zip [0..] $ take (mes^.counter^._y) $ mes^.currentMessages) $ \(i,m) -> do
         if i+1 == mes^.counter^._y
-        then renderText (take (mes^.counter^._x) m ++ " ") (rgba 0 0 0 255) (V2 (pos^._x) (pos^._y + 30*i))
-        else renderText m (rgba 0 0 0 255) (V2 (pos^._x) (pos^._y + 30*i))
+        then renderShadedText (take (mes^.counter^._x) m ++ " ") black white (V2 (pos^._x) (pos^._y + 30*i))
+        else renderShadedText m black white (V2 (pos^._x) (pos^._y + 30*i))
 
