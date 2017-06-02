@@ -48,7 +48,7 @@ runGame
 runGame initialize draw step keyevent = do
   with SDL.initializeAll (\_ -> SDL.quit) $ \_ -> do
     with (SDL.createWindow "magic labo" SDL.defaultWindow) SDL.destroyWindow $ \w' -> do
-      with (SDL.createRenderer w' 0 SDL.defaultRenderer) SDL.destroyRenderer $ \r' -> do
+      with (SDL.createRenderer w' (-1) SDL.defaultRenderer) SDL.destroyRenderer $ \r' -> do
         TTF.withInit $ do
           True <- TTF.wasInit
 

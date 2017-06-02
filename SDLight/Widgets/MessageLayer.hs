@@ -55,7 +55,7 @@ handleMessageWriterEvent :: M.Map SDL.Scancode Int -> MessageWriter -> GameM Mes
 handleMessageWriterEvent keys mes
   | keys M.! SDL.ScancodeZ == 1 =
     case mes^.messageState of
-      Waiting | mes^.messages == [] -> return mes
+      Waiting | mes^.messages == [] -> return $ mes & messageState .~ Finished
       Waiting | mes^.counter^._y > mes^.maxLine ->
         let (r,rest) = splitAt (mes^.maxLine) (mes^.messages) in
         return $ mes & counter .~ V2 0 1
