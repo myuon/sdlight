@@ -6,7 +6,6 @@ module SDLight.Widgets.MessageLayer where
 
 import qualified SDL as SDL
 import qualified SDL.Image as SDL
-import SDL.Compositor
 import qualified Data.Map as M
 import Data.List
 import Data.Maybe
@@ -14,7 +13,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.State
 import Linear.V2
-import SDLight.Colors
+import SDLight.Util
 import SDLight.Types
 import SDLight.Text
 import SDLight.Widgets.Layer
