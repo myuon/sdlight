@@ -45,11 +45,12 @@ handleSelectorEvent keys sel
         Just p -> return $ sel & pointer .~ Just (p+1)
   | keys M.! SDL.ScancodeZ == 1 =
       case sel^.isFinished of
-        False | length (sel^.selecting) == sel^.selectNum -> return $ sel & isFinished .~ True
-        False | isJust (sel^.pointer) ->
-          let p = fromJust $ sel^.pointer in
-          if p `elem` sel^.selecting then return $ sel & selecting %~ delete p
-          else return $ sel & selecting %~ (p :)
+        False | isJust (sel^.pointer) -> do
+          let p = fromJust $ sel^.pointer
+          if p `elem` sel^.selecting
+            then return $ sel & selecting %~ delete p
+            else return $ sel & selecting %~ (p :)
+                              & isFinished .~ (length (sel^.selecting) + 1 == sel^.selectNum)
         _ -> return sel
   | otherwise = return sel
 
