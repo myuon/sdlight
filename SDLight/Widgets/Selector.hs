@@ -26,6 +26,9 @@ makeLenses ''Selector
 newSelector :: [String] -> Int -> Selector
 newSelector labels selectNum = Selector labels Nothing selectNum [] False
 
+resetSelector :: Selector -> Selector
+resetSelector sel = sel & pointer .~ Nothing & selecting .~ [] & isFinished .~ False
+
 renderSelector :: Selector -> (String -> Int -> Bool -> Bool -> GameM ()) -> GameM ()
 renderSelector sel rendItem = do
   forM_ (zip [0..] (sel^.labels)) $ \(i,label) ->
