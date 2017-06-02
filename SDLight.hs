@@ -8,7 +8,6 @@ module SDLight where
 import qualified SDL as SDL
 import qualified SDL.Raw.Types as SDLR
 import qualified SDL.Internal.Numbered as SDL
-import SDL.Compositor
 import qualified SDL.TTF as TTF
 import Control.Lens
 import Control.Monad.State
@@ -36,9 +35,6 @@ runDelayed ma delay = do
   return $ delay & delayed .~ ma'
                  & counter %~ (`mod` (delay^.delayCount)) . (+1)
 
-runGRenderer :: (Texture tex, Renderable SDL.Renderer tex) => CompositingNode tex -> GameM ()
-runGRenderer node = use renderer >>= \rend -> lift $ runRenderer rend node
-
 runGame
   :: GameM s -- initial state
   -> (s -> GameM ()) -- draw
@@ -61,12 +57,12 @@ runGame initialize draw step keyevent = do
   where
     loop wref gref = do
       game <- readIORef gref
-      rendererDrawColor (game^.renderer) SDL.$= V4 255 255 255 255
-      clear (game^.renderer)
+      SDL.rendererDrawColor (game^.renderer) SDL.$= V4 255 255 255 255
+      SDL.clear (game^.renderer)
 
       readIORef wref >>= \world ->
         evalStateT (draw world) game
-      present (game^.renderer)
+      SDL.present (game^.renderer)
       SDL.delay 30
 
       readIORef wref >>= \world ->
