@@ -78,6 +78,7 @@ runGame initialize draw step keyevent = do
         handler = do
           SDL.waitEventTimeout 33 >>= \ev -> case ev of
             Just (SDL.Event _ SDL.QuitEvent) -> return ()
+            Just (SDL.Event _ (SDL.KeyboardEvent (SDL.KeyboardEventData _ _ _ (SDL.Keysym SDL.ScancodeEscape _ _)))) -> return ()
             Just z@(SDL.Event _ (SDL.SysWMEvent _)) -> error $ show z
             _ -> loop wref gref
 
