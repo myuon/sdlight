@@ -25,7 +25,7 @@ renderText txt (Color (V4 r g b a)) pos = do
 -}
 
 renderText :: String -> Color -> SDL.V2 Int -> GameM ()
-renderText txt color v = renders [translate v $ text txt] color
+renderText txt color v = renders color [translate v $ text txt]
 
 renderShadedText :: String -> Color -> Color -> SDL.V2 Int -> GameM ()
 renderShadedText txt frontc backc pos = do

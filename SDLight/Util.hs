@@ -15,6 +15,9 @@ class RGBA c where
 
 newtype Color = Color (V4 Int)
 
+getColor :: Color -> V4 Int
+getColor (Color v) = v
+
 instance RGBA Color where
   rgba r g b a = Color $ V4 r g b a
   rgb r g b = Color $ V4 r g b 255

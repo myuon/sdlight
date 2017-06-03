@@ -41,6 +41,11 @@ newLayer :: FilePath -> Int -> Int -> GameM Layer
 newLayer path width height = do
   rend <- use renderer
   imgTexture <- lift $ SDL.loadTexture rend path
+  resizeLayer imgTexture width height
+
+resizeLayer :: SDL.Texture -> Int -> Int -> GameM Layer
+resizeLayer imgTexture width height = do
+  rend <- use renderer
   imgQuery <- SDL.queryTexture imgTexture
   let sx = fromEnum $ SDL.textureWidth imgQuery `div` 3
   let sy = fromEnum $ SDL.textureHeight imgQuery `div` 3
