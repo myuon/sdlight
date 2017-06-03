@@ -63,7 +63,6 @@ runGame initialize draw step keyevent = do
       readIORef wref >>= \world ->
         evalStateT (draw world) game
       SDL.present (game^.renderer)
-      SDL.delay 30
 
       readIORef wref >>= \world ->
         evalStateT (step world) game >>= writeIORef wref
@@ -77,8 +76,9 @@ runGame initialize draw step keyevent = do
 
       where
         handler = do
-          SDL.pollEvent >>= \ev -> case ev of
+          SDL.waitEventTimeout 33 >>= \ev -> case ev of
             Just (SDL.Event _ SDL.QuitEvent) -> return ()
-            z -> loop wref gref
+            Just z@(SDL.Event _ (SDL.SysWMEvent _)) -> error $ show z
+            _ -> loop wref gref
 
 
