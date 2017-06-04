@@ -1,10 +1,35 @@
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 module SDLight.Util where
 
 import qualified SDL as SDL
 import Control.Lens
+import Data.Proxy
+import GHC.TypeLits
 import Linear.V2
 import Linear.V4
+
+-- State Management
+
+class HasState c a | c -> a where
+  _state :: Lens' c a
+
+data SymbolOf (xs :: [Symbol]) = SymbolOf_ SomeSymbol
+
+class Elem (s :: k) (xs :: [k])
+instance Elem s (s : xs)
+instance {-# Overlappable #-} Elem s xs => Elem s (t : xs)
+
+symbolOf :: SymbolOf xs -> String
+symbolOf (SymbolOf_ (SomeSymbol t)) = symbolVal t
+
+inj :: (Elem s xs, KnownSymbol s) => Proxy s -> SymbolOf xs
+inj p = SymbolOf_ $ SomeSymbol p
 
 -- color
 
