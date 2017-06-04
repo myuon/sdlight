@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeOperators #-}
@@ -20,6 +22,7 @@ class HasState c a | c -> a where
   _state :: Lens' c a
 
 data SymbolOf (xs :: [Symbol]) = SymbolOf_ SomeSymbol
+data SymbolsOf (xs :: [[Symbol]]) = SymbolsOf_ [SomeSymbol]
 
 class Elem (s :: k) (xs :: [k])
 instance Elem s (s : xs)
@@ -30,6 +33,23 @@ symbolOf (SymbolOf_ (SomeSymbol t)) = symbolVal t
 
 inj :: (Elem s xs, KnownSymbol s) => Proxy s -> SymbolOf xs
 inj p = SymbolOf_ $ SomeSymbol p
+
+symbolsOf :: SymbolsOf xs -> [String]
+symbolsOf (SymbolsOf_ xs) = fmap (\(SomeSymbol p) -> symbolVal p) xs
+
+injs :: (Elem s xs, ToSymbolList s) => Proxy s -> SymbolsOf xs
+injs p = SymbolsOf_ $ toSymbolList p
+
+class ToSymbolList (xs :: [Symbol]) where
+  toSymbolList :: Proxy xs -> [SomeSymbol]
+instance ToSymbolList '[] where
+  toSymbolList _ = []
+instance (ToSymbolList xs, KnownSymbol x) => ToSymbolList (x : xs) where
+  toSymbolList p =
+    let (p1,p2) = splitCons p in SomeSymbol p1 : toSymbolList p2
+
+splitCons :: KnownSymbol x => Proxy (x : xs) -> (Proxy x, Proxy xs)
+splitCons Proxy = (Proxy, Proxy)
 
 -- color
 
