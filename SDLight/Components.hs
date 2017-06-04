@@ -31,6 +31,7 @@ class Picture t where
   -- constructor
   text :: String -> t
   fillRectangle :: V2 Int -> t
+  shaded :: Color -> t -> t
 
 instance Picture Component where
   translate v pic = Component $ \c -> runComponent pic c <&> _3 . _position +~ SDL.P v
@@ -58,6 +59,21 @@ instance Picture Component where
       SDL.fillRect rend (Just $ SDL.Rectangle 0 (fmap toEnum v))
 
     return (texture, Nothing, SDL.Rectangle 0 v)
+
+  shaded sh pic = Component $ \c -> do
+    (tex,src,tgt) <- runComponent pic c
+    (texsh,_,_) <- runComponent pic sh
+    
+    rend <- use renderer
+    texture <- SDL.createTexture rend SDL.RGBA8888 SDL.TextureAccessTarget (fmap toEnum $ tgt^._size + V2 2 2)
+    SDL.textureBlendMode texture SDL.$= SDL.BlendAlphaBlend
+
+    with (SDL.get (SDL.rendererRenderTarget rend)) (\target -> SDL.rendererRenderTarget rend SDL.$= target) $ \_ -> do
+      SDL.rendererRenderTarget rend SDL.$= Just texture
+      SDL.copy rend texsh (fmap (fmap toEnum) src) (Just $ fmap toEnum $ SDL.Rectangle 2 (tgt^._size))
+      SDL.copy rend tex (fmap (fmap toEnum) src) (Just $ fmap toEnum $ SDL.Rectangle 0 (tgt^._size))
+
+    return (texture, Nothing, SDL.Rectangle (tgt^._position) (tgt^._size + V2 2 2))
 
 class Arrangement t where
   -- arrangement

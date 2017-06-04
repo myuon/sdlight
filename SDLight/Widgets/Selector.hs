@@ -9,7 +9,10 @@ import Data.List
 import Data.Maybe
 import Control.Lens
 import Control.Monad
+import Linear.V2
+import SDLight.Util
 import SDLight.Types
+import SDLight.Components
 import SDLight.Widgets.Layer
 
 data Selector
@@ -33,6 +36,19 @@ renderSelector :: Selector -> (String -> Int -> Bool -> Bool -> GameM ()) -> Gam
 renderSelector sel rendItem = do
   forM_ (zip [0..] (sel^.labels)) $ \(i,label) ->
     rendItem label i (i `elem` (sel^.selecting)) (Just i == sel^.pointer)
+
+renderDropdown :: Selector -> V2 Int -> GameM ()
+renderDropdown sel p = do
+  renderSelector sel $ \label i selecting focused -> do
+    when focused $ do
+      renders white $
+        [ translate (p + V2 20 (20+30*i)) $ shaded black $ text "▶"
+        ]
+
+    let color = if selecting then red else white
+    renders color $
+      [ translate (p + V2 (20+20) (20+30*i)) $ shaded black $ text label
+      ]
 
 handleSelectorEvent :: M.Map SDL.Scancode Int -> Selector -> GameM Selector
 handleSelectorEvent keys sel
