@@ -2,7 +2,22 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
-module SDLight.Widgets.Layer where
+module SDLight.Widgets.Layer
+  ( Layer
+  , newLayer
+  , resizeLayer
+  , renderLayer
+
+  , Layered
+  , layered
+  , newLayered
+  , renderLayered
+
+  , Delayed
+  , delayed
+  , newDelayed
+  , runDelayed
+  ) where
 
 import qualified SDL as SDL
 import qualified SDL.Image as SDL
@@ -67,14 +82,38 @@ renderLayer layer pos = do
   let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) (SDL.V2 (layer^.layerWidth) (layer^.layerHeight))
   lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
 
+-- Layered
+
 newtype Layered a = Layered (a, Layer)
 
-_layered :: Lens' (Layered a) a
-_layered = lens (\(Layered (c,_)) -> c) (\(Layered (_,l)) c' -> Layered (c',l))
+layered :: Lens' (Layered a) a
+layered = lens (\(Layered (c,_)) -> c) (\(Layered (_,l)) c' -> Layered (c',l))
 
 newLayered :: FilePath -> Int -> Int -> GameM a -> GameM (Layered a)
 newLayered path w h initA = Layered <$> liftM2 (,) initA (newLayer path w h)
 
 renderLayered :: Layered a -> V2 Int -> (a -> GameM ()) -> GameM ()
 renderLayered (Layered (ma,layer)) pos k = renderLayer layer pos >> k ma
+
+-- Delayed
+
+data Delayed a
+  = Delayed
+  { _delayed :: a
+  , _counter :: Int
+  , _delayCount :: Int
+  }
+  deriving (Eq, Show)
+
+makeLenses ''Delayed
+
+newDelayed :: Int -> a -> Delayed a
+newDelayed n ma = Delayed ma 0 n
+
+runDelayed :: (a -> GameM a) -> Delayed a -> GameM (Delayed a)
+runDelayed ma delay = do
+  ma' <- if delay^.counter == 0 then ma (delay^.delayed) else return (delay^.delayed)
+  return $ delay & delayed .~ ma'
+                 & counter %~ (`mod` (delay^.delayCount)) . (+1)
+
 

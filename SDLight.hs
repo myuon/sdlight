@@ -16,25 +16,6 @@ import Data.IORef
 import Linear.V4
 import SDLight.Types
 
-data Delayed a
-  = Delayed
-  { _delayed :: a
-  , _counter :: Int
-  , _delayCount :: Int
-  }
-  deriving (Eq, Show)
-
-makeLenses ''Delayed
-
-newDelayed :: Int -> a -> Delayed a
-newDelayed n ma = Delayed ma 0 n
-
-runDelayed :: (a -> GameM a) -> Delayed a -> GameM (Delayed a)
-runDelayed ma delay = do
-  ma' <- if delay^.counter == 0 then ma (delay^.delayed) else return (delay^.delayed)
-  return $ delay & delayed .~ ma'
-                 & counter %~ (`mod` (delay^.delayCount)) . (+1)
-
 runGame
   :: GameM s -- initial state
   -> (s -> GameM ()) -- draw
