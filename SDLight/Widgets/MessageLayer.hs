@@ -46,14 +46,14 @@ instance HasState MessageWriter MessageState where
   _state = mwstate
 
 newMessageWriter :: [String] -> GameM MessageWriter
-newMessageWriter mes = initMessageWriter mes $ MessageWriter [] 0 [] (inj @"typing" Proxy) 1
+newMessageWriter mes = return $ initMessageWriter mes $ MessageWriter [] 0 [] (inj @"typing" Proxy) 1
 
-initMessageWriter :: [String] -> MessageWriter -> GameM MessageWriter
+initMessageWriter :: [String] -> MessageWriter -> MessageWriter
 initMessageWriter xs mes =
-  return $ mes & messages .~ (drop 1 xs)
-               & currentMessages .~ (take 1 xs)
-               & mwstate .~ inj @"typing" Proxy
-               & counter .~ V2 0 1
+  mes & messages .~ (drop 1 xs)
+      & currentMessages .~ (take 1 xs)
+      & mwstate .~ inj @"typing" Proxy
+      & counter .~ V2 0 1
 
 runMessageWriter :: MessageWriter -> GameM MessageWriter
 runMessageWriter mes =
@@ -98,8 +98,8 @@ newMessageLayer :: FilePath -> V2 Int -> [String] -> GameM MessageLayer
 newMessageLayer path siz xs =
   MessageLayer <$> newDelayed 3 <$> (newLayered path (siz^._x) (siz^._y) $ newMessageWriter xs)
 
-initMessageLayer :: [String] -> MessageLayer -> GameM MessageLayer
-initMessageLayer xs (MessageLayer mes) = MessageLayer <$> runLensed mes (delayed.layered) (initMessageWriter xs)
+initMessageLayer :: [String] -> MessageLayer -> MessageLayer
+initMessageLayer xs (MessageLayer mes) = MessageLayer $ mes & delayed.layered %~ initMessageWriter xs
 
 runMessageLayer :: MessageLayer -> GameM MessageLayer
 runMessageLayer (MessageLayer mes) =
