@@ -20,8 +20,8 @@ import Control.Monad
 import Control.Monad.State
 import Linear.V2
 import SDLight.Util
+import SDLight.Components
 import SDLight.Types
-import SDLight.Text
 import SDLight.Widgets.Layer
 
 type MessageState
@@ -89,8 +89,8 @@ renderMessageWriter mes pos =
     _ -> do
       forM_ (zip [0..] $ take (mes^.counter^._y) $ mes^.currentMessages) $ \(i,m) -> do
         if i+1 == mes^.counter^._y
-        then renderShadedText (take (mes^.counter^._x) m ++ " ") white black (V2 (pos^._x) (pos^._y + 30*i))
-        else renderShadedText m white black (V2 (pos^._x) (pos^._y + 30*i))
+        then renders white [ translate (V2 (pos^._x) (pos^._y + 30*i)) $ shaded black $ text (take (mes^.counter^._x) m ++ " ") ]
+        else renders white [ translate (V2 (pos^._x) (pos^._y + 30*i)) $ shaded black $ text m ]
 
 newtype MessageLayer = MessageLayer (Delayed (Layered MessageWriter))
 
