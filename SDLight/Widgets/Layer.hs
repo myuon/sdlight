@@ -1,3 +1,7 @@
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE Strict #-}
@@ -12,11 +16,15 @@ module SDLight.Widgets.Layer
   , layered
   , newLayered
   , renderLayered
+  , Eff'Layered
+  , wfLayered
 
   , Delayed
   , delayed
   , newDelayed
   , runDelayed
+  , Eff'Delayed
+  , wfDelayed
   ) where
 
 import qualified SDL as SDL
@@ -27,8 +35,10 @@ import Data.Maybe
 import Control.Lens
 import Control.Monad
 import Control.Monad.State
+import Pipes
 import Linear.V2
 import SDLight.Types
+import SDLight.Widgets.Core
 
 data Layer
   = Layer
@@ -76,11 +86,20 @@ resizeLayer imgTexture width height = do
   
   return $ Layer width height emptyTexture
 
-renderLayer :: Layer -> SDL.V2 Int -> GameM ()
+renderLayer :: Layer -> V2 Int -> GameM ()
 renderLayer layer pos = do
   rend <- use renderer
   let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) (SDL.V2 (layer^.layerWidth) (layer^.layerHeight))
   lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
+
+data Eff'Layer this m r where
+  New'Layer :: FilePath -> Int -> Int -> Eff'Layer this GameM this
+  Render'Layer :: this -> V2 Int -> Eff'Layer this GameM ()
+
+wLayer :: Monad m => Widget (Eff'Layer Layer) m r
+wLayer = await >>= \e -> case e of
+  New'Layer path w h -> lift (newLayer path w h) >>= yield
+  Render'Layer layer v -> lift (renderLayer layer v) >>= yield
 
 -- Layered
 
@@ -94,6 +113,20 @@ newLayered path w h initA = Layered <$> liftM2 (,) initA (newLayer path w h)
 
 renderLayered :: Layered a -> V2 Int -> (a -> GameM ()) -> GameM ()
 renderLayered (Layered (ma,layer)) pos k = renderLayer layer pos >> k ma
+
+data Eff'Layered eff this (m :: * -> *) r where
+  New'Layered :: FilePath -> Int -> Int -> eff this GameM this -> Eff'Layered eff this GameM (Layered this)
+  Render'Layered :: (Layered this) -> V2 Int -> eff this GameM () -> Eff'Layered eff this GameM ()
+  Lift'Layered :: eff this m r -> Eff'Layered eff this m r
+
+wfLayered :: Widget (eff that) m r -> Widget (Eff'Layered eff that) m r
+wfLayered widget = await >>= \case
+  New'Layered path w h new ->
+    for (yield new >-> widget) $ \t -> lift (newLayered path w h (return t)) >>= yield
+  Render'Layered this v render ->
+    for (yield render >-> widget) $ \() -> lift (renderLayered this v (\_ -> return ())) >> yield ()
+  Lift'Layered op ->
+    for (yield op >-> widget) yield
 
 -- Delayed
 
@@ -116,4 +149,17 @@ runDelayed ma delay = do
   return $ delay & delayed .~ ma'
                  & counter %~ (`mod` (delay^.delayCount)) . (+1)
 
+data Eff'Delayed eff this (m :: * -> *) r where
+  New'Delayed :: Int -> eff this GameM this -> Eff'Delayed eff this GameM (Delayed this)
+  Run'Delayed :: Delayed this -> eff this GameM (this -> GameM this) -> Eff'Delayed eff this GameM (Delayed this)
+  Lift'Delayed :: eff this m r -> Eff'Delayed eff this m r
+
+wfDelayed :: Widget (eff that) m r -> Widget (Eff'Delayed eff that) m r
+wfDelayed widget = await >>= \case
+  New'Delayed n new ->
+    for (yield new >-> widget) $ \t -> yield $ newDelayed n t
+  Run'Delayed this run ->
+    for (yield run >-> widget) $ \f -> lift (runDelayed f this) >>= yield
+  Lift'Delayed op ->
+    for (yield op >-> widget) yield
 

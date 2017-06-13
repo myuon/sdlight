@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
@@ -10,9 +11,11 @@ import Data.Maybe
 import Control.Lens
 import Control.Monad
 import Linear.V2
+import Pipes
 import SDLight.Util
 import SDLight.Types
 import SDLight.Components
+import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 
 data Selector
@@ -72,4 +75,19 @@ handleSelectorEvent keys sel
                               & isFinished .~ (length (sel^.selecting) + 1 == sel^.selectNum)
         _ -> return sel
   | otherwise = return sel
+
+data Eff'Selector this m r where
+  New'Selector :: [String] -> Int -> Eff'Selector this GameM this
+  Reset'Selector :: this -> Eff'Selector this GameM this
+  RenderDropDown'Selector :: this -> V2 Int -> Eff'Selector this GameM ()
+  Step'Selector :: this -> Eff'Selector this GameM this
+  HandleEvent'Selector :: M.Map SDL.Scancode Int -> this -> Eff'Selector this GameM this
+
+wSelector :: Widget (Eff'Selector Selector) m r
+wSelector = do
+  await >>= \eff -> case eff of
+    New'Selector s n -> lift (return $ newSelector s n) >>= yield
+    Reset'Selector sel -> yield (initSelector sel)
+    RenderDropDown'Selector sel v -> lift (renderDropdown sel v) >>= yield
+    HandleEvent'Selector keys sel -> lift (handleSelectorEvent keys sel) >>= yield
 

@@ -1,3 +1,5 @@
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -18,10 +20,12 @@ import Data.Proxy
 import Control.Lens
 import Control.Monad
 import Control.Monad.State
+import Pipes hiding (Proxy)
 import Linear.V2
 import SDLight.Util
 import SDLight.Components
 import SDLight.Types
+import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 
 type MessageState
@@ -92,6 +96,22 @@ renderMessageWriter mes pos =
         then renders white [ translate (V2 (pos^._x) (pos^._y + 30*i)) $ shaded black $ text (take (mes^.counter^._x) m ++ " ") ]
         else renders white [ translate (V2 (pos^._x) (pos^._y + 30*i)) $ shaded black $ text m ]
 
+data Eff'MessageWriter this m r where
+  New'MessageWriter :: [String] -> Eff'MessageWriter this GameM this
+  Reset'MessageWriter :: [String] -> this -> Eff'MessageWriter this GameM this
+  Render'MessageWriter :: this -> V2 Int -> Eff'MessageWriter this GameM ()
+  Step'MessageWriter :: this -> Eff'MessageWriter this GameM this
+  HandleEvent'MessageWriter :: M.Map SDL.Scancode Int -> this -> Eff'MessageWriter this GameM this
+
+wMessageWriter :: Widget (Eff'MessageWriter MessageWriter) m r
+wMessageWriter = do
+  await >>= \eff -> case eff of
+    New'MessageWriter s -> lift (newMessageWriter s) >>= yield
+    Reset'MessageWriter s mes -> yield (initMessageWriter s mes)
+    Render'MessageWriter mes v -> lift (renderMessageWriter mes v) >>= yield
+    Step'MessageWriter mes -> lift (runMessageWriter mes) >>= yield
+    HandleEvent'MessageWriter keys mes -> lift (handleMessageWriterEvent keys mes) >>= yield
+
 newtype MessageLayer = MessageLayer (Delayed (Layered MessageWriter))
 
 newMessageLayer :: FilePath -> V2 Int -> [String] -> GameM MessageLayer
@@ -120,5 +140,10 @@ instance Wrapped MessageLayer where
 
 instance HasState MessageLayer MessageState where
   _state = _Wrapped'.delayed.layered._state
+
+type Eff'MessageLayer = Eff'Delayed (Eff'Layered Eff'MessageWriter)
+
+wMessageLayer :: Widget (Eff'MessageLayer MessageWriter) m r
+wMessageLayer = wfDelayed $ wfLayered $ wMessageWriter
 
 
