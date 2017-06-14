@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -99,7 +100,7 @@ renderMessageWriter mes pos =
 data Eff'MessageWriter this m r where
   New'MessageWriter :: [String] -> Eff'MessageWriter this GameM this
   Reset'MessageWriter :: [String] -> this -> Eff'MessageWriter this GameM this
-  Render'MessageWriter :: this -> V2 Int -> Eff'MessageWriter this GameM ()
+  Render'MessageWriter :: V2 Int -> this -> Eff'MessageWriter this GameM ()
   Step'MessageWriter :: this -> Eff'MessageWriter this GameM this
   HandleEvent'MessageWriter :: M.Map SDL.Scancode Int -> this -> Eff'MessageWriter this GameM this
 
@@ -108,12 +109,13 @@ wMessageWriter = do
   await >>= \eff -> case eff of
     New'MessageWriter s -> lift (newMessageWriter s) >>= yield
     Reset'MessageWriter s mes -> yield (initMessageWriter s mes)
-    Render'MessageWriter mes v -> lift (renderMessageWriter mes v) >>= yield
+    Render'MessageWriter mes v -> lift (renderMessageWriter v mes) >>= yield
     Step'MessageWriter mes -> lift (runMessageWriter mes) >>= yield
     HandleEvent'MessageWriter keys mes -> lift (handleMessageWriterEvent keys mes) >>= yield
 
 newtype MessageLayer = MessageLayer (Delayed (Layered MessageWriter))
 
+{-
 newMessageLayer :: FilePath -> V2 Int -> [String] -> GameM MessageLayer
 newMessageLayer path siz xs =
   MessageLayer <$> newDelayed 3 <$> (newLayered path (siz^._x) (siz^._y) $ newMessageWriter xs)
@@ -133,6 +135,7 @@ renderMessageLayer :: MessageLayer -> V2 Int -> GameM ()
 renderMessageLayer (MessageLayer mes) p =
   let padding = V2 25 15 in
   renderLayered (mes^.delayed) p $ \m -> renderMessageWriter m (p + padding)
+-}
 
 instance Wrapped MessageLayer where
   type Unwrapped MessageLayer = Delayed (Layered MessageWriter)
@@ -141,9 +144,34 @@ instance Wrapped MessageLayer where
 instance HasState MessageLayer MessageState where
   _state = _Wrapped'.delayed.layered._state
 
-type Eff'MessageLayer = Eff'Delayed (Eff'Layered Eff'MessageWriter)
+data Eff'MessageLayer this m r where
+  New'MessageLayer :: FilePath -> V2 Int -> [String] -> Eff'MessageLayer this GameM this
+  Reset'MessageLayer :: [String] -> this -> Eff'MessageLayer this GameM this
+  Render'MessageLayer :: V2 Int -> this -> Eff'MessageLayer this GameM ()
+  Step'MessageLayer :: this -> Eff'MessageLayer this GameM this
+  HandleEvent'MessageLayer :: M.Map SDL.Scancode Int -> this -> Eff'MessageLayer this GameM this
 
-wMessageLayer :: Widget (Eff'MessageLayer MessageWriter) m r
-wMessageLayer = wfDelayed $ wfLayered $ wMessageWriter
+-- Map'Delayed :: (this -> eff this m r) -> Delayed this -> Eff'Delayed eff this m (Delayed r)
+-- Map'Layered :: (this -> eff this m r) -> Layered this -> Eff'Layered eff this m (Layered r)
 
+-- Reset'MessageWriter xs : MW -> Eff MW m ME
+-- Map'Layred (..) : Layered MW -> Eff eff MW m (Layered MW)
+-- Map'Delayed .. : 
+
+wMessageLayer :: Widget (Eff'MessageLayer MessageLayer) m r
+wMessageLayer = await >>= \case
+  New'MessageLayer path v s ->
+    for (yield (New'Delayed 2 $ New'Layered path v $ New'MessageWriter s) >-> widget) $ yield . MessageLayer
+  Reset'MessageLayer xs this ->
+    for (yield (Map'Delayed (Map'Layered (Reset'MessageWriter xs)) (this^._Wrapped')) >-> widget) $ \w -> yield $ w^._Unwrapped'
+  Render'MessageLayer v this ->
+    let padding = V2 25 15 in
+    for (yield (Map'Delayed (Render'Layered v (Render'MessageWriter (v + padding))) (this^._Wrapped' & delayed .~ ())) >-> widget) $ \_ -> yield ()
+  Step'MessageLayer this ->
+    for (yield (Step'Delayed (this^._Wrapped') $ Map'Layered (this^._Wrapped'^.delayed) $ Step'MessageWriter $ this^._Wrapped'^.delayed^.layered) >-> widget) $ \w -> yield $ MessageLayer w
+  HandleEvent'MessageLayer keys this ->
+    for (yield (Map'Delayed (this^._Wrapped') $ Map'Layered (this^._Wrapped'^.delayed) $ HandleEvent'MessageWriter keys (this^._Wrapped'^.delayed^.layered)) >-> widget) $ yield . MessageLayer
+  where
+    widget :: Widget (Eff'Delayed (Eff'Layered Eff'MessageWriter) MessageWriter) m r
+    widget = wfDelayed $ wfLayered $ wMessageWriter
 

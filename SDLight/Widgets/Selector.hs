@@ -79,7 +79,7 @@ handleSelectorEvent keys sel
 data Eff'Selector this m r where
   New'Selector :: [String] -> Int -> Eff'Selector this GameM this
   Reset'Selector :: this -> Eff'Selector this GameM this
-  RenderDropDown'Selector :: this -> V2 Int -> Eff'Selector this GameM ()
+  RenderDropdown'Selector :: this -> V2 Int -> Eff'Selector this GameM ()
   Step'Selector :: this -> Eff'Selector this GameM this
   HandleEvent'Selector :: M.Map SDL.Scancode Int -> this -> Eff'Selector this GameM this
 
@@ -88,6 +88,6 @@ wSelector = do
   await >>= \eff -> case eff of
     New'Selector s n -> lift (return $ newSelector s n) >>= yield
     Reset'Selector sel -> yield (initSelector sel)
-    RenderDropDown'Selector sel v -> lift (renderDropdown sel v) >>= yield
+    RenderDropdown'Selector sel v -> lift (renderDropdown sel v) >>= yield
     HandleEvent'Selector keys sel -> lift (handleSelectorEvent keys sel) >>= yield
 

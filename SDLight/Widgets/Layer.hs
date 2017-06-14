@@ -8,22 +8,17 @@
 {-# LANGUAGE StrictData #-}
 module SDLight.Widgets.Layer
   ( Layer
-  , newLayer
-  , resizeLayer
-  , renderLayer
+  , Eff'Layer(..)
+  , wLayer
 
   , Layered
   , layered
-  , newLayered
-  , renderLayered
-  , Eff'Layered
+  , Eff'Layered(..)
   , wfLayered
 
   , Delayed
   , delayed
-  , newDelayed
-  , runDelayed
-  , Eff'Delayed
+  , Eff'Delayed(..)
   , wfDelayed
   ) where
 
@@ -62,8 +57,8 @@ source/target
 
 -}
 
-newLayer :: FilePath -> Int -> Int -> GameM Layer
-newLayer path width height = do
+newLayer :: FilePath -> V2 Int -> GameM Layer
+newLayer path (V2 width height) = do
   rend <- use renderer
   imgTexture <- lift $ SDL.loadTexture rend path
   resizeLayer imgTexture width height
@@ -98,7 +93,7 @@ data Eff'Layer this m r where
 
 wLayer :: Monad m => Widget (Eff'Layer Layer) m r
 wLayer = await >>= \e -> case e of
-  New'Layer path w h -> lift (newLayer path w h) >>= yield
+  New'Layer path w h -> lift (newLayer path (V2 w h)) >>= yield
   Render'Layer layer v -> lift (renderLayer layer v) >>= yield
 
 -- Layered
@@ -108,25 +103,25 @@ newtype Layered a = Layered (a, Layer)
 layered :: Lens' (Layered a) a
 layered = lens (\(Layered (c,_)) -> c) (\(Layered (_,l)) c' -> Layered (c',l))
 
-newLayered :: FilePath -> Int -> Int -> GameM a -> GameM (Layered a)
-newLayered path w h initA = Layered <$> liftM2 (,) initA (newLayer path w h)
+newLayered :: FilePath -> V2 Int -> GameM a -> GameM (Layered a)
+newLayered path v initA = Layered <$> liftM2 (,) initA (newLayer path v)
 
 renderLayered :: Layered a -> V2 Int -> (a -> GameM ()) -> GameM ()
 renderLayered (Layered (ma,layer)) pos k = renderLayer layer pos >> k ma
 
 data Eff'Layered eff this (m :: * -> *) r where
-  New'Layered :: FilePath -> Int -> Int -> eff this GameM this -> Eff'Layered eff this GameM (Layered this)
-  Render'Layered :: (Layered this) -> V2 Int -> eff this GameM () -> Eff'Layered eff this GameM ()
-  Lift'Layered :: eff this m r -> Eff'Layered eff this m r
+  New'Layered :: FilePath -> V2 Int -> eff that GameM this -> Eff'Layered eff that GameM (Layered this)
+  Render'Layered :: V2 Int -> (this -> eff this GameM ()) -> Layered this -> Eff'Layered eff this GameM ()
+  Map'Layered :: (this -> eff that m this) -> Layered this -> Eff'Layered eff that m (Layered this)
 
 wfLayered :: Widget (eff that) m r -> Widget (Eff'Layered eff that) m r
 wfLayered widget = await >>= \case
-  New'Layered path w h new ->
-    for (yield new >-> widget) $ \t -> lift (newLayered path w h (return t)) >>= yield
-  Render'Layered this v render ->
-    for (yield render >-> widget) $ \() -> lift (renderLayered this v (\_ -> return ())) >> yield ()
-  Lift'Layered op ->
-    for (yield op >-> widget) yield
+  New'Layered path v new ->
+    for (yield new >-> widget) $ \t -> lift (newLayered path v (return t)) >>= yield
+  Render'Layered v render this ->
+    for (yield (render (this^.layered)) >-> widget) $ \() -> lift (renderLayered this v (\_ -> return ())) >> yield ()
+  Map'Layered op this ->
+    for (yield (op (this^.layered)) >-> widget) $ \w -> yield $ this & layered .~ w
 
 -- Delayed
 
@@ -150,16 +145,16 @@ runDelayed ma delay = do
                  & counter %~ (`mod` (delay^.delayCount)) . (+1)
 
 data Eff'Delayed eff this (m :: * -> *) r where
-  New'Delayed :: Int -> eff this GameM this -> Eff'Delayed eff this GameM (Delayed this)
-  Run'Delayed :: Delayed this -> eff this GameM (this -> GameM this) -> Eff'Delayed eff this GameM (Delayed this)
-  Lift'Delayed :: eff this m r -> Eff'Delayed eff this m r
+  New'Delayed :: Int -> eff that GameM this -> Eff'Delayed eff that GameM (Delayed this)
+  Step'Delayed :: (this -> eff that GameM this) -> Delayed this -> Eff'Delayed eff that GameM (Delayed this)
+  Map'Delayed :: (this -> eff that m this) -> Delayed this -> Eff'Delayed eff that m (Delayed this)
 
 wfDelayed :: Widget (eff that) m r -> Widget (Eff'Delayed eff that) m r
 wfDelayed widget = await >>= \case
   New'Delayed n new ->
     for (yield new >-> widget) $ \t -> yield $ newDelayed n t
-  Run'Delayed this run ->
-    for (yield run >-> widget) $ \f -> lift (runDelayed f this) >>= yield
-  Lift'Delayed op ->
-    for (yield op >-> widget) yield
+  Step'Delayed run this ->
+    for (yield (run (this^.delayed)) >-> widget) $ \r -> lift (runDelayed (\t -> return r) this) >>= yield
+  Map'Delayed op this ->
+    for (yield (op (this^.delayed)) >-> widget) $ \w -> yield $ this & delayed .~ w
 
