@@ -1,3 +1,5 @@
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE EmptyCase #-}
@@ -17,33 +19,27 @@
 module SDLight.Widgets.Core where
 
 import Control.Monad.State.Strict
-import Control.Object
 import Data.Proxy
-import Data.Functor.Sum
 
-statefulM :: Monad m => (forall a. t a -> StateT s m a) -> m s -> Object t m
-statefulM h = go where
-  go s = Object $ \f -> s >>= runStateT (h f) >>= \(a, s') -> s' `seq` return (a, go (return s'))
-
-infix 1 @@~
-(@@~) :: Monad m => m s -> (forall a. t a -> StateT s m a) -> Object t m
-m @@~ f = statefulM f m
-
---
+type (~>) f g = forall x. f x -> g x
 
 data Union (r :: [* -> *]) v where
   UNow  :: t v -> Union (t : r) v
-  UNext :: Union (t : r) v -> Union (any : t : r) v
+  UNext :: Union r v -> Union (any : r) v
 
 class Member (ts :: [* -> *]) (x :: * -> *) where
-  liftU :: (forall v. x v -> r v) -> (forall v. Union ts v -> r v) -> (forall v. Union ts v -> r v)
+  liftU :: (x ~> r) -> (Union ts ~> r) -> (Union ts ~> r)
+  inj :: x ~> Union ts
   
 instance Member (t : ts) t where
   liftU f g (UNow tv) = f tv
+  inj = UNow
   
 instance Member ts t => Member (any : ts) t where
   liftU f g (UNow av) = g (UNow av)
   liftU f g (UNext t) = liftU f (g . UNext) t
+
+  inj xv = UNext (inj xv)
 
 class Include (ts :: [k]) (xs :: [k])
 instance Include ts '[]
@@ -67,41 +63,61 @@ type family (++) (a :: [k]) (b :: [k]) where
   '[] ++ bs = bs
   (a : as) ++ bs = a : (as ++ bs)
 
-type Singleton x = Union '[x]
+infixr 5 :*
+type family (:*) k xs where
+  k :* '[] = '[]
+  k :* (x : xs) = k x : (k :* xs)
 
-override :: Member xs x => (forall v. x v -> m v) -> Object (Union xs) (m `Sum` (Union xs))
-override f = _
+infixr 5 *:
+type family (*:) xs a where
+  '[] *: a = '[]
+  (x : xs) *: a = x a : (xs *: a)
 
-{-
-type family Pred (n :: Nat) :: Nat where
-  Pred Z = Z
-  Pred (S n) = n
+--
 
-proxyPred :: Proxy n -> Proxy (Pred n)
-proxyPred _ = Proxy
+newtype Eff (ts :: [* -> *]) m = Eff { runEff :: Union ts ~> m }
+type Eff' (ts :: [* -> * -> *]) this m = Eff (ts *: this) m
 
-proxySucc :: Proxy n -> Proxy (S n)
-proxySucc _ = Proxy
+override :: Member xs x => Eff xs m -> (x ~> m) -> Eff xs m
+override ef f = Eff $ liftU f (runEff ef)
 
-type family Find (t :: * -> *) r :: Nat where
-  Find t (t : _) = Z
-  Find t (_ : r) = S (Find t r)
+infixr 2 @>>
+(@>>) :: (x ~> m) -> Eff xs m -> Eff (x : xs) m
+f @>> ef = Eff $ \u -> either (runEff ef) f $ caseOf u
 
-class Member' t r (n :: Nat) where
-  inj' :: Proxy n -> t v -> Union r v
-  prj' :: Proxy n -> Union r v -> t v
+emptyEff :: Eff '[] m
+emptyEff = Eff emptyUnion
 
-instance Member' t (t : r) Z where
-  inj' _ = UNow
-  prj' _ (UNow t) = t
+infix 6 @!
+(@!) :: Member xs x => Eff xs m -> (forall v. x v -> m v)
+ef @! method = runEff ef (inj method)
 
-instance Member' t (r : r') n => Member' t (any : r : r') (S n) where
-  inj' p t = UNext (inj' (proxyPred p) t)
-  prj' p (UNext t) = prj' (proxyPred p) t
+-- singleton operators
 
-class Member t r where
-  inj :: t v -> Union r v
-  prj :: Union r v -> t v
--}
+data Op'New this r where
+  Op'New :: Op'New this this
 
+data Op'Render this r where
+  Op'Render :: this -> Op'Render this ()
+
+data Op'Run this r where
+  Op'Run :: this -> Op'Run this this
+
+--
+
+data Op'Lift op r where
+  Op'Lift :: op r -> Op'Lift op r
+
+class Lifts ts where
+  opliftU :: Union (Op'Lift :* ts) ~> Union ts
+
+instance Lifts '[] where
+  opliftU = id
+
+instance Lifts xs => Lifts (x : xs) where
+  opliftU (UNow (Op'Lift x)) = UNow x
+  opliftU (UNext t) = UNext (opliftU t)
+
+oplift :: Lifts ts => Eff ts m -> Eff (Op'Lift :* ts) m
+oplift ef = Eff $ \u -> runEff ef $ opliftU u
 

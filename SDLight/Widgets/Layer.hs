@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -15,17 +16,14 @@
 {-# LANGUAGE StrictData #-}
 module SDLight.Widgets.Layer
   ( Layer
-  , Eff'Layer(..)
   , wLayer
 
   , Layered
   , layered
-  , Eff'Layered(..)
   , wfLayered
 
   , Delayed
   , delayed
-  , Eff'Delayed(..)
   , wfDelayed
   ) where
 
@@ -38,8 +36,6 @@ import Control.Arrow (first, second)
 import Control.Lens hiding ((:>))
 import Control.Monad
 import Control.Monad.State.Strict
-import Control.Object
-import Data.Functor.Sum
 import Linear.V2
 import SDLight.Types
 import SDLight.Widgets.Core
@@ -96,18 +92,20 @@ renderLayer layer pos = do
   let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) (SDL.V2 (layer^.layerWidth) (layer^.layerHeight))
   lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
 
-data Op'Render r where
-  Op'Render :: Layer -> V2 Int -> Op'Render ()
+data Op'NewLayer this r where
+  Op'NewLayer :: FilePath -> V2 Int -> Op'NewLayer this this
 
-singleton :: (forall v. t v -> m v) -> (forall v. Singleton t v -> m v)
-singleton f = f @> emptyUnion
+data Op'RenderLayer this r where
+  Op'RenderLayer :: V2 Int -> this -> Op'RenderLayer this ()
 
-wLayer :: FilePath -> V2 Int -> Object (Singleton Op'Render) GameM
-wLayer path v = newLayer path v @@~ singleton (\(Op'Render layer v) -> lift $ renderLayer layer v)
+wLayer :: Eff [Op'NewLayer Layer, Op'RenderLayer Layer] GameM
+wLayer
+  = (\(Op'NewLayer path v) -> newLayer path v)
+  @>> (\(Op'RenderLayer v layer) -> renderLayer layer v)
+  @>> emptyEff
 
 -- Layered
 
-{-
 newtype Layered a = Layered (a, Layer)
 
 layered :: Lens' (Layered a) a
@@ -119,29 +117,34 @@ newLayered path v initA = Layered <$> liftM2 (,) initA (newLayer path v)
 renderLayered :: Layered a -> V2 Int -> (a -> GameM ()) -> GameM ()
 renderLayered (Layered (ma,layer)) pos k = renderLayer layer pos >> k ma
 
--}
-
-infixr 2 @:@
-(@:@) :: Monad m => Object (Singleton x) m -> Object (Union ys) m -> Object (Union (x : ys)) m
-objL @:@ objR = Object $
-  (\xv -> second (@:@ objR) <$> runObject objL (UNow xv))
-  @> (\ys -> second (objL @:@) <$> runObject objR ys)
-
-wfLayered :: FilePath -> V2 Int -> Object (Union xs) GameM -> Object (Union (Op'Render : xs)) GameM
-wfLayered path v obj = wLayer path v @:@ obj
+wfLayered :: ( Lifts (xs *: a)
+             , Member (xs *: a) (Op'New a)
+             , Member (xs *: a) (Op'Render a))
+          => Eff' xs a GameM
+          -> Eff (Op'NewLayer (Layered a) : Op'RenderLayer (Layered a) : (Op'Lift :* (xs *: a))) GameM
+wfLayered eff
+  = (\(Op'NewLayer path v) -> newLayered path v (eff @! Op'New))
+  @>> (\(Op'RenderLayer v this) -> renderLayered this v (\a -> eff @! Op'Render a))
+  @>> oplift eff
 
 -- Delayed
 
-data Delay
-  = Delay
-  { _counter :: Int
+data Delayed a
+  = Delayed
+  { _delayed :: a
+  , _counter :: Int
   , _delayCount :: Int
   }
   deriving (Eq, Show)
 
-makeLenses ''Delay
+makeLenses ''Delayed
 
-{-
+data Op'NewDelay this r where
+  Op'NewDelay :: Int -> Op'NewDelay this this
+
+data Op'RunDelay this r where
+  Op'RunDelay :: this -> Op'RunDelay this this
+
 newDelayed :: Int -> a -> Delayed a
 newDelayed n ma = Delayed ma 0 n
 
@@ -150,29 +153,15 @@ runDelayed ma delay = do
   ma' <- if delay^.counter == 0 then ma (delay^.delayed) else return (delay^.delayed)
   return $ delay & delayed .~ ma'
                  & counter %~ (`mod` (delay^.delayCount)) . (+1)
--}
 
-data Op'Run r where
-  Op'Run :: Op'Run ()
+wfDelayed :: ( Lifts (xs *: a)
+             , Member (xs *: a) (Op'New a)
+             , Member (xs *: a) (Op'Run a)
+             )
+          => Eff' xs a GameM
+          -> Eff (Op'NewDelay (Delayed a) : Op'RunDelay (Delayed a) : (Op'Lift :* (xs *: a))) GameM
+wfDelayed eff
+  = (\(Op'NewDelay n) -> newDelayed n <$> eff @! Op'New)
+  @>> (\(Op'RunDelay this) -> runDelayed (\a -> eff @! Op'Run a) this)
+  @>> oplift eff
 
-wDelay :: Int -> Object (Singleton Op'Run) GameM
-wDelay n = Delay 0 n @~ singleton (\Op'Run -> go) where
-  go :: Monad m => StateT Delay m ()
-  go = do
-    c <- use counter
-    d <- use delayCount
-    counter %= (`mod` d) . (+1)
-
-wfDelayed' :: Member xs Op'Run => Int -> Object (Union xs) (GameM `Sum` Union xs)
-wfDelayed' n = _
-
-{-
-wfDelayed :: Widget (eff that) m r -> Widget (Eff'Delayed eff that) m r
-wfDelayed widget = await >>= \case
-  New'Delayed n new ->
-    for (yield new >-> widget) $ \t -> yield $ newDelayed n t
-  Step'Delayed run this ->
-    for (yield (run (this^.delayed)) >-> widget) $ \r -> lift (runDelayed (\t -> return r) this) >>= yield
-  Map'Delayed op this ->
-    for (yield (op (this^.delayed)) >-> widget) $ \w -> yield $ this & delayed .~ w
--}
