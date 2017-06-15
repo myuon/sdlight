@@ -92,16 +92,13 @@ renderLayer layer pos = do
   let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) (SDL.V2 (layer^.layerWidth) (layer^.layerHeight))
   lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
 
-data Op'NewLayer this r where
-  Op'NewLayer :: FilePath -> V2 Int -> Op'NewLayer this this
+type NewArg'Layer = [FilePath, V2 Int]
+type RenderArg'Layer = '[V2 Int]
 
-data Op'RenderLayer this r where
-  Op'RenderLayer :: V2 Int -> this -> Op'RenderLayer this ()
-
-wLayer :: Eff [Op'NewLayer Layer, Op'RenderLayer Layer] GameM
+wLayer :: Eff [Op'New NewArg'Layer Layer, Op'Render RenderArg'Layer Layer] GameM
 wLayer
-  = (\(Op'NewLayer path v) -> newLayer path v)
-  @>> (\(Op'RenderLayer v layer) -> renderLayer layer v)
+  = (\(Op'New (path :. v :. _)) -> newLayer path v)
+  @>> (\(Op'Render (v :. _) layer) -> renderLayer layer v)
   @>> emptyEff
 
 -- Layered
@@ -118,13 +115,15 @@ renderLayered :: Layered a -> V2 Int -> (a -> GameM ()) -> GameM ()
 renderLayered (Layered (ma,layer)) pos k = renderLayer layer pos >> k ma
 
 wfLayered :: ( Lifts (xs *: a)
-             , Member (xs *: a) (Op'New a)
-             , Member (xs *: a) (Op'Render a))
+             , Member (xs *: a) (Op'New nargs a)
+             , Member (xs *: a) (Op'Render rargs a))
           => Eff' xs a GameM
-          -> Eff (Op'NewLayer (Layered a) : Op'RenderLayer (Layered a) : (Op'Lift :* (xs *: a))) GameM
+          -> Eff ( Op'New (NewArg'Layer ++ nargs) (Layered a)
+                 : Op'Render (RenderArg'Layer ++ rargs) (Layered a)
+                 : (Op'Lift :* (xs *: a))) GameM
 wfLayered eff
-  = (\(Op'NewLayer path v) -> newLayered path v (eff @! Op'New))
-  @>> (\(Op'RenderLayer v this) -> renderLayered this v (\a -> eff @! Op'Render a))
+  = (\(Op'New (path :. v :. args)) -> newLayered path v (eff @! Op'New args))
+  @>> (\(Op'Render (v :. args) this) -> renderLayered this v (\a -> eff @! Op'Render args a))
   @>> oplift eff
 
 -- Delayed
@@ -139,12 +138,6 @@ data Delayed a
 
 makeLenses ''Delayed
 
-data Op'NewDelay this r where
-  Op'NewDelay :: Int -> Op'NewDelay this this
-
-data Op'RunDelay this r where
-  Op'RunDelay :: this -> Op'RunDelay this this
-
 newDelayed :: Int -> a -> Delayed a
 newDelayed n ma = Delayed ma 0 n
 
@@ -155,13 +148,15 @@ runDelayed ma delay = do
                  & counter %~ (`mod` (delay^.delayCount)) . (+1)
 
 wfDelayed :: ( Lifts (xs *: a)
-             , Member (xs *: a) (Op'New a)
-             , Member (xs *: a) (Op'Run a)
+             , Member (xs *: a) (Op'New nargs a)
+             , Member (xs *: a) (Op'Run rargs a)
              )
           => Eff' xs a GameM
-          -> Eff (Op'NewDelay (Delayed a) : Op'RunDelay (Delayed a) : (Op'Lift :* (xs *: a))) GameM
+          -> Eff ( Op'New (Int : nargs) (Delayed a)
+                 : Op'Run rargs (Delayed a)
+                 : (Op'Lift :* (xs *: a))) GameM
 wfDelayed eff
-  = (\(Op'NewDelay n) -> newDelayed n <$> eff @! Op'New)
-  @>> (\(Op'RunDelay this) -> runDelayed (\a -> eff @! Op'Run a) this)
+  = (\(Op'New (n :. args)) -> newDelayed n <$> eff @! Op'New args)
+  @>> (\(Op'Run args this) -> runDelayed (\a -> eff @! Op'Run args a) this)
   @>> oplift eff
 

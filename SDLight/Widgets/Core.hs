@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
@@ -94,14 +95,21 @@ ef @! method = runEff ef (inj method)
 
 -- singleton operators
 
-data Op'New this r where
-  Op'New :: Op'New this this
+data Seq (xs :: [*]) where
+  SEmpty :: Seq '[]
+  SCons :: a -> Seq xs -> Seq (a : xs)
 
-data Op'Render this r where
-  Op'Render :: this -> Op'Render this ()
+infixr 2 :.
+pattern (:.) a b = SCons a b
 
-data Op'Run this r where
-  Op'Run :: this -> Op'Run this this
+data Op'New args this r where
+  Op'New :: Seq args -> Op'New args this this
+
+data Op'Render args this r where
+  Op'Render :: Seq args -> this -> Op'Render args this ()
+
+data Op'Run args this r where
+  Op'Run :: Seq args -> this -> Op'Run args this this
 
 --
 
