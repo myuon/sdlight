@@ -5,7 +5,7 @@ module SDLight.Types where
 
 import qualified SDL as SDL
 import SDL.TTF.FFI (TTFFont)
-import Control.Monad.State
+import Control.Monad.State.Strict
 import Control.Lens
 import qualified Data.Map as M
 

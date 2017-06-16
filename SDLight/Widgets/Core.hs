@@ -49,6 +49,7 @@ module SDLight.Widgets.Core
 import qualified SDL as SDL
 import Control.Lens
 import Control.Monad.State.Strict
+import Control.Monad.Reader
 import Data.Proxy
 import qualified Data.Map as M
 
@@ -105,18 +106,14 @@ type family (:*) k xs where
   k :* (x : xs) = k x : (k :* xs)
 
 infixr 5 :$
-type family (:$) xs a where
+type family (:$) (xs :: [* -> * -> *]) (a :: *) = r | r -> xs where
   '[] :$ a = '[]
   (x : xs) :$ a = x a : (xs :$ a)
-
-type family All k xs where
-  All k '[] = ()
-  All k (x : xs) = (k x , All k xs)
 
 --
 
 newtype Eff (ts :: [* -> *]) m = Eff { runEff :: Union ts ~> m }
-type Eff' (ts :: [* -> * -> *]) this m = Eff (ts :$ this) m
+type Eff' s ts m = Eff ts (StateT s m)
 
 override :: Member xs x => Eff xs m -> (x ~> m) -> Eff xs m
 override ef f = Eff $ liftU f (runEff ef)
@@ -129,7 +126,7 @@ emptyEff :: Eff '[] m
 emptyEff = Eff emptyUnion
 
 infix 6 @!
-(@!) :: Member xs x => Eff xs m -> (forall v. x v -> m v)
+(@!) :: Member xs x => Eff xs m -> (x ~> m)
 ef @! method = runEff ef (inj method)
 
 -- singleton operators
@@ -141,20 +138,20 @@ data Seq (xs :: [*]) where
 infixr 2 :.
 pattern (:.) a b = SCons a b
 
-data Op'New args this r where
-  Op'New :: Seq args -> Op'New args this this
+data Op'New args r where
+  Op'New :: Seq args -> Op'New args ()
 
-data Op'Render args this r where
-  Op'Render :: Seq args -> this -> Op'Render args this ()
+data Op'Render r where
+  Op'Render :: SDL.V2 Int -> Op'Render ()
 
-data Op'Run args this r where
-  Op'Run :: Seq args -> this -> Op'Run args this this
+data Op'Run this r where
+  Op'Run :: this -> Op'Run this this
 
-data Op'Reset args this r where
-  Op'Reset :: Seq args -> this -> Op'Reset args this this
+data Op'Reset this r where
+  Op'Reset :: this -> Op'Reset this this
 
-data Op'HandleEvent args this r where
-  Op'HandleEvent :: Seq args -> M.Map SDL.Scancode Int -> this -> Op'HandleEvent args this this
+data Op'HandleEvent this r where
+  Op'HandleEvent :: M.Map SDL.Scancode Int -> this -> Op'HandleEvent this this
 
 --
 

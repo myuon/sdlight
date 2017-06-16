@@ -35,6 +35,7 @@ import Data.Maybe
 import Control.Arrow (first, second)
 import Control.Lens hiding ((:>))
 import Control.Monad
+import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Linear.V2
 import SDLight.Types
@@ -92,13 +93,10 @@ renderLayer layer pos = do
   let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) (SDL.V2 (layer^.layerWidth) (layer^.layerHeight))
   lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
 
-type NewArg'Layer = [FilePath, V2 Int]
-type RenderArg'Layer = '[V2 Int]
-
-wLayer :: Eff [Op'New NewArg'Layer Layer, Op'Render RenderArg'Layer Layer] GameM
+wLayer :: Eff' Layer '[Op'Render] m
 wLayer
-  = (\(Op'New (path :. v :. _)) -> newLayer path v)
-  @>> (\(Op'Render (v :. _) layer) -> renderLayer layer v)
+  = (\(Op'New (path :. v :. _)) -> lift $ newLayer path v)
+  @>> (\(Op'Render (v :. _)) -> get >>= \l -> lift $ renderLayer l v)
   @>> emptyEff
 
 -- Layered
@@ -114,17 +112,19 @@ newLayered path v initA = Layered <$> liftM2 (,) initA (newLayer path v)
 renderLayered :: Layered a -> V2 Int -> (a -> GameM ()) -> GameM ()
 renderLayered (Layered (ma,layer)) pos k = renderLayer layer pos >> k ma
 
+{-
 wfLayered :: ( Lifts (xs :$ a)
              , Member (xs :$ a) (Op'New nargs a)
              , Member (xs :$ a) (Op'Render rargs a))
-          => Eff' xs a GameM
-          -> Eff ( Op'New (NewArg'Layer ++ nargs) (Layered a)
-                 : Op'Render (RenderArg'Layer ++ rargs) (Layered a)
-                 : (Op'Lift :* (xs :$ a))) GameM
+          => Eff' xs GameM
+          -> Eff' ( Op'New (NewArg'Layer ++ nargs)
+                    : Op'Render (RenderArg'Layer ++ rargs)
+                    : (Op'Lift :* (xs :$ a))) GameM
 wfLayered eff
   = (\(Op'New (path :. v :. args)) -> newLayered path v (eff @! Op'New args))
   @>> (\(Op'Render (v :. args) this) -> renderLayered this v (\a -> eff @! Op'Render args a))
   @>> oplift eff
+-}
 
 -- Delayed
 
@@ -147,6 +147,7 @@ runDelayed ma delay = do
   return $ delay & delayed .~ ma'
                  & counter %~ (`mod` (delay^.delayCount)) . (+1)
 
+{-
 wfDelayed :: ( Lifts (xs :$ a)
              , Member (xs :$ a) (Op'New nargs a)
              , Member (xs :$ a) (Op'Run rargs a)
@@ -159,4 +160,5 @@ wfDelayed eff
   = (\(Op'New (n :. args)) -> newDelayed n <$> eff @! Op'New args)
   @>> (\(Op'Run args this) -> runDelayed (\a -> eff @! Op'Run args a) this)
   @>> oplift eff
+-}
 
