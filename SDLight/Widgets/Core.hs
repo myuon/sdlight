@@ -17,10 +17,35 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE RankNTypes #-}
-module SDLight.Widgets.Core where
+module SDLight.Widgets.Core
+  ( Union(..)
+  , Member
+  , type (++)
+  , type (:*)
+  , type (:$)
+  
+  , Eff(..)
+  , Eff'
+  , (@>>)
+  , emptyEff
+  , (@!)
+  , Seq(..)
+  , pattern (:.)
+  , Lifts
+  , oplift
 
+  , Op'New(..)
+  , Op'Render(..)
+  , Op'Run(..)
+  , Op'Reset(..)
+  , Op'HandleEvent(..)
+  , Op'Lift(..)
+  ) where
+
+import qualified SDL as SDL
 import Control.Monad.State.Strict
 import Data.Proxy
+import qualified Data.Map as M
 
 type (~>) f g = forall x. f x -> g x
 
@@ -69,15 +94,15 @@ type family (:*) k xs where
   k :* '[] = '[]
   k :* (x : xs) = k x : (k :* xs)
 
-infixr 5 *:
-type family (*:) xs a where
-  '[] *: a = '[]
-  (x : xs) *: a = x a : (xs *: a)
+infixr 5 :$
+type family (:$) xs a where
+  '[] :$ a = '[]
+  (x : xs) :$ a = x a : (xs :$ a)
 
 --
 
 newtype Eff (ts :: [* -> *]) m = Eff { runEff :: Union ts ~> m }
-type Eff' (ts :: [* -> * -> *]) this m = Eff (ts *: this) m
+type Eff' (ts :: [* -> * -> *]) this m = Eff (ts :$ this) m
 
 override :: Member xs x => Eff xs m -> (x ~> m) -> Eff xs m
 override ef f = Eff $ liftU f (runEff ef)
@@ -110,6 +135,12 @@ data Op'Render args this r where
 
 data Op'Run args this r where
   Op'Run :: Seq args -> this -> Op'Run args this this
+
+data Op'Reset args this r where
+  Op'Reset :: Seq args -> this -> Op'Reset args this this
+
+data Op'HandleEvent args this r where
+  Op'HandleEvent :: Seq args -> M.Map SDL.Scancode Int -> this -> Op'HandleEvent args this this
 
 --
 

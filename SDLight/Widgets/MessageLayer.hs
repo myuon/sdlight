@@ -21,7 +21,6 @@ import Data.Proxy
 import Control.Lens
 import Control.Monad
 import Control.Monad.State
-import Pipes hiding (Proxy)
 import Linear.V2
 import SDLight.Util
 import SDLight.Components
@@ -97,27 +96,29 @@ renderMessageWriter mes pos =
         then renders white [ translate (V2 (pos^._x) (pos^._y + 30*i)) $ shaded black $ text (take (mes^.counter^._x) m ++ " ") ]
         else renders white [ translate (V2 (pos^._x) (pos^._y + 30*i)) $ shaded black $ text m ]
 
-data Eff'MessageWriter this m r where
-  New'MessageWriter :: [String] -> Eff'MessageWriter this GameM this
-  Reset'MessageWriter :: [String] -> this -> Eff'MessageWriter this GameM this
-  Render'MessageWriter :: V2 Int -> this -> Eff'MessageWriter this GameM ()
-  Step'MessageWriter :: this -> Eff'MessageWriter this GameM this
-  HandleEvent'MessageWriter :: M.Map SDL.Scancode Int -> this -> Eff'MessageWriter this GameM this
+type Op'MessageWriter =
+  [ Op'New '[[String]]
+  , Op'Reset '[[String]]
+  , Op'Render '[V2 Int]
+  , Op'Run '[]
+  , Op'HandleEvent '[]
+  ]
 
-wMessageWriter :: Widget (Eff'MessageWriter MessageWriter) m r
-wMessageWriter = do
-  await >>= \eff -> case eff of
-    New'MessageWriter s -> lift (newMessageWriter s) >>= yield
-    Reset'MessageWriter s mes -> yield (initMessageWriter s mes)
-    Render'MessageWriter mes v -> lift (renderMessageWriter v mes) >>= yield
-    Step'MessageWriter mes -> lift (runMessageWriter mes) >>= yield
-    HandleEvent'MessageWriter keys mes -> lift (handleMessageWriterEvent keys mes) >>= yield
+wMessageWriter :: Eff' Op'MessageWriter MessageWriter GameM
+wMessageWriter
+  = (\(Op'New (s :. _)) -> newMessageWriter s)
+  @>> (\(Op'Reset (s :. _) this) -> return $ initMessageWriter s this)
+  @>> (\(Op'Render (v :. _) this) -> renderMessageWriter this v)
+  @>> (\(Op'Run _ this) -> runMessageWriter this)
+  @>> (\(Op'HandleEvent _ keys this) -> handleMessageWriterEvent keys this)
+  @>> emptyEff
 
 newtype MessageLayer = MessageLayer (Delayed (Layered MessageWriter))
 
 {-
 newMessageLayer :: FilePath -> V2 Int -> [String] -> GameM MessageLayer
 newMessageLayer path siz xs =
+
   MessageLayer <$> newDelayed 3 <$> (newLayered path (siz^._x) (siz^._y) $ newMessageWriter xs)
 
 initMessageLayer :: [String] -> MessageLayer -> MessageLayer
@@ -144,6 +145,23 @@ instance Wrapped MessageLayer where
 instance HasState MessageLayer MessageState where
   _state = _Wrapped'.delayed.layered._state
 
+wMessageLayer :: Eff' [ Op'New [FilePath, V2 Int, [String]]
+                      , Op'Reset '[[String]]
+                      , Op'Render '[V2 Int]
+                      , Op'Run '[]
+                      , Op'HandleEvent '[]
+                      ] MessageLayer GameM
+wMessageLayer
+  = (\(Op'New args) ->
+       MessageLayer <$> wfDelayed (wfLayered wMessageWriter) @! Op'New args
+       )
+  @>> emptyEff
+
+  where
+    widget :: Eff _ GameM
+    widget = wfDelayed $ wfLayered wMessageWriter
+
+{-
 data Eff'MessageLayer this m r where
   New'MessageLayer :: FilePath -> V2 Int -> [String] -> Eff'MessageLayer this GameM this
   Reset'MessageLayer :: [String] -> this -> Eff'MessageLayer this GameM this
@@ -174,4 +192,5 @@ wMessageLayer = await >>= \case
   where
     widget :: Widget (Eff'Delayed (Eff'Layered Eff'MessageWriter) MessageWriter) m r
     widget = wfDelayed $ wfLayered $ wMessageWriter
+-}
 
