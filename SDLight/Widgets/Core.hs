@@ -18,7 +18,11 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE RankNTypes #-}
 module SDLight.Widgets.Core
-  ( Union(..)
+  ( type (~>)
+  , type (~~>)
+  , type (∈)
+  , type (⊆)
+  , Union(..)
   , Member
   , type (++)
   , type (:*)
@@ -43,11 +47,13 @@ module SDLight.Widgets.Core
   ) where
 
 import qualified SDL as SDL
+import Control.Lens
 import Control.Monad.State.Strict
 import Data.Proxy
 import qualified Data.Map as M
 
 type (~>) f g = forall x. f x -> g x
+type (~~>) f g = forall x y. f x y -> g x y
 
 data Union (r :: [* -> *]) v where
   UNow  :: t v -> Union (t : r) v
@@ -67,9 +73,13 @@ instance Member ts t => Member (any : ts) t where
 
   inj xv = UNext (inj xv)
 
+type (∈) x xs = Member xs x
+
 class Include (ts :: [k]) (xs :: [k])
 instance Include ts '[]
 instance (Include ts xs, Member ts x) => Include ts (x : xs)
+
+type (⊆) xs ys = Include ys xs
 
 class CaseOf r t rs | r t -> rs where
   caseOf :: Union r v -> Either (Union rs v) (t v)
@@ -98,6 +108,10 @@ infixr 5 :$
 type family (:$) xs a where
   '[] :$ a = '[]
   (x : xs) :$ a = x a : (xs :$ a)
+
+type family All k xs where
+  All k '[] = ()
+  All k (x : xs) = (k x , All k xs)
 
 --
 
