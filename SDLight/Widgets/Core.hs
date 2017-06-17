@@ -127,8 +127,30 @@ type family (:$) (xs :: [* -> (* -> *) -> * -> *]) (a :: *) = r | r -> xs where
 
 --
 
+newtype Eff ts s m = Eff { runEff :: s -> Union (ts :$ s) m ~> m }
+
+emptyEff :: Eff '[] s m
+emptyEff = Eff $ \_ -> emptyUnion
+
+infix 6 @!
+(@!) :: Member (xs :$ s) (x s) => Eff xs s m -> (forall v. x s m v -> s -> m v)
+(@!) ef method s = runEff ef s (inj method)
+
+data Op'Render s m r where
+  Op'Render :: SDL.V2 Int -> Op'Render s GameM ()
+
+data Op'Run s m r where
+  Op'Run :: Op'Run s GameM s
+
+class Coproduct xs ys where
+  coproduct :: Lens' st s -> Lens' st t -> Eff xs s m -> Eff ys t m -> Eff (xs ++ ys) st m
+
+instance Coproduct (x : xs) ys where
+  coproduct slens tlens xs ys = Eff $ \st -> \case
+    UNow xv -> xs @! xv $ st^.slens
+
+{-
 newtype Eff ts m = Eff { runEff :: Union ts m ~> m }
-type Eff' args this ts m = Eff ((Op'New args : ts) :$ this) m
 
 override :: Member xs x => Eff xs m -> (x m ~> m) -> Eff xs m
 override ef f = Eff $ liftU f (runEff ef)
@@ -169,3 +191,8 @@ data Op'HandleEvent s m r where
   Op'HandleEvent :: M.Map SDL.Scancode Int -> Op'HandleEvent s (StateT s m) ()
 
 data This = forall a. This a
+-}
+
+--
+
+
