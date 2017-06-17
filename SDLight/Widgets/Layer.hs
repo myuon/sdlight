@@ -95,51 +95,9 @@ renderLayer layer pos = do
   let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) (SDL.V2 (layer^.layerWidth) (layer^.layerHeight))
   lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
 
-data Op'NewLayer (m :: * -> *) r where
-  Op'NewLayer :: FilePath -> V2 Int -> Op'NewLayer GameM Layer
-
-wLayer :: FilePath -> V2 Int -> Eff '[Op'Render] GameM
-wLayer path v = newLayer path v @@~
-  (\(Op'Render v') -> get >>= \s -> lift $ renderLayer s v')
-  @> emptyUnion
-
 -- Layered
 
-newtype Ref r v = Ref (MVar r,v)
 
-instance Wrapped (Ref r v) where
-  type Unwrapped (Ref r v) = (MVar r,v)
-  _Wrapped' = iso (\(Ref m) -> m) Ref
-
-_ref :: Lens' (Ref r v) (MVar r)
-_ref = _Wrapped'._1
-
-_refto :: Lens' (Ref r v) v
-_refto = _Wrapped'._2
-
-
-{-
-newtype Layered a = Layered (a, Layer)
-
-layered :: Lens' (Layered a) a
-layered = lens (\(Layered (c,_)) -> c) (\(Layered (_,l)) c' -> Layered (c',l))
-
-newLayered :: FilePath -> V2 Int -> GameM a -> GameM (Layered a)
-newLayered path v initA = Layered <$> liftM2 (,) initA (newLayer path v)
-
-renderLayered :: Layered a -> V2 Int -> (a -> GameM ()) -> GameM ()
-renderLayered (Layered (ma,layer)) pos k = renderLayer layer pos >> k ma
--}
-
-wfLayered :: (Op'Render ∈ xs, xs :<? Op'Render)
-          => FilePath -> V2 Int -> Eff xs GameM -> Eff (xs :<@ Op'Render) GameM
-wfLayered path v ef = Ref <$> ((,) <$> new ef <*> newLayer path v) @@~
-  (\(Op'Render v') -> do
-      Ref (s,r) <- get
-      lift $ renderLayer s v'
-      lift $ r .- Op'Render v'
-  )
-  @> _ --oplift ef
 
 {-
 -- Delayed
@@ -163,23 +121,6 @@ runDelayed ma delay = do
   return $ delay & delayed .~ ma'
                  & counter %~ (`mod` (delay^.delayCount)) . (+1)
 -}
-
-data Delay
-  = Delay
-  { _counter :: Int
-  , _delayCount :: Int
-  }
-  deriving (Eq, Show)
-
-wfDelayed :: (Op'Run ∈ xs, xs :<? Op'Run) => Int -> Eff xs GameM -> Eff (xs :<@ Op'Run) GameM
-wfDelayed n ef = (ef @:<@) $ Delay n 0 @~
-  (\Op'Run -> do
-      Delay c dc <- get
-      when (c == 0) $ do
-        lift $ ef @!! Op'Run
-      
-     )
-  @> emptyUnion
 
 {-
 wfDelayed :: ( Lifts (xs :$ a)

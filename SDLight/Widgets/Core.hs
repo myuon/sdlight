@@ -17,7 +17,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE RankNTypes #-}
-module SDLight.Widgets.Core
+module SDLight.Widgets.Core where
+{-
   ( type (~>)
   , type (~~>)
   , type (∈)
@@ -52,25 +53,20 @@ module SDLight.Widgets.Core
   , extend
   , (@:<@)
   ) where
-
+-}
+  
 import qualified SDL as SDL
 import Control.Arrow (first, second)
 import Control.Lens
 import Control.Monad.State.Strict
 import Control.Monad.Reader
-import Control.Object
+import Control.Monad.Trans.Either
 import Control.Concurrent.MVar
 import qualified Data.Map as M
+import Data.Void
 import SDLight.Types
 
 type (~>) f g = forall x. f x -> g x
-type (~~>) f g = forall x y. f x y -> g x y
-
-infix 1 @@~
-(@@~) :: Monad m => m s -> (t ~> StateT s m) -> Object t m
-ms @@~ k = Object $ \t -> ms >>= \s -> (s @~ k) @- t
-
---
 
 data Union (r :: [* -> *]) v where
   UNow  :: t v -> Union (t : r) v
@@ -91,6 +87,106 @@ instance {-# OVERLAPPABLE #-} Member ts t => Member (any : ts) t where
   inj xv = UNext (inj xv)
 
 type (∈) x xs = Member xs x
+
+class CaseOf r t rs | r t -> rs where
+  caseOf :: Union r v -> Either (Union rs v) (t v)
+
+instance CaseOf (r : rs) r rs where
+  caseOf (UNow tv) = Right tv
+  caseOf (UNext n) = Left n
+
+infixr 2 @>
+(@>) :: (t ~> r) -> (Union ts ~> r) -> Union (t : ts) ~> r
+(@>) f g u = either g f $ caseOf u
+
+emptyUnion :: Union '[] v -> a
+emptyUnion = \case
+
+--
+
+newtype Widget ops m = Widget { runWidget :: Union ops ~> EitherT (Widget ops m) m }
+
+data Op'Render r where
+  Op'Render :: SDL.V2 Int -> Op'Render ()
+
+data Op'Run r where
+  Op'Run :: Op'Run Void
+
+data Op'Reset r where
+  Op'Reset :: Op'Reset Void
+
+data Op'HandleEvent r where
+  Op'HandleEvent :: M.Map SDL.Scancode Int -> Op'HandleEvent Void
+
+call :: (k ∈ xs, Monad m) => Widget xs m -> (forall v. k v -> m (Either (Widget xs m) v))
+call w op = runEitherT $ runWidget w (inj op)
+
+infixl 4 @!
+(@!) :: (k ∈ xs, Monad m) => Widget xs m -> (forall v. k v -> m (Either (Widget xs m) v))
+w @! op = runEitherT $ runWidget w (inj op)
+
+infixl 4 @!!
+(@!!) :: (k ∈ xs, Monad m) => m (Widget xs m) -> (forall v. k v -> m (Either (Widget xs m) v))
+mw @!! op = mw >>= \w -> w @! op
+
+infixl 4 @.
+(@.) :: (k ∈ xs, Monad m) => Widget xs m -> k Void -> m (Widget xs m)
+w @. op = w @! op >>= \case
+  Left w' -> return w'
+  Right v -> absurd v
+
+infixl 4 @..
+(@..) :: (k ∈ xs, Monad m) => m (Widget xs m) -> k Void -> m (Widget xs m)
+mw @.. op = mw >>= \w -> w @. op
+
+data Incr a where Incr :: Incr Void
+data Print a where Print :: Print ()
+data IsMod5 a where IsMod5 :: IsMod5 Bool
+
+wcounter :: Int -> Widget [Incr, Print, IsMod5] IO
+wcounter n = Widget $
+  (\Incr -> left $ wcounter (n+1))
+  @> (\Print -> lift $ print n)
+  @> (\IsMod5 -> right $ n `mod` 5 == 0)
+  @> emptyUnion
+
+greetEvery5 :: Widget [Incr, Print, IsMod5] IO -> Widget '[Op'Run] IO
+greetEvery5 w = Widget $
+  (\Op'Run -> EitherT $ do
+      w' <- w @. Incr
+      Right isMod5 <- w' @! IsMod5
+      when isMod5 $ do
+        print "hey!!!"
+      
+      return $ Left $ greetEvery5 w'
+      )
+  @> emptyUnion
+
+main = do
+  let w = greetEvery5 $ wcounter 0
+  Left w <- w @! Op'Run
+  Left w <- w @! Op'Run
+  Left w <- w @! Op'Run
+  Left w <- w @! Op'Run
+  Left w <- w @! Op'Run
+
+  Left w <- w @! Op'Run
+  Left w <- w @! Op'Run
+  Left w <- w @! Op'Run
+  Left w <- w @! Op'Run
+  Left w <- w @! Op'Run
+  
+  return ()
+
+
+{-
+type (~~>) f g = forall x y. f x y -> g x y
+
+infix 1 @@~
+(@@~) :: Monad m => m s -> (t ~> StateT s m) -> Object t m
+ms @@~ k = Object $ \t -> ms >>= \s -> (s @~ k) @- t
+
+--
 
 class Include (ts :: [k]) (xs :: [k])
 instance Include ts '[]
@@ -171,18 +267,6 @@ ef @!! method = fst <$> runObject ef (inj method)
 
 --
 
-data Op'Render r where
-  Op'Render :: SDL.V2 Int -> Op'Render ()
-
-data Op'Run r where
-  Op'Run :: Op'Run ()
-
-data Op'Reset r where
-  Op'Reset :: Op'Reset ()
-
-data Op'HandleEvent r where
-  Op'HandleEvent :: M.Map SDL.Scancode Int -> Op'HandleEvent ()
-
 -- lift
 
 data Op'Lift k r where
@@ -255,5 +339,6 @@ main = do
   m .- inj (Op'Lift $ Op'Render 0)
   m .- inj Op'Run
   m .- inj (Op'Lift $ Op'Render 0)
+-}
 
 
