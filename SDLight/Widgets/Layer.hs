@@ -93,10 +93,13 @@ renderLayer layer pos = do
   let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) (SDL.V2 (layer^.layerWidth) (layer^.layerHeight))
   lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
 
-wLayer :: Eff' Layer '[Op'Render] m
+data Op'NewLayer (m :: * -> *) r where
+  Op'NewLayer :: FilePath -> V2 Int -> Op'NewLayer GameM Layer
+
+wLayer :: Eff' [FilePath, V2 Int] Layer '[Op'Render] m
 wLayer
-  = (\(Op'New (path :. v :. _)) -> lift $ newLayer path v)
-  @>> (\(Op'Render (v :. _)) -> get >>= \l -> lift $ renderLayer l v)
+  = (\(Op'New (path :. v :. _)) -> newLayer path v)
+  @>> (\(Op'Render v) -> get >>= \l -> lift $ renderLayer l v)
   @>> emptyEff
 
 -- Layered
@@ -113,6 +116,31 @@ renderLayered :: Layered a -> V2 Int -> (a -> GameM ()) -> GameM ()
 renderLayered (Layered (ma,layer)) pos k = renderLayer layer pos >> k ma
 
 {-
+Op'Renderをoverrideするだけ？
+upliftルールが問題か
+
+--
+
+wfLayered :: (Op'Render ∈ ops)
+          => Eff' nargs a ops m
+          -> Eff' (FilePath : V2 Int : nargs) (Layered a) (Op'Render : ops) m
+wfLayered ef
+  = (\(Op'New (path :. v :. args)) -> newLayered path v (ef @! Op'New args))
+  @>> (\(Op'Render v) -> op'render v)
+  @>> _
+  where
+    op'render :: V2 Int -> StateT (Layered a) GameM ()
+    op'render v = do
+      Layered (a,layer) <- get
+      lift $ renderLayer layer v
+      ef @! Op'Render v
+-}
+
+
+{-
+(@!) :: Member xs x => Eff xs m -> (x m ~> m)
+ef @! method = runEff ef (inj method)
+
 wfLayered :: ( Lifts (xs :$ a)
              , Member (xs :$ a) (Op'New nargs a)
              , Member (xs :$ a) (Op'Render rargs a))

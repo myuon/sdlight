@@ -10,7 +10,7 @@ import qualified SDL.Raw.Types as SDLR
 import qualified SDL.Internal.Numbered as SDL
 import qualified SDL.TTF as TTF
 import Control.Lens
-import Control.Monad.State
+import Control.Monad.State.Strict
 import qualified Data.Map as M
 import Data.IORef
 import Linear.V4
