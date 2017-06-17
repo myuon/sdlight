@@ -37,6 +37,8 @@ import Control.Lens hiding ((:>))
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
+import Control.Object
+import Control.Concurrent.MVar
 import Linear.V2
 import SDLight.Types
 import SDLight.Widgets.Core
@@ -96,14 +98,27 @@ renderLayer layer pos = do
 data Op'NewLayer (m :: * -> *) r where
   Op'NewLayer :: FilePath -> V2 Int -> Op'NewLayer GameM Layer
 
-wLayer :: Eff' [FilePath, V2 Int] Layer '[Op'Render] m
-wLayer
-  = (\(Op'New (path :. v :. _)) -> newLayer path v)
-  @>> (\(Op'Render v) -> get >>= \l -> lift $ renderLayer l v)
-  @>> emptyEff
+wLayer :: FilePath -> V2 Int -> Eff '[Op'Render] GameM
+wLayer path v = newLayer path v @@~
+  (\(Op'Render v') -> get >>= \s -> lift $ renderLayer s v')
+  @> emptyUnion
 
 -- Layered
 
+newtype Ref r v = Ref (MVar r,v)
+
+instance Wrapped (Ref r v) where
+  type Unwrapped (Ref r v) = (MVar r,v)
+  _Wrapped' = iso (\(Ref m) -> m) Ref
+
+_ref :: Lens' (Ref r v) (MVar r)
+_ref = _Wrapped'._1
+
+_refto :: Lens' (Ref r v) v
+_refto = _Wrapped'._2
+
+
+{-
 newtype Layered a = Layered (a, Layer)
 
 layered :: Lens' (Layered a) a
@@ -114,46 +129,19 @@ newLayered path v initA = Layered <$> liftM2 (,) initA (newLayer path v)
 
 renderLayered :: Layered a -> V2 Int -> (a -> GameM ()) -> GameM ()
 renderLayered (Layered (ma,layer)) pos k = renderLayer layer pos >> k ma
-
-{-
-Op'Renderをoverrideするだけ？
-upliftルールが問題か
-
---
-
-wfLayered :: (Op'Render ∈ ops)
-          => Eff' nargs a ops m
-          -> Eff' (FilePath : V2 Int : nargs) (Layered a) (Op'Render : ops) m
-wfLayered ef
-  = (\(Op'New (path :. v :. args)) -> newLayered path v (ef @! Op'New args))
-  @>> (\(Op'Render v) -> op'render v)
-  @>> _
-  where
-    op'render :: V2 Int -> StateT (Layered a) GameM ()
-    op'render v = do
-      Layered (a,layer) <- get
-      lift $ renderLayer layer v
-      ef @! Op'Render v
 -}
 
+wfLayered :: (Op'Render ∈ xs, xs :<? Op'Render)
+          => FilePath -> V2 Int -> Eff xs GameM -> Eff (xs :<@ Op'Render) GameM
+wfLayered path v ef = Ref <$> ((,) <$> new ef <*> newLayer path v) @@~
+  (\(Op'Render v') -> do
+      Ref (s,r) <- get
+      lift $ renderLayer s v'
+      lift $ r .- Op'Render v'
+  )
+  @> _ --oplift ef
 
 {-
-(@!) :: Member xs x => Eff xs m -> (x m ~> m)
-ef @! method = runEff ef (inj method)
-
-wfLayered :: ( Lifts (xs :$ a)
-             , Member (xs :$ a) (Op'New nargs a)
-             , Member (xs :$ a) (Op'Render rargs a))
-          => Eff' xs GameM
-          -> Eff' ( Op'New (NewArg'Layer ++ nargs)
-                    : Op'Render (RenderArg'Layer ++ rargs)
-                    : (Op'Lift :* (xs :$ a))) GameM
-wfLayered eff
-  = (\(Op'New (path :. v :. args)) -> newLayered path v (eff @! Op'New args))
-  @>> (\(Op'Render (v :. args) this) -> renderLayered this v (\a -> eff @! Op'Render args a))
-  @>> oplift eff
--}
-
 -- Delayed
 
 data Delayed a
@@ -174,6 +162,24 @@ runDelayed ma delay = do
   ma' <- if delay^.counter == 0 then ma (delay^.delayed) else return (delay^.delayed)
   return $ delay & delayed .~ ma'
                  & counter %~ (`mod` (delay^.delayCount)) . (+1)
+-}
+
+data Delay
+  = Delay
+  { _counter :: Int
+  , _delayCount :: Int
+  }
+  deriving (Eq, Show)
+
+wfDelayed :: (Op'Run ∈ xs, xs :<? Op'Run) => Int -> Eff xs GameM -> Eff (xs :<@ Op'Run) GameM
+wfDelayed n ef = (ef @:<@) $ Delay n 0 @~
+  (\Op'Run -> do
+      Delay c dc <- get
+      when (c == 0) $ do
+        lift $ ef @!! Op'Run
+      
+     )
+  @> emptyUnion
 
 {-
 wfDelayed :: ( Lifts (xs :$ a)

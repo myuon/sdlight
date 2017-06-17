@@ -27,42 +27,58 @@ module SDLight.Widgets.Core
   , type (++)
   , type (:*)
   , type (:$)
+  , (@>)
+  , emptyUnion
   
   , Eff(..)
-  , Eff'
   , (@>>)
   , emptyEff
   , (@!)
-  , Seq(..)
-  , pattern (:.)
+  , (@!!)
+  , (@++@)
 
-  , Op'New(..)
+  , (@@~)
+
   , Op'Render(..)
   , Op'Run(..)
   , Op'Reset(..)
   , Op'HandleEvent(..)
+  , Op'Lift(..)
 
-  , This(..)
+  , type Extends
+  , type Extended
+  , type (:<?)
+  , type (:<@)
+  , extend
+  , (@:<@)
   ) where
 
 import qualified SDL as SDL
+import Control.Arrow (first, second)
 import Control.Lens
 import Control.Monad.State.Strict
 import Control.Monad.Reader
-import Data.Proxy
+import Control.Object
+import Control.Concurrent.MVar
 import qualified Data.Map as M
 import SDLight.Types
 
 type (~>) f g = forall x. f x -> g x
 type (~~>) f g = forall x y. f x y -> g x y
 
-data Union (r :: [(* -> *) -> * -> *]) m v where
-  UNow  :: t m v -> Union (t : r) m v
-  UNext :: Union r m v -> Union (any : r) m v
+infix 1 @@~
+(@@~) :: Monad m => m s -> (t ~> StateT s m) -> Object t m
+ms @@~ k = Object $ \t -> ms >>= \s -> (s @~ k) @- t
+
+--
+
+data Union (r :: [* -> *]) v where
+  UNow  :: t v -> Union (t : r) v
+  UNext :: Union r v -> Union (any : r) v
 
 class Member ts x where
-  liftU :: (x m ~> r) -> (Union ts m ~> r) -> (Union ts m ~> r)
-  inj :: x m ~> Union ts m
+  liftU :: (x ~> r) -> (Union ts ~> r) -> (Union ts ~> r)
+  inj :: x ~> Union ts
 
 instance {-# OVERLAPPING #-} Member (t : ts) t where
   liftU f g (UNow tv) = f tv
@@ -74,13 +90,7 @@ instance {-# OVERLAPPABLE #-} Member ts t => Member (any : ts) t where
 
   inj xv = UNext (inj xv)
 
-class PolyMember (x :: k) (xs :: [k])
-instance {-# OVERLAPPING #-} PolyMember x (x : xs)
-instance {-# OVERLAPPABLE #-} PolyMember x xs => PolyMember x (any : xs)
-
-instance Member xs x => PolyMember x xs
-
-type (∈) = PolyMember
+type (∈) x xs = Member xs x
 
 class Include (ts :: [k]) (xs :: [k])
 instance Include ts '[]
@@ -89,26 +99,17 @@ instance (Include ts xs, Member ts x) => Include ts (x : xs)
 type (⊆) xs ys = Include ys xs
 
 class CaseOf r t rs | r t -> rs where
-  caseOf :: Union r m v -> Either (Union rs m v) (t m v)
+  caseOf :: Union r v -> Either (Union rs v) (t v)
 
 instance CaseOf (r : rs) r rs where
   caseOf (UNow tv) = Right tv
   caseOf (UNext n) = Left n
 
-class ExtendU xs ys where
-  extendU :: Union xs m ~> Union ys m
-
-instance ExtendU '[] ys where
-  extendU = emptyUnion
-
-instance Member ys x => ExtendU (x : xs) ys where
-  extendU (UNow xv) = inj xv
-
 infixr 2 @>
-(@>) :: (t m ~> r) -> (Union ts m ~> r) -> Union (t : ts) m ~> r
+(@>) :: (t ~> r) -> (Union ts ~> r) -> Union (t : ts) ~> r
 (@>) f g u = either g f $ caseOf u
 
-emptyUnion :: Union '[] m v -> a
+emptyUnion :: Union '[] v -> a
 emptyUnion = \case
 
 type family (++) (a :: [k]) (b :: [k]) where
@@ -127,72 +128,132 @@ type family (:$) (xs :: [* -> (* -> *) -> * -> *]) (a :: *) = r | r -> xs where
 
 --
 
-newtype Eff ts s m = Eff { runEff :: s -> Union (ts :$ s) m ~> m }
+type Eff ts m = Object (Union ts) m
 
-emptyEff :: Eff '[] s m
-emptyEff = Eff $ \_ -> emptyUnion
-
-infix 6 @!
-(@!) :: Member (xs :$ s) (x s) => Eff xs s m -> (forall v. x s m v -> s -> m v)
-(@!) ef method s = runEff ef s (inj method)
-
-data Op'Render s m r where
-  Op'Render :: SDL.V2 Int -> Op'Render s GameM ()
-
-data Op'Run s m r where
-  Op'Run :: Op'Run s GameM s
-
-class Coproduct xs ys where
-  coproduct :: Lens' st s -> Lens' st t -> Eff xs s m -> Eff ys t m -> Eff (xs ++ ys) st m
-
-instance Coproduct (x : xs) ys where
-  coproduct slens tlens xs ys = Eff $ \st -> \case
-    UNow xv -> xs @! xv $ st^.slens
-
-{-
-newtype Eff ts m = Eff { runEff :: Union ts m ~> m }
-
-override :: Member xs x => Eff xs m -> (x m ~> m) -> Eff xs m
-override ef f = Eff $ liftU f (runEff ef)
-
-infixr 2 @>>
-(@>>) :: (x m ~> m) -> Eff xs m -> Eff (x : xs) m
-f @>> ef = Eff $ \u -> either (runEff ef) f $ caseOf u
+singletonE :: Functor m => (t ~> m) -> Eff '[t] m
+singletonE f = liftO $ \case
+  UNow xv -> f xv
+  UNext t -> emptyUnion t
+  
+tailE :: Functor m => Eff (x : xs) m -> Eff xs m
+tailE ef = Object $ \u -> second tailE <$> runObject ef (UNext u)
 
 emptyEff :: Eff '[] m
-emptyEff = Eff emptyUnion
+emptyEff = Object emptyUnion
+
+infixr 2 @>>
+(@>>) :: Functor m => (x ~> m) -> Eff xs m -> Eff (x : xs) m
+f @>> ef = Object $ \case
+  (UNow xv) -> (\x -> (x, f @>> ef)) <$> f xv
+  (UNext t) -> second (f @>>) <$> runObject ef t
+
+undefinedConsE :: Functor m => Eff xs m -> Eff (x : xs) m
+undefinedConsE ef = Object $ \(UNext u) -> second undefinedConsE <$> runObject ef u
+
+class SumU xs ys where
+  (@++@) :: Functor m => Eff xs m -> Eff ys m -> Eff (xs ++ ys) m
+
+instance SumU '[] ys where
+  xs @++@ ys = ys
+
+instance SumU xs ys => SumU (x : xs) ys where
+  xs @++@ ys = Object $ \case
+    UNow xv -> second (@++@ ys) <$> runObject xs (UNow xv)
+    UNext t -> second undefinedConsE <$> runObject (tailE xs @++@ ys) t
 
 infix 6 @!
-(@!) :: Member xs x => Eff xs m -> (x m ~> m)
-ef @! method = runEff ef (inj method)
+(@!) :: Member xs x => Eff xs m -> (forall v. x v -> m (v, Eff xs m))
+ef @! method = runObject ef (inj method)
 
--- singleton operators
-
-data Seq (xs :: [*]) where
-  SEmpty :: Seq '[]
-  SCons :: a -> Seq xs -> Seq (a : xs)
-
-infixr 2 :.
-pattern (:.) a b = SCons a b
-
-data Op'New args s m r where
-  Op'New :: Seq args -> Op'New args s GameM s
-
-data Op'Render s m r where
-  Op'Render :: SDL.V2 Int -> Op'Render s (StateT s GameM) ()
-
-data Op'Run s m r where
-  Op'Run :: Op'Run s (StateT s m) ()
-
-data Op'Reset s m r where
-  Op'Reset :: Op'Reset s ((->) s) s
-
-data Op'HandleEvent s m r where
-  Op'HandleEvent :: M.Map SDL.Scancode Int -> Op'HandleEvent s (StateT s m) ()
-
-data This = forall a. This a
--}
+infix 6 @!!
+(@!!) :: (Member xs x, Functor m) => Eff xs m -> (x ~> m)
+ef @!! method = fst <$> runObject ef (inj method)
 
 --
+
+data Op'Render r where
+  Op'Render :: SDL.V2 Int -> Op'Render ()
+
+data Op'Run r where
+  Op'Run :: Op'Run ()
+
+data Op'Reset r where
+  Op'Reset :: Op'Reset ()
+
+data Op'HandleEvent r where
+  Op'HandleEvent :: M.Map SDL.Scancode Int -> Op'HandleEvent ()
+
+-- lift
+
+data Op'Lift k r where
+  Op'Lift :: k r -> Op'Lift k r
+
+class EffLift xs where
+  oplift :: Functor m => Eff xs m -> Eff (Op'Lift :* xs) m
+
+instance EffLift '[] where
+  oplift = id
+
+instance EffLift xs => EffLift (x : xs) where
+  oplift xs = Object $ \case
+    UNow (Op'Lift xv) -> second oplift <$> xs @! xv
+    UNext t -> second undefinedConsE <$> (oplift (tailE xs) @- t)
+
+--
+
+type Extends xs ys = (SumU xs (Op'Lift :* ys), EffLift ys)
+type Extended xs ys = xs ++ (Op'Lift :* ys)
+
+type (:<?) as b = Extends '[b] as
+type (:<@) xs y = Extended '[y] xs
+
+extend :: (Functor m, xs `Extends` ys) => Eff ys m -> Eff xs m -> Eff (xs `Extended` ys) m
+extend ys xs = xs @++@ oplift ys
+
+(@:<@) :: (Functor m, xs :<? y) => Eff xs m -> Eff '[y] m -> Eff (xs :<@ y) m
+(@:<@) = extend
+
+newtype Ref r v = Ref (MVar r,v)
+
+instance Wrapped (Ref r v) where
+  type Unwrapped (Ref r v) = (MVar r,v)
+  _Wrapped' = iso (\(Ref m) -> m) Ref
+
+_ref :: Lens' (Ref r v) (MVar r)
+_ref = _Wrapped'._1
+
+_refto :: Lens' (Ref r v) v
+_refto = _Wrapped'._2
+
+obj1 :: Eff '[Op'Run, Op'Render] IO
+obj1 = ((10 :: Int) @~) $
+  (\Op'Run -> lift (print "obj1!!") >> id %= (+2))
+  @> (\(Op'Render _) -> get >>= \n -> lift $ print (n :: Int))
+  @> emptyUnion
+
+objExt :: (xs :<? y) => Eff xs IO -> Eff (xs :<@ Op'Run) IO
+objExt ef = (ef @:<@) $ "const: 42" @~
+  (\Op'Run -> do
+     lift $ print "objExt"
+     id %= (++ ".")
+  )
+  @> emptyUnion
+
+main = do
+  print 10
+
+  k <- new obj1
+  k .- inj Op'Run
+  k .- inj (Op'Render 10)
+
+  m <- new (objExt obj1)
+  m .- inj Op'Run
+  m .- inj (Op'Lift $ Op'Render 0)
+  m .- inj Op'Run
+  m .- inj (Op'Lift $ Op'Render 0)
+  m .- inj Op'Run
+  m .- inj (Op'Lift $ Op'Render 0)
+  m .- inj Op'Run
+  m .- inj (Op'Lift $ Op'Render 0)
 
 
