@@ -17,13 +17,7 @@
 module SDLight.Widgets.Layer
   ( Layer
   , wLayer
-
-  , Layered
-  , layered
   , wfLayered
-
-  , Delayed
-  , delayed
   , wfDelayed
   ) where
 
@@ -37,6 +31,7 @@ import Control.Lens hiding ((:>))
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
+import Control.Monad.Trans.Either
 import Control.Object
 import Control.Concurrent.MVar
 import Linear.V2
@@ -104,50 +99,41 @@ wLayer path v = go <$> newLayer path v where
 
 -- Layered
 
-wfLayered :: (Wrap xs Op'Lift, Op'Render ∈ xs) => FilePath -> V2 Int -> Widget xs GameM -> GameM (Widget (xs :<<: '[Op'Render]) GameM)
-wfLayered path v widget = liftM2 go (newLayer path v) (return widget) where
-  go :: (Wrap xs Op'Lift, Op'Render ∈ xs) => Layer -> Widget xs GameM -> Widget (xs :<<: '[Op'Render]) GameM
-  go layer base = extend base $ Widget $
+wfLayered :: (Lifting xs, Op'Render ∈ xs)
+          => FilePath -> V2 Int -> Widget xs GameM -> GameM (Widget (xs :<<: '[Op'Render]) GameM)
+wfLayered path v w = liftM2 go (newLayer path v) (return $ wlift w) where
+  go :: (Lifting xs, Op'Render ∈ xs)
+     => Layer -> Widget (Lifted xs) GameM -> Widget (xs :<<: '[Op'Render]) GameM
+  go layer widget = Widget $
     (\(Op'Render v) -> do
         lift $ renderLayer layer v
-        lift $ base @!? Op'Render v)
-    @> emptyUnion
+        lift $ wunlift widget @!? Op'Render v
+        )
+    @> bimapEitherT (go layer) id . runWidget widget
 
-{-
 -- Delayed
 
-data Delayed a
-  = Delayed
-  { _delayed :: a
-  , _counter :: Int
+data Delay
+  = Delay
+  { _counter :: Int
   , _delayCount :: Int
   }
   deriving (Eq, Show)
 
-makeLenses ''Delayed
+makeLenses ''Delay
 
-newDelayed :: Int -> a -> Delayed a
-newDelayed n ma = Delayed ma 0 n
-
-runDelayed :: (a -> GameM a) -> Delayed a -> GameM (Delayed a)
-runDelayed ma delay = do
-  ma' <- if delay^.counter == 0 then ma (delay^.delayed) else return (delay^.delayed)
-  return $ delay & delayed .~ ma'
-                 & counter %~ (`mod` (delay^.delayCount)) . (+1)
--}
-
-{-
-wfDelayed :: ( Lifts (xs :$ a)
-             , Member (xs :$ a) (Op'New nargs a)
-             , Member (xs :$ a) (Op'Run rargs a)
-             )
-          => Eff' xs a GameM
-          -> Eff ( Op'New (Int : nargs) (Delayed a)
-                 : Op'Run rargs (Delayed a)
-                 : (Op'Lift :* (xs :$ a))) GameM
-wfDelayed eff
-  = (\(Op'New (n :. args)) -> newDelayed n <$> eff @! Op'New args)
-  @>> (\(Op'Run args this) -> runDelayed (\a -> eff @! Op'Run args a) this)
-  @>> oplift eff
--}
-
+wfDelayed :: (Lifting xs, Op'Run ∈ xs)
+          => Int -> Widget xs GameM -> Widget (xs :<<: '[Op'Run]) GameM
+wfDelayed n w = go (Delay 0 n) (wlift w) where
+  go :: (Lifting xs, Op'Run ∈ xs)
+     => Delay -> Widget (Lifted xs) GameM -> Widget (xs :<<: '[Op'Run]) GameM
+  go delay widget = Widget $
+    (\Op'Run -> do
+        let delay' = delay & counter %~ (`mod` (delay^.delayCount)) . (+1)
+        if delay'^.counter == 0
+          then do
+            w' <- lift $ wunlift widget @. Op'Run
+            left $ go delay' (wlift w')
+          else left $ go delay' widget
+        )
+    @> bimapEitherT (go delay) id . runWidget widget

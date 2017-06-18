@@ -225,35 +225,10 @@ data Op'HandleEvent r where
 data Op'Lift k a where
   Op'Lift :: k a -> Op'Lift k a
 
-wLayer :: Int -> Widget '[Op'Run, Op'Render] IO
-wLayer v = Widget $
-  (\Op'Run -> left $ wLayer (v + 20))
-  @> (\(Op'Render _) -> lift $ print v)
-  @> emptyUnion
-
 -- Layered
 
-wfLayered :: (Wrap xs Op'Lift, Op'Run ∈ xs, Op'Render ∈ xs) => String -> Widget xs IO -> Widget (xs :<<: '[Op'Render, Op'Run]) IO
-wfLayered message = go . wlift where
-  go :: (Wrap xs Op'Lift, Op'Run ∈ xs, Op'Render ∈ xs) => Widget (Op'Lift :* xs) IO -> Widget (xs :<<: '[Op'Render, Op'Run]) IO
-  go widget = Widget $
-    (\(Op'Render _) -> do
-        lift $ print message
-        lift $ wunlift widget @!? Op'Render 0
-        )
-    @> (\Op'Run -> do
-           w' <- lift $ wunlift widget @. Op'Run
-           left $ go $ wlift w'
-           )
-    @> (bimapEitherT go id) . runWidget widget
-  
-main = do
-  let hoge = wfLayered "test!" $ wLayer 10
-  hoge @! Op'Render 0
-  print "~~~"
-  hoge @. Op'Run @!! Op'Render 0
-  hoge @. Op'Run @.. Op'Run @!! Op'Render 0
---  hoge @. Op'Run @.. Op'Run @.. Op'Run @.. Op'Run @.. Op'Run @.. Op'Run @!! Op'Render 0
+type Lifting xs = Wrap xs Op'Lift
+type Lifted xs = Op'Lift :* xs
 
 {-
 type (~~>) f g = forall x y. f x y -> g x y
