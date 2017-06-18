@@ -1,3 +1,6 @@
+{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE Rank2Types #-}
@@ -10,7 +13,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
-module SDLight.Widgets.MessageLayer where
+module SDLight.Widgets.MessageLayer
+  ( wMessageWriter
+  , Op'MessageWriter
+  , wMessageLayer
+  , Op'MessageLayer
+  ) where
 
 import qualified SDL as SDL
 import qualified SDL.Image as SDL
@@ -21,6 +29,7 @@ import Data.Proxy
 import Control.Lens
 import Control.Monad
 import Control.Monad.State
+import Control.Monad.Trans.Either
 import Linear.V2
 import SDLight.Util
 import SDLight.Components
@@ -28,12 +37,7 @@ import SDLight.Types
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 
-type MessageState
-  = SymbolOf
-  [ "typing"
-  , "waiting"
-  , "finished"
-  ]
+data MessageState = Typing | Waiting | Finished
 
 data MessageWriter
   = MessageWriter
@@ -50,21 +54,21 @@ instance HasState MessageWriter MessageState where
   _state = mwstate
 
 newMessageWriter :: [String] -> GameM MessageWriter
-newMessageWriter mes = return $ initMessageWriter mes $ MessageWriter [] 0 [] (inj @"typing" Proxy) 1
+newMessageWriter mes = return $ initMessageWriter mes $ MessageWriter [] 0 [] Typing 1
 
 initMessageWriter :: [String] -> MessageWriter -> MessageWriter
 initMessageWriter xs mes =
   mes & messages .~ (drop 1 xs)
       & currentMessages .~ (take 1 xs)
-      & mwstate .~ inj @"typing" Proxy
+      & mwstate .~ Typing
       & counter .~ V2 0 1
 
 runMessageWriter :: MessageWriter -> GameM MessageWriter
 runMessageWriter mes =
-  case symbolOf (mes^._state) of
-    "typing" | mes^.counter^._y > mes^.maxLine ->
-      return $ mes & _state .~ inj @"waiting" Proxy
-    "typing" ->
+  case mes^._state of
+    Typing | mes^.counter^._y > mes^.maxLine ->
+      return $ mes & _state .~ Waiting
+    Typing ->
       if mes^.counter^._x == length ((mes^.currentMessages) !! (mes^.counter^._y - 1))
       then return $ mes & counter .~ V2 0 (mes^.counter^._y+1)
       else return $ mes & counter . _x +~ 1
@@ -73,47 +77,58 @@ runMessageWriter mes =
 handleMessageWriterEvent :: M.Map SDL.Scancode Int -> MessageWriter -> GameM MessageWriter
 handleMessageWriterEvent keys mes
   | keys M.! SDL.ScancodeZ == 1 =
-    case symbolOf (mes^._state) of
-      "waiting" | mes^.messages == [] -> return $ mes & _state .~ inj @"finished" Proxy
-      "waiting" | mes^.counter^._y > mes^.maxLine ->
+    case mes^._state of
+      Waiting | mes^.messages == [] -> return $ mes & _state .~ Finished
+      Waiting | mes^.counter^._y > mes^.maxLine ->
         let (r,rest) = splitAt (mes^.maxLine) (mes^.messages) in
         return $ mes & counter .~ V2 0 1
                      & currentMessages .~ r
                      & messages .~ rest
-                     & _state .~ inj @"typing" Proxy
-      "typing" -> return $ mes & _state .~ inj @"waiting" Proxy
+                     & _state .~ Typing
+      Typing -> return $ mes & _state .~ Waiting
                              & counter .~ V2 0 (mes^.counter^._y+1)
       _ -> return mes
   | otherwise = return mes
   
 renderMessageWriter :: MessageWriter -> V2 Int -> GameM ()
 renderMessageWriter mes pos =
-  case symbolOf (mes^._state) of
-    "finished" -> return ()
+  case mes^._state of
+    Finished -> return ()
     _ -> do
       forM_ (zip [0..] $ take (mes^.counter^._y) $ mes^.currentMessages) $ \(i,m) -> do
         if i+1 == mes^.counter^._y
         then renders white [ translate (V2 (pos^._x) (pos^._y + 30*i)) $ shaded black $ text (take (mes^.counter^._x) m ++ " ") ]
         else renders white [ translate (V2 (pos^._x) (pos^._y + 30*i)) $ shaded black $ text m ]
 
-type Op'MessageWriter =
-  [ Op'New '[[String]]
-  , Op'Reset '[[String]]
-  , Op'Render '[V2 Int]
-  , Op'Run '[]
-  , Op'HandleEvent '[]
-  ]
+type Op'MessageWriter = [Op'Reset '[[String]], Op'Render, Op'Run, Op'HandleEvent]
 
-wMessageWriter :: Eff' Op'MessageWriter MessageWriter GameM
-wMessageWriter
-  = (\(Op'New (s :. _)) -> newMessageWriter s)
-  @>> (\(Op'Reset (s :. _) this) -> return $ initMessageWriter s this)
-  @>> (\(Op'Render (v :. _) this) -> renderMessageWriter this v)
-  @>> (\(Op'Run _ this) -> runMessageWriter this)
-  @>> (\(Op'HandleEvent _ keys this) -> handleMessageWriterEvent keys this)
-  @>> emptyEff
+wMessageWriter :: [String] -> GameM (Widget Op'MessageWriter GameM)
+wMessageWriter mes = go <$> (newMessageWriter mes) where
+  go :: MessageWriter -> Widget Op'MessageWriter GameM
+  go mw = Widget $
+    (\(Op'Reset (mes' :. _)) -> left $ go $ initMessageWriter mes' mw)
+    @> (\(Op'Render v) -> lift $ renderMessageWriter mw v)
+    @> (\Op'Run -> EitherT $ Left . go <$> runMessageWriter mw)
+    @> (\(Op'HandleEvent keys) -> EitherT $ Left . go <$> handleMessageWriterEvent keys mw)
+    @> emptyUnion
 
-newtype MessageLayer = MessageLayer (Delayed (Layered MessageWriter))
+--
+
+type Op'MessageLayer = Op'MessageWriter
+
+wMessageLayer :: FilePath -> V2 Int -> [String]
+              -> GameM (Widget Op'MessageLayer GameM)
+wMessageLayer path v mes = go <$> (wfDelayed 2 . oprun <$> (wfLayered path v =<< wMessageWriter mes)) where
+  oprun :: Widget (Op'Layered Op'MessageWriter) GameM -> Widget (Op'Run : Op'Layered Op'MessageWriter) GameM
+  oprun w = (\Op'Run -> EitherT $ Left . oprun <$> (w @. Op'Lift Op'Run)) @?> w
+  
+  go :: Widget (Op'Delayed (Op'Run : Op'Layered Op'MessageWriter)) GameM -> Widget Op'MessageLayer GameM
+  go widget = Widget $
+    (\(Op'Reset args) -> EitherT $ Left . go <$> (widget @. Op'Lift (Op'Lift (Op'Reset args))))
+    @> (\(Op'Render v) -> lift $ widget @!? Op'Lift (Op'Render v))
+    @> (\Op'Run -> EitherT $ Left . go <$> (widget @. Op'Run))
+    @> (\(Op'HandleEvent keys) -> EitherT $ Left . go <$> (widget @. Op'Lift (Op'Lift (Op'HandleEvent keys))))
+    @> emptyUnion
 
 {-
 newMessageLayer :: FilePath -> V2 Int -> [String] -> GameM MessageLayer
@@ -138,6 +153,7 @@ renderMessageLayer (MessageLayer mes) p =
   renderLayered (mes^.delayed) p $ \m -> renderMessageWriter m (p + padding)
 -}
 
+{-
 instance Wrapped MessageLayer where
   type Unwrapped MessageLayer = Delayed (Layered MessageWriter)
   _Wrapped' = iso (\(MessageLayer m) -> m) MessageLayer
@@ -160,6 +176,7 @@ wMessageLayer
   where
     widget :: Eff _ GameM
     widget = wfDelayed $ wfLayered wMessageWriter
+-}
 
 {-
 data Eff'MessageLayer this m r where

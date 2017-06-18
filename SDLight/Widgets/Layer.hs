@@ -17,8 +17,11 @@
 module SDLight.Widgets.Layer
   ( Layer
   , wLayer
+  , Op'Layer
   , wfLayered
+  , Op'Layered
   , wfDelayed
+  , Op'Delayed
   ) where
 
 import qualified SDL as SDL
@@ -90,7 +93,9 @@ renderLayer layer pos = do
   let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) (SDL.V2 (layer^.layerWidth) (layer^.layerHeight))
   lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
 
-wLayer :: FilePath -> V2 Int -> GameM (Widget '[Op'Render] GameM)
+type Op'Layer = '[Op'Render]
+
+wLayer :: FilePath -> V2 Int -> GameM (Widget Op'Layer GameM)
 wLayer path v = go <$> newLayer path v where
   go :: Layer -> Widget '[Op'Render] GameM
   go layer = Widget $
@@ -99,11 +104,13 @@ wLayer path v = go <$> newLayer path v where
 
 -- Layered
 
+type Op'Layered xs = xs :<<: Op'Layer
+
 wfLayered :: (Lifting xs, Op'Render ∈ xs)
-          => FilePath -> V2 Int -> Widget xs GameM -> GameM (Widget (xs :<<: '[Op'Render]) GameM)
+          => FilePath -> V2 Int -> Widget xs GameM -> GameM (Widget (Op'Layered xs) GameM)
 wfLayered path v w = liftM2 go (newLayer path v) (return $ wlift w) where
   go :: (Lifting xs, Op'Render ∈ xs)
-     => Layer -> Widget (Lifted xs) GameM -> Widget (xs :<<: '[Op'Render]) GameM
+     => Layer -> Widget (Lifted xs) GameM -> Widget (Op'Layered xs) GameM
   go layer widget = Widget $
     (\(Op'Render v) -> do
         lift $ renderLayer layer v
@@ -122,11 +129,13 @@ data Delay
 
 makeLenses ''Delay
 
+type Op'Delayed xs = xs :<<: '[Op'Run]
+
 wfDelayed :: (Lifting xs, Op'Run ∈ xs)
-          => Int -> Widget xs GameM -> Widget (xs :<<: '[Op'Run]) GameM
+          => Int -> Widget xs GameM -> Widget (Op'Delayed xs) GameM
 wfDelayed n w = go (Delay 0 n) (wlift w) where
   go :: (Lifting xs, Op'Run ∈ xs)
-     => Delay -> Widget (Lifted xs) GameM -> Widget (xs :<<: '[Op'Run]) GameM
+     => Delay -> Widget (Lifted xs) GameM -> Widget (Op'Delayed xs) GameM
   go delay widget = Widget $
     (\Op'Run -> do
         let delay' = delay & counter %~ (`mod` (delay^.delayCount)) . (+1)

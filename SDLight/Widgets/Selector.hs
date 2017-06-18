@@ -1,8 +1,12 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
-module SDLight.Widgets.Selector where
+module SDLight.Widgets.Selector
+  ( wSelector
+  , Op'Selector
+  ) where
 
 import qualified SDL as SDL
 import qualified Data.Map as M
@@ -10,8 +14,9 @@ import Data.List
 import Data.Maybe
 import Control.Lens
 import Control.Monad
+import Control.Monad.Trans
+import Control.Monad.Trans.Either
 import Linear.V2
-import Pipes
 import SDLight.Util
 import SDLight.Types
 import SDLight.Components
@@ -76,18 +81,17 @@ handleSelectorEvent keys sel
         _ -> return sel
   | otherwise = return sel
 
-data Eff'Selector this m r where
-  New'Selector :: [String] -> Int -> Eff'Selector this GameM this
-  Reset'Selector :: this -> Eff'Selector this GameM this
-  RenderDropdown'Selector :: this -> V2 Int -> Eff'Selector this GameM ()
-  Step'Selector :: this -> Eff'Selector this GameM this
-  HandleEvent'Selector :: M.Map SDL.Scancode Int -> this -> Eff'Selector this GameM this
+-- Layeredにする都合上RenderDropdownをRenderとして登録しておくけれど
+-- あとで差し替えられるようにしよう
+type Op'Selector = [Op'Reset '[], Op'Render, Op'HandleEvent]
 
-wSelector :: Widget (Eff'Selector Selector) m r
-wSelector = do
-  await >>= \eff -> case eff of
-    New'Selector s n -> lift (return $ newSelector s n) >>= yield
-    Reset'Selector sel -> yield (initSelector sel)
-    RenderDropdown'Selector sel v -> lift (renderDropdown sel v) >>= yield
-    HandleEvent'Selector keys sel -> lift (handleSelectorEvent keys sel) >>= yield
+wSelector :: [String] -> Int -> Widget Op'Selector GameM
+wSelector s n = go $ newSelector s n where
+  go :: Selector -> Widget Op'Selector GameM
+  go sel = Widget $
+    (\(Op'Reset _) -> left $ go $ initSelector sel)
+    @> (\(Op'Render v) -> lift $ renderDropdown sel v)
+    @> (\(Op'HandleEvent keys) -> EitherT $ Left . go <$> handleSelectorEvent keys sel)
+    @> emptyUnion
+
 

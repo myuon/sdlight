@@ -208,6 +208,12 @@ mw @.. op = mw >>= \w -> w @. op
 
 --
 
+data Seq args where
+  SNil :: Seq '[]
+  SCons :: x -> Seq xs -> Seq (x : xs)
+
+pattern (:.) x y = SCons x y
+
 type NoValue = Void
 
 data Op'Render r where
@@ -216,8 +222,8 @@ data Op'Render r where
 data Op'Run r where
   Op'Run :: Op'Run Void
 
-data Op'Reset r where
-  Op'Reset :: Op'Reset Void
+data Op'Reset args r where
+  Op'Reset :: Seq args -> Op'Reset args Void
 
 data Op'HandleEvent r where
   Op'HandleEvent :: M.Map SDL.Scancode Int -> Op'HandleEvent Void
