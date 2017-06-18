@@ -162,7 +162,7 @@ infixl 4 @!?
 w @!? op = (\(Right v) -> v) <$> (runEitherT $ runWidget w (inj op))
 
 infixl 4 @@!?
-(@@!?) :: (k ∈ xs, Monad m) => Widget xs -> (k Identity v -> v)
+(@@!?) :: (k ∈ xs) => Widget xs -> (k Identity v -> v)
 w @@!? op = runIdentity $ w @!? op
 
 infixl 4 @!!
@@ -205,164 +205,26 @@ data Op'Reset args m r where
 data Op'HandleEvent m r where
   Op'HandleEvent :: M.Map SDL.Scancode Int -> Op'HandleEvent GameM Void
 
+data Op'IsFinished m r where
+  Op'IsFinished :: Op'IsFinished Identity Bool
+
 data Op'Lift k (m :: * -> *) a where
   Op'Lift :: k m a -> Op'Lift k m a
-
--- Layered
 
 type Lifting xs = Wrap xs Op'Lift
 type Lifted xs = Op'Lift :* xs
 
-{-
-type (~~>) f g = forall x y. f x y -> g x y
-
-infix 1 @@~
-(@@~) :: Monad m => m s -> (t ~> StateT s m) -> Object t m
-ms @@~ k = Object $ \t -> ms >>= \s -> (s @~ k) @- t
-
 --
 
-class Include (ts :: [k]) (xs :: [k])
-instance Include ts '[]
-instance (Include ts xs, Member ts x) => Include ts (x : xs)
+continue :: (model -> Widget xs) -> model -> EitherT (Widget xs) Identity a
+continue go = EitherT . Identity . Left . go
 
-type (⊆) xs ys = Include ys xs
+continueM :: Functor m => (model -> Widget xs) -> m model -> EitherT (Widget xs) m a
+continueM go v = EitherT $ Left . go <$> v
 
-class CaseOf r t rs | r t -> rs where
-  caseOf :: Union r v -> Either (Union rs v) (t v)
+finish :: Monad m => model -> EitherT (Widget xs) m model
+finish = right
 
-instance CaseOf (r : rs) r rs where
-  caseOf (UNow tv) = Right tv
-  caseOf (UNext n) = Left n
-
-infixr 2 @>
-(@>) :: (t ~> r) -> (Union ts ~> r) -> Union (t : ts) ~> r
-(@>) f g u = either g f $ caseOf u
-
-emptyUnion :: Union '[] v -> a
-emptyUnion = \case
-
-infixr 5 :*
-type family (:*) k xs where
-  k :* '[] = '[]
-  k :* (x : xs) = k x : (k :* xs)
-
-infixr 5 :$
-type family (:$) (xs :: [* -> (* -> *) -> * -> *]) (a :: *) = r | r -> xs where
-  '[] :$ a = '[]
-  (x : xs) :$ a = x a : (xs :$ a)
-
---
-
-type Eff ts m = Object (Union ts) m
-
-singletonE :: Functor m => (t ~> m) -> Eff '[t] m
-singletonE f = liftO $ \case
-  UNow xv -> f xv
-  UNext t -> emptyUnion t
-  
-tailE :: Functor m => Eff (x : xs) m -> Eff xs m
-tailE ef = Object $ \u -> second tailE <$> runObject ef (UNext u)
-
-emptyEff :: Eff '[] m
-emptyEff = Object emptyUnion
-
-undefinedConsE :: Functor m => Eff xs m -> Eff (x : xs) m
-undefinedConsE ef = Object $ \(UNext u) -> second undefinedConsE <$> runObject ef u
-
-class SumU xs ys where
-  (@++@) :: Functor m => Eff xs m -> Eff ys m -> Eff (xs ++ ys) m
-
-instance SumU '[] ys where
-  xs @++@ ys = ys
-
-instance SumU xs ys => SumU (x : xs) ys where
-  xs @++@ ys = Object $ \case
-    UNow xv -> second (@++@ ys) <$> runObject xs (UNow xv)
-    UNext t -> second undefinedConsE <$> runObject (tailE xs @++@ ys) t
-
-infix 6 @!
-(@!) :: Member xs x => Eff xs m -> (forall v. x v -> m (v, Eff xs m))
-ef @! method = runObject ef (inj method)
-
-infix 6 @!!
-(@!!) :: (Member xs x, Functor m) => Eff xs m -> (x ~> m)
-ef @!! method = fst <$> runObject ef (inj method)
-
---
-
--- lift
-
-data Op'Lift k r where
-  Op'Lift :: k r -> Op'Lift k r
-
-class EffLift xs where
-  oplift :: Functor m => Eff xs m -> Eff (Op'Lift :* xs) m
-
-instance EffLift '[] where
-  oplift = id
-
-instance EffLift xs => EffLift (x : xs) where
-  oplift xs = Object $ \case
-    UNow (Op'Lift xv) -> second oplift <$> xs @! xv
-    UNext t -> second undefinedConsE <$> (oplift (tailE xs) @- t)
-
---
-
-type Extends xs ys = (SumU xs (Op'Lift :* ys), EffLift ys)
-type Extended xs ys = xs ++ (Op'Lift :* ys)
-
-type (:<?) as b = Extends '[b] as
-type (:<@) xs y = Extended '[y] xs
-
-extend :: (Functor m, xs `Extends` ys) => Eff ys m -> Eff xs m -> Eff (xs `Extended` ys) m
-extend ys xs = xs @++@ oplift ys
-
-(@:<@) :: (Functor m, xs :<? y) => Eff xs m -> Eff '[y] m -> Eff (xs :<@ y) m
-(@:<@) = extend
-
-newtype Ref r v = Ref (MVar r,v)
-
-instance Wrapped (Ref r v) where
-  type Unwrapped (Ref r v) = (MVar r,v)
-  _Wrapped' = iso (\(Ref m) -> m) Ref
-
-_ref :: Lens' (Ref r v) (MVar r)
-_ref = _Wrapped'._1
-
-_refto :: Lens' (Ref r v) v
-_refto = _Wrapped'._2
-
-obj1 :: Eff '[Op'Run, Op'Render] IO
-obj1 = ((10 :: Int) @~) $
-  (\Op'Run -> lift (print "obj1!!") >> id %= (+2))
-  @> (\(Op'Render _) -> get >>= \n -> lift $ print (n :: Int))
-  @> emptyUnion
-
-objExt :: (xs :<? y) => Eff xs IO -> Eff (xs :<@ Op'Run) IO
-objExt ef = (ef @:<@) $ "const: 42" @~
-  (\Op'Run -> do
-     lift $ print "objExt"
-     id %= (++ ".")
-  )
-  @> emptyUnion
-
-main = do
-  print 10
-
-  k <- new obj1
-  k .- inj Op'Run
-  k .- inj (Op'Render 10)
-
-  m <- new (objExt obj1)
-  m .- inj Op'Run
-  m .- inj (Op'Lift $ Op'Render 0)
-  m .- inj Op'Run
-  m .- inj (Op'Lift $ Op'Render 0)
-  m .- inj Op'Run
-  m .- inj (Op'Lift $ Op'Render 0)
-  m .- inj Op'Run
-  m .- inj (Op'Lift $ Op'Render 0)
--}
-
+finishM :: Functor m => m model -> EitherT (Widget xs) m model
+finishM = EitherT . (Right <$>)
 

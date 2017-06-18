@@ -6,6 +6,7 @@
 module SDLight.Widgets.Selector
   ( wSelector
   , Op'Selector
+  , Op'GetSelecting(..)
   ) where
 
 import qualified SDL as SDL
@@ -83,7 +84,10 @@ handleSelectorEvent keys sel
 
 -- Layeredにする都合上RenderDropdownをRenderとして登録しておくけれど
 -- あとで差し替えられるようにしよう
-type Op'Selector = [Op'Reset '[], Op'Render, Op'HandleEvent]
+data Op'GetSelecting m r where
+  Op'GetSelecting :: Op'GetSelecting Identity [Int]
+
+type Op'Selector = [Op'Reset '[], Op'Render, Op'HandleEvent, Op'IsFinished, Op'GetSelecting]
 
 wSelector :: [String] -> Int -> Widget Op'Selector
 wSelector s n = go $ newSelector s n where
@@ -92,6 +96,8 @@ wSelector s n = go $ newSelector s n where
     (\(Op'Reset _) -> left $ go $ initSelector sel)
     @> (\(Op'Render v) -> lift $ renderDropdown sel v)
     @> (\(Op'HandleEvent keys) -> EitherT $ Left . go <$> handleSelectorEvent keys sel)
+    @> (\Op'IsFinished -> right $ sel^.isFinished)
+    @> (\Op'GetSelecting -> right $ sel^.selecting)
     @> emptyUnion
 
 
