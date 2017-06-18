@@ -1,3 +1,5 @@
+{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -17,6 +19,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE Strict #-}
+{-# LANGUAGE StrictData #-}
 module SDLight.Widgets.Core where
 {-
   ( type (~>)
@@ -102,21 +106,80 @@ infixr 2 @>
 emptyUnion :: Union '[] v -> a
 emptyUnion = \case
 
+type family (:*) (k :: (* -> *) -> * -> *) xs = result | result -> xs where
+  k :* '[] = '[]
+  k :* (x : xs) = k x : (k :* xs)
+
+type family (++) (a :: [k]) (b :: [k]) where
+  '[] ++ bs = bs
+  (a : as) ++ bs = a : (as ++ bs)
+
 --
 
 newtype Widget ops m = Widget { runWidget :: Union ops ~> EitherT (Widget ops m) m }
 
-data Op'Render r where
-  Op'Render :: SDL.V2 Int -> Op'Render ()
+tailW :: Functor m => Widget (x : xs) m -> Widget xs m
+tailW wx = Widget $ \u -> bimapEitherT tailW id $ runWidget wx (UNext u)
 
-data Op'Run r where
-  Op'Run :: Op'Run Void
+headW :: Functor m => Widget (x : xs) m -> x ~> EitherT (Widget (x : xs) m) m
+headW wx xv = runWidget wx (UNow xv)
 
-data Op'Reset r where
-  Op'Reset :: Op'Reset Void
+infixr 2 @>>
+(@>>) :: Functor m => (x ~> m) -> Widget xs m -> Widget (x : xs) m
+f @>> wx = Widget $ \case
+  UNow xv -> EitherT $ Right <$> f xv
+  UNext t -> bimapEitherT (f @>>) id $ runWidget wx t
 
-data Op'HandleEvent r where
-  Op'HandleEvent :: M.Map SDL.Scancode Int -> Op'HandleEvent Void
+infixr 2 @?>
+(@?>) :: Functor m => (x ~> EitherT (Widget (x : xs) m) m) -> Widget xs m -> Widget (x : xs) m
+f @?> wx = Widget $ \case
+  UNow xv -> f xv
+  UNext t -> bimapEitherT (f @?>) id $ runWidget wx t
+
+-- 
+
+class Wrap xs k where
+  wrap :: Union xs ~> Union (k :* xs)
+  unwrap :: Union (k :* xs) ~> Union xs
+
+instance Wrap '[] Op'Lift where
+  wrap = id
+  unwrap = id
+
+instance Wrap xs Op'Lift => Wrap (x : xs) Op'Lift where
+  wrap = \case
+    UNow xv -> UNow $ Op'Lift xv
+    UNext t -> UNext $ wrap @xs @Op'Lift t
+  unwrap = \case
+    UNow (Op'Lift xv) -> UNow xv
+    UNext t -> UNext $ unwrap @xs @Op'Lift t
+
+wlift :: (Wrap xs Op'Lift, Functor m) => Widget xs m -> Widget (Op'Lift :* xs) m
+wlift wx = Widget $ \u -> bimapEitherT wlift id $ runWidget wx (unwrap @_ @Op'Lift u)
+
+wunlift :: (Wrap xs Op'Lift, Functor m) => Widget (Op'Lift :* xs) m -> Widget xs m
+wunlift wx = Widget $ \u -> bimapEitherT wunlift id $ runWidget wx (wrap @_ @Op'Lift u)
+
+class Extend xs ys where
+  extend :: Monad m => Widget xs m -> Widget ys m -> Widget (ys ++ (Op'Lift :* xs)) m
+
+instance Wrap xs Op'Lift => Extend xs '[] where
+  extend wx _ = wlift wx
+
+instance (Wrap xs Op'Lift, Extend xs ys) => Extend xs (y : ys) where
+  extend wx wy = Widget $ \case
+    UNow yv -> bimapEitherT (extend wx) id $ runWidget wy (UNow yv)
+    UNext t ->
+      let go :: Functor m => (y ~> EitherT (Widget (y : ys) m) m) -> Widget (ys ++ (Op'Lift :* xs)) m -> Widget (y : ys ++ (Op'Lift :* xs)) m
+          go ym ysxs = bimapEitherT (\yys -> go (headW yys) ysxs) id . ym @?> ysxs in
+      bimapEitherT (go (headW wy)) id $ runWidget (wx `extend` tailW wy) t
+
+type (:<<:) xs ys = ys ++ (Op'Lift :* xs)
+
+override :: x ∈ xs => Widget xs m -> (x ~> EitherT (Widget xs m) m) -> Widget xs m
+override widget f = Widget $ liftU f (runWidget widget)
+
+--
 
 call :: (k ∈ xs, Monad m) => Widget xs m -> (forall v. k v -> m (Either (Widget xs m) v))
 call w op = runEitherT $ runWidget w (inj op)
@@ -124,6 +187,10 @@ call w op = runEitherT $ runWidget w (inj op)
 infixl 4 @!
 (@!) :: (k ∈ xs, Monad m) => Widget xs m -> (forall v. k v -> m (Either (Widget xs m) v))
 w @! op = runEitherT $ runWidget w (inj op)
+
+infixl 4 @!?
+(@!?) :: (k ∈ xs, Monad m) => Widget xs m -> (forall v. k v -> m v)
+w @!? op = (\(Right v) -> v) <$> (runEitherT $ runWidget w (inj op))
 
 infixl 4 @!!
 (@!!) :: (k ∈ xs, Monad m) => m (Widget xs m) -> (forall v. k v -> m (Either (Widget xs m) v))
@@ -139,45 +206,54 @@ infixl 4 @..
 (@..) :: (k ∈ xs, Monad m) => m (Widget xs m) -> k Void -> m (Widget xs m)
 mw @.. op = mw >>= \w -> w @. op
 
-data Incr a where Incr :: Incr Void
-data Print a where Print :: Print ()
-data IsMod5 a where IsMod5 :: IsMod5 Bool
+--
 
-wcounter :: Int -> Widget [Incr, Print, IsMod5] IO
-wcounter n = Widget $
-  (\Incr -> left $ wcounter (n+1))
-  @> (\Print -> lift $ print n)
-  @> (\IsMod5 -> right $ n `mod` 5 == 0)
+type NoValue = Void
+
+data Op'Render r where
+  Op'Render :: SDL.V2 Int -> Op'Render ()
+
+data Op'Run r where
+  Op'Run :: Op'Run Void
+
+data Op'Reset r where
+  Op'Reset :: Op'Reset Void
+
+data Op'HandleEvent r where
+  Op'HandleEvent :: M.Map SDL.Scancode Int -> Op'HandleEvent Void
+
+data Op'Lift k a where
+  Op'Lift :: k a -> Op'Lift k a
+
+wLayer :: Int -> Widget '[Op'Run, Op'Render] IO
+wLayer v = Widget $
+  (\Op'Run -> left $ wLayer (v + 20))
+  @> (\(Op'Render _) -> lift $ print v)
   @> emptyUnion
 
-greetEvery5 :: Widget [Incr, Print, IsMod5] IO -> Widget '[Op'Run] IO
-greetEvery5 w = Widget $
-  (\Op'Run -> EitherT $ do
-      w' <- w @. Incr
-      Right isMod5 <- w' @! IsMod5
-      when isMod5 $ do
-        print "hey!!!"
-      
-      return $ Left $ greetEvery5 w'
-      )
-  @> emptyUnion
+-- Layered
 
-main = do
-  let w = greetEvery5 $ wcounter 0
-  Left w <- w @! Op'Run
-  Left w <- w @! Op'Run
-  Left w <- w @! Op'Run
-  Left w <- w @! Op'Run
-  Left w <- w @! Op'Run
-
-  Left w <- w @! Op'Run
-  Left w <- w @! Op'Run
-  Left w <- w @! Op'Run
-  Left w <- w @! Op'Run
-  Left w <- w @! Op'Run
+wfLayered :: (Wrap xs Op'Lift, Op'Run ∈ xs, Op'Render ∈ xs) => String -> Widget xs IO -> Widget (xs :<<: '[Op'Render, Op'Run]) IO
+wfLayered message = go . wlift where
+  go :: (Wrap xs Op'Lift, Op'Run ∈ xs, Op'Render ∈ xs) => Widget (Op'Lift :* xs) IO -> Widget (xs :<<: '[Op'Render, Op'Run]) IO
+  go widget = Widget $
+    (\(Op'Render _) -> do
+        lift $ print message
+        lift $ wunlift widget @!? Op'Render 0
+        )
+    @> (\Op'Run -> do
+           w' <- lift $ wunlift widget @. Op'Run
+           left $ go $ wlift w'
+           )
+    @> (bimapEitherT go id) . runWidget widget
   
-  return ()
-
+main = do
+  let hoge = wfLayered "test!" $ wLayer 10
+  hoge @! Op'Render 0
+  print "~~~"
+  hoge @. Op'Run @!! Op'Render 0
+  hoge @. Op'Run @.. Op'Run @!! Op'Render 0
+--  hoge @. Op'Run @.. Op'Run @.. Op'Run @.. Op'Run @.. Op'Run @.. Op'Run @!! Op'Render 0
 
 {-
 type (~~>) f g = forall x y. f x y -> g x y
@@ -208,10 +284,6 @@ infixr 2 @>
 emptyUnion :: Union '[] v -> a
 emptyUnion = \case
 
-type family (++) (a :: [k]) (b :: [k]) where
-  '[] ++ bs = bs
-  (a : as) ++ bs = a : (as ++ bs)
-
 infixr 5 :*
 type family (:*) k xs where
   k :* '[] = '[]
@@ -236,12 +308,6 @@ tailE ef = Object $ \u -> second tailE <$> runObject ef (UNext u)
 
 emptyEff :: Eff '[] m
 emptyEff = Object emptyUnion
-
-infixr 2 @>>
-(@>>) :: Functor m => (x ~> m) -> Eff xs m -> Eff (x : xs) m
-f @>> ef = Object $ \case
-  (UNow xv) -> (\x -> (x, f @>> ef)) <$> f xv
-  (UNext t) -> second (f @>>) <$> runObject ef t
 
 undefinedConsE :: Functor m => Eff xs m -> Eff (x : xs) m
 undefinedConsE ef = Object $ \(UNext u) -> second undefinedConsE <$> runObject ef u

@@ -95,9 +95,23 @@ renderLayer layer pos = do
   let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) (SDL.V2 (layer^.layerWidth) (layer^.layerHeight))
   lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
 
+wLayer :: FilePath -> V2 Int -> GameM (Widget '[Op'Render] GameM)
+wLayer path v = go <$> newLayer path v where
+  go :: Layer -> Widget '[Op'Render] GameM
+  go layer = Widget $
+    (\(Op'Render v) -> lift $ renderLayer layer v)
+    @> emptyUnion
+
 -- Layered
 
-
+wfLayered :: (Wrap xs Op'Lift, Op'Render ∈ xs) => FilePath -> V2 Int -> Widget xs GameM -> GameM (Widget (xs :<<: '[Op'Render]) GameM)
+wfLayered path v widget = liftM2 go (newLayer path v) (return widget) where
+  go :: (Wrap xs Op'Lift, Op'Render ∈ xs) => Layer -> Widget xs GameM -> Widget (xs :<<: '[Op'Render]) GameM
+  go layer base = extend base $ Widget $
+    (\(Op'Render v) -> do
+        lift $ renderLayer layer v
+        lift $ base @!? Op'Render v)
+    @> emptyUnion
 
 {-
 -- Delayed
