@@ -95,9 +95,9 @@ renderLayer layer pos = do
 
 type Op'Layer = '[Op'Render]
 
-wLayer :: FilePath -> V2 Int -> GameM (Widget Op'Layer GameM)
+wLayer :: FilePath -> V2 Int -> GameM (Widget Op'Layer)
 wLayer path v = go <$> newLayer path v where
-  go :: Layer -> Widget '[Op'Render] GameM
+  go :: Layer -> Widget '[Op'Render]
   go layer = Widget $
     (\(Op'Render v) -> lift $ renderLayer layer v)
     @> emptyUnion
@@ -107,10 +107,10 @@ wLayer path v = go <$> newLayer path v where
 type Op'Layered xs = xs :<<: Op'Layer
 
 wfLayered :: (Lifting xs, Op'Render ∈ xs)
-          => FilePath -> V2 Int -> Widget xs GameM -> GameM (Widget (Op'Layered xs) GameM)
+          => FilePath -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
 wfLayered path v w = liftM2 go (newLayer path v) (return $ wlift w) where
   go :: (Lifting xs, Op'Render ∈ xs)
-     => Layer -> Widget (Lifted xs) GameM -> Widget (Op'Layered xs) GameM
+     => Layer -> Widget (Lifted xs) -> Widget (Op'Layered xs)
   go layer widget = Widget $
     (\(Op'Render v) -> do
         lift $ renderLayer layer v
@@ -132,10 +132,10 @@ makeLenses ''Delay
 type Op'Delayed xs = xs :<<: '[Op'Run]
 
 wfDelayed :: (Lifting xs, Op'Run ∈ xs)
-          => Int -> Widget xs GameM -> Widget (Op'Delayed xs) GameM
+          => Int -> Widget xs -> Widget (Op'Delayed xs)
 wfDelayed n w = go (Delay 0 n) (wlift w) where
   go :: (Lifting xs, Op'Run ∈ xs)
-     => Delay -> Widget (Lifted xs) GameM -> Widget (Op'Delayed xs) GameM
+     => Delay -> Widget (Lifted xs) -> Widget (Op'Delayed xs)
   go delay widget = Widget $
     (\Op'Run -> do
         let delay' = delay & counter %~ (`mod` (delay^.delayCount)) . (+1)

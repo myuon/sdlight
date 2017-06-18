@@ -89,7 +89,7 @@ handleMessageWriterEvent keys mes
                              & counter .~ V2 0 (mes^.counter^._y+1)
       _ -> return mes
   | otherwise = return mes
-  
+
 renderMessageWriter :: MessageWriter -> V2 Int -> GameM ()
 renderMessageWriter mes pos =
   case mes^._state of
@@ -102,11 +102,11 @@ renderMessageWriter mes pos =
 
 type Op'MessageWriter = [Op'Reset '[[String]], Op'Render, Op'Run, Op'HandleEvent]
 
-wMessageWriter :: [String] -> GameM (Widget Op'MessageWriter GameM)
+wMessageWriter :: [String] -> GameM (Widget Op'MessageWriter)
 wMessageWriter mes = go <$> (newMessageWriter mes) where
-  go :: MessageWriter -> Widget Op'MessageWriter GameM
+  go :: MessageWriter -> Widget Op'MessageWriter
   go mw = Widget $
-    (\(Op'Reset (mes' :. _)) -> left $ go $ initMessageWriter mes' mw)
+    (\(Op'Reset (mes' :. _)) -> EitherT $ Left . go <$> Identity (initMessageWriter mes' mw))
     @> (\(Op'Render v) -> lift $ renderMessageWriter mw v)
     @> (\Op'Run -> EitherT $ Left . go <$> runMessageWriter mw)
     @> (\(Op'HandleEvent keys) -> EitherT $ Left . go <$> handleMessageWriterEvent keys mw)
@@ -117,12 +117,12 @@ wMessageWriter mes = go <$> (newMessageWriter mes) where
 type Op'MessageLayer = Op'MessageWriter
 
 wMessageLayer :: FilePath -> V2 Int -> [String]
-              -> GameM (Widget Op'MessageLayer GameM)
+              -> GameM (Widget Op'MessageLayer)
 wMessageLayer path v mes = go <$> (wfDelayed 2 . oprun <$> (wfLayered path v =<< wMessageWriter mes)) where
-  oprun :: Widget (Op'Layered Op'MessageWriter) GameM -> Widget (Op'Run : Op'Layered Op'MessageWriter) GameM
+  oprun :: Widget (Op'Layered Op'MessageWriter) -> Widget (Op'Run : Op'Layered Op'MessageWriter)
   oprun w = (\Op'Run -> EitherT $ Left . oprun <$> (w @. Op'Lift Op'Run)) @?> w
   
-  go :: Widget (Op'Delayed (Op'Run : Op'Layered Op'MessageWriter)) GameM -> Widget Op'MessageLayer GameM
+  go :: Widget (Op'Delayed (Op'Run : Op'Layered Op'MessageWriter)) -> Widget Op'MessageLayer
   go widget = Widget $
     (\(Op'Reset args) -> EitherT $ Left . go <$> (widget @. Op'Lift (Op'Lift (Op'Reset args))))
     @> (\(Op'Render v) -> lift $ widget @!? Op'Lift (Op'Render v))

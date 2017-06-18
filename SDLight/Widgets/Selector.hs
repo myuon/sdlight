@@ -85,9 +85,9 @@ handleSelectorEvent keys sel
 -- あとで差し替えられるようにしよう
 type Op'Selector = [Op'Reset '[], Op'Render, Op'HandleEvent]
 
-wSelector :: [String] -> Int -> Widget Op'Selector GameM
+wSelector :: [String] -> Int -> Widget Op'Selector
 wSelector s n = go $ newSelector s n where
-  go :: Selector -> Widget Op'Selector GameM
+  go :: Selector -> Widget Op'Selector
   go sel = Widget $
     (\(Op'Reset _) -> left $ go $ initSelector sel)
     @> (\(Op'Render v) -> lift $ renderDropdown sel v)
