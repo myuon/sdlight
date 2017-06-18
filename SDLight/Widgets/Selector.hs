@@ -7,6 +7,8 @@ module SDLight.Widgets.Selector
   ( wSelector
   , Op'Selector
   , Op'GetSelecting(..)
+  , Op'GetPointer(..)
+  , Op'SetLabels(..)
   ) where
 
 import qualified SDL as SDL
@@ -16,7 +18,6 @@ import Data.Maybe
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans
-import Control.Monad.Trans.Either
 import Linear.V2
 import SDLight.Util
 import SDLight.Types
@@ -84,20 +85,37 @@ handleSelectorEvent keys sel
 
 -- Layeredにする都合上RenderDropdownをRenderとして登録しておくけれど
 -- あとで差し替えられるようにしよう
+
 data Op'GetSelecting m r where
   Op'GetSelecting :: Op'GetSelecting Identity [Int]
 
-type Op'Selector = [Op'Reset '[], Op'Render, Op'HandleEvent, Op'IsFinished, Op'GetSelecting]
+data Op'GetPointer m r where
+  Op'GetPointer :: Op'GetPointer Identity (Maybe Int)
+
+data Op'SetLabels m r where
+  Op'SetLabels :: [String] -> Op'SetLabels Identity NoValue
+
+type Op'Selector =
+  [ Op'Reset '[]
+  , Op'Render
+  , Op'HandleEvent
+  , Op'IsFinished
+  , Op'GetSelecting
+  , Op'GetPointer
+  , Op'SetLabels
+  ]
 
 wSelector :: [String] -> Int -> Widget Op'Selector
 wSelector s n = go $ newSelector s n where
   go :: Selector -> Widget Op'Selector
   go sel = Widget $
-    (\(Op'Reset _) -> left $ go $ initSelector sel)
+    (\(Op'Reset _) -> continue go $ initSelector sel)
     @> (\(Op'Render v) -> lift $ renderDropdown sel v)
-    @> (\(Op'HandleEvent keys) -> EitherT $ Left . go <$> handleSelectorEvent keys sel)
-    @> (\Op'IsFinished -> right $ sel^.isFinished)
-    @> (\Op'GetSelecting -> right $ sel^.selecting)
+    @> (\(Op'HandleEvent keys) -> continueM go $ handleSelectorEvent keys sel)
+    @> (\Op'IsFinished -> finish $ sel^.isFinished)
+    @> (\Op'GetSelecting -> finish $ sel^.selecting)
+    @> (\Op'GetPointer -> finish $ sel^.pointer)
+    @> (\(Op'SetLabels ls) -> continue go $ sel & labels .~ ls)
     @> emptyUnion
 
 

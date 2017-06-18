@@ -183,6 +183,10 @@ infixl 4 @..
 (@..) :: (k ∈ xs, Monad m) => m (Widget xs) -> k m Void -> m (Widget xs)
 mw @.. op = mw >>= \w -> w @. op
 
+infixr 4 @@~
+(@@~) :: (k ∈ xs) => Lens' s (Widget xs) -> k Identity Void -> s -> s
+w @@~ k = w %~ (@@. k)
+
 --
 
 data Seq args where

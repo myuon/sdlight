@@ -35,6 +35,7 @@ import SDLight.Components
 import SDLight.Types
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
+import Debug.Trace
 
 data MessageState = Typing | Waiting | Finished
   deriving (Eq, Show)
@@ -59,7 +60,7 @@ newMessageWriter mes = return $ initMessageWriter mes $ MessageWriter [] 0 [] Ty
 initMessageWriter :: [String] -> MessageWriter -> MessageWriter
 initMessageWriter xs mes =
   mes & messages .~ (drop 1 xs)
-      & currentMessages .~ (take 1 xs)
+      & currentMessages .~ (if xs /= [] then (take 1 xs) else ["initの引数がemptyです"])
       & mwstate .~ Typing
       & counter .~ V2 0 1
 
@@ -68,10 +69,10 @@ runMessageWriter mes =
   case mes^._state of
     Typing | mes^.counter^._y > mes^.maxLine ->
       return $ mes & _state .~ Waiting
-    Typing ->
+    Typing -> do
       if mes^.counter^._x == length ((mes^.currentMessages) !! (mes^.counter^._y - 1))
-      then return $ mes & counter .~ V2 0 (mes^.counter^._y+1)
-      else return $ mes & counter . _x +~ 1
+        then return $ mes & counter .~ V2 0 (mes^.counter^._y+1)
+        else return $ mes & counter . _x +~ 1
     _ -> return mes
 
 handleMessageWriterEvent :: M.Map SDL.Scancode Int -> MessageWriter -> GameM MessageWriter
@@ -103,10 +104,10 @@ renderMessageWriter mes pos =
 type Op'MessageWriter = [Op'Reset '[[String]], Op'Render, Op'Run, Op'HandleEvent, Op'IsFinished]
 
 wMessageWriter :: [String] -> GameM (Widget Op'MessageWriter)
-wMessageWriter mes = go <$> (newMessageWriter mes) where
+wMessageWriter = \mes -> go <$> (newMessageWriter mes) where
   go :: MessageWriter -> Widget Op'MessageWriter
   go mw = Widget $
-    (\(Op'Reset (mes' :. _)) -> continue go $ initMessageWriter mes' mw)
+    (\(Op'Reset (mes' :. SNil)) -> continue go $ initMessageWriter mes' mw)
     @> (\(Op'Render v) -> lift $ renderMessageWriter mw v)
     @> (\Op'Run -> continueM go $ runMessageWriter mw)
     @> (\(Op'HandleEvent keys) -> continueM go $ handleMessageWriterEvent keys mw)
@@ -117,18 +118,20 @@ wMessageWriter mes = go <$> (newMessageWriter mes) where
 
 type Op'MessageLayer = Op'MessageWriter
 
-wMessageLayer :: FilePath -> V2 Int -> [String]
-              -> GameM (Widget Op'MessageLayer)
-wMessageLayer path v mes = go <$> (wfDelayed 2 . oprun <$> (wfLayered path v =<< wMessageWriter mes)) where
-  oprun :: Widget (Op'Layered Op'MessageWriter) -> Widget (Op'Run : Op'Layered Op'MessageWriter)
-  oprun w = (\Op'Run -> continueM oprun $ (w @. Op'Lift Op'Run)) @?> w
-  
-  go :: Widget (Op'Delayed (Op'Run : Op'Layered Op'MessageWriter)) -> Widget Op'MessageLayer
-  go widget = Widget $
-    (\(Op'Reset args) -> continueM go $ widget @. Op'Lift (Op'Lift (Op'Reset args)))
-    @> (\(Op'Render v) -> lift $ widget @!? Op'Lift (Op'Render v))
-    @> (\Op'Run -> continueM go $ widget @. Op'Run)
-    @> (\(Op'HandleEvent keys) -> continueM go $ widget @. Op'Lift (Op'Lift (Op'HandleEvent keys)))
-    @> (\Op'IsFinished -> finish $ widget @@!? Op'Lift (Op'Lift Op'IsFinished))
+wMessageLayer :: FilePath -> V2 Int -> [String] -> GameM (Widget Op'MessageLayer)
+wMessageLayer path v mes = liftM2 go (wLayer path v) (wfDelayed 2 <$> wMessageWriter mes) where
+  go :: Widget Op'Layer -> Widget (Op'Delayed Op'MessageWriter) -> Widget (Op'MessageLayer)
+  go wlayer wmes = Widget $
+    (\(Op'Reset args) -> continue (go wlayer) $ wmes @@. Op'Lift (Op'Reset args))
+    @> (\(Op'Render v) -> lift $ render v wlayer wmes)
+    @> (\Op'Run -> continueM (go wlayer) $ wmes @. Op'Run)
+    @> (\(Op'HandleEvent keys) -> continueM (go wlayer) $ wmes @. Op'Lift (Op'HandleEvent keys))
+    @> (\Op'IsFinished -> finish $ wmes @@!? Op'Lift Op'IsFinished)
     @> emptyUnion
+
+  render :: V2 Int -> Widget Op'Layer -> Widget (Op'Delayed Op'MessageWriter) -> GameM ()
+  render v wlayer wmes = do
+    wlayer @!? Op'Render v
+    wmes @!? Op'Lift (Op'Render v)
+
 

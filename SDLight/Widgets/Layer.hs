@@ -113,10 +113,9 @@ wfLayered path v w = liftM2 go (newLayer path v) (return $ wlift w) where
      => Layer -> Widget (Lifted xs) -> Widget (Op'Layered xs)
   go layer widget = Widget $
     (\(Op'Render v) -> do
-        lift $ renderLayer layer v
-        lift $ wunlift widget @!? Op'Render v
-        )
-    @> bimapEitherT (go layer) id . runWidget widget
+      lift $ renderLayer layer v
+      lift $ wunlift widget @!? Op'Render v
+    ) @> bimapEitherT (go layer) id . runWidget widget
 
 -- Delayed
 
@@ -138,11 +137,12 @@ wfDelayed n w = go (Delay 0 n) (wlift w) where
      => Delay -> Widget (Lifted xs) -> Widget (Op'Delayed xs)
   go delay widget = Widget $
     (\Op'Run -> do
-        let delay' = delay & counter %~ (`mod` (delay^.delayCount)) . (+1)
-        if delay'^.counter == 0
-          then do
-            w' <- lift $ wunlift widget @. Op'Run
-            left $ go delay' (wlift w')
-          else left $ go delay' widget
-        )
-    @> bimapEitherT (go delay) id . runWidget widget
+      let delay' = delay & counter %~ (`mod` (delay^.delayCount)) . (+1)
+      if delay'^.counter == 0
+        then do
+          w' <- lift $ wunlift widget @. Op'Run
+          continueM (go delay') $ return $ wlift w'
+        else left $ go delay' widget
+    ) @> bimapEitherT (go delay) id . runWidget widget
+
+
