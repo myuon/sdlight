@@ -81,7 +81,7 @@ type family (++) (a :: [k]) (b :: [k]) where
 
 --
 
-newtype Widget ops = Widget { runWidget :: forall m. Monad m => Union ops m ~> EitherT (Widget ops) m }
+newtype Widget ops = Widget { runWidget :: Union ops ~~> EitherT (Widget ops) }
 
 tailW :: Widget (x : xs) -> Widget xs
 tailW wx = Widget $ \u -> bimapEitherT tailW id $ runWidget wx (UNext u)
