@@ -86,7 +86,7 @@ resizeLayer imgTexture width height = do
   forM_ [ix+iy*3 | ix <- [0..2], iy <- [0..2]] $ \loc ->
     lift $ SDL.copy rend imgTexture (Just $ fmap toEnum $ sourceLoc M.! loc) (Just $ fmap toEnum $ targetLoc M.! loc)
   SDL.rendererRenderTarget rend SDL.$= Nothing
-  
+    
   return $ Layer width height emptyTexture
 
 renderLayer :: Layer -> V2 Int -> GameM ()
