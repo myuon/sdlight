@@ -67,7 +67,9 @@ newLayer :: FilePath -> V2 Int -> GameM Layer
 newLayer path (V2 width height) = do
   rend <- use renderer
   imgTexture <- lift $ SDL.loadTexture rend path
-  resizeLayer imgTexture width height
+  layer <- resizeLayer imgTexture width height
+  SDL.destroyTexture imgTexture
+  return layer
 
 resizeLayer :: SDL.Texture -> Int -> Int -> GameM Layer
 resizeLayer imgTexture width height = do

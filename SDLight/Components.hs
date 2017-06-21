@@ -73,6 +73,8 @@ instance Picture Component where
       SDL.rendererRenderTarget rend SDL.$= Just texture
       SDL.copy rend texsh (fmap (fmap toEnum) src) (Just $ fmap toEnum $ SDL.Rectangle 2 (tgt^._size))
       SDL.copy rend tex (fmap (fmap toEnum) src) (Just $ fmap toEnum $ SDL.Rectangle 0 (tgt^._size))
+      SDL.destroyTexture texsh
+      SDL.destroyTexture tex
 
     return (texture, Nothing, SDL.Rectangle (tgt^._position) (tgt^._size + V2 2 2))
 
@@ -97,6 +99,8 @@ instance Arrangement Component where
       SDL.rendererRenderTarget rend SDL.$= Just texture
       SDL.copy rend tex1 (fmap (fmap toEnum) src1) (Just $ fmap toEnum $ SDL.Rectangle 0 (tgt1^._size))
       SDL.copy rend tex2 (fmap (fmap toEnum) src2) (Just $ fmap toEnum $ SDL.Rectangle (SDL.P $ V2 (tgt1^._size^._x) 0) (tgt2^._size))
+      SDL.destroyTexture tex1
+      SDL.destroyTexture tex2
 
     return (texture, Nothing, SDL.Rectangle (tgt1^._position) siz)
 
@@ -113,6 +117,8 @@ instance Arrangement Component where
       SDL.rendererRenderTarget rend SDL.$= Just texture
       SDL.copy rend tex1 (fmap (fmap toEnum) src1) (Just $ fmap toEnum $ SDL.Rectangle 0 (tgt1^._size))
       SDL.copy rend tex2 (fmap (fmap toEnum) src2) (Just $ fmap toEnum $ SDL.Rectangle (SDL.P $ V2 0 (tgt1^._size^._y)) (tgt2^._size))
+      SDL.destroyTexture tex1
+      SDL.destroyTexture tex2
 
     return (texture, Nothing, SDL.Rectangle (tgt1^._position) siz)
 
@@ -126,6 +132,9 @@ renders :: Color -> [Component] -> GameM ()
 renders color xs = mapM_ (\pic -> render =<< runComponent pic color) xs
   where
     render :: (SDL.Texture, Maybe Area, Area) -> GameM ()
-    render (tex,src,tgt) = use renderer >>= \r -> lift $ SDL.copy r tex (fmap toEnum <$> src) (Just $ fmap toEnum tgt)
+    render (tex,src,tgt) = do
+      rend <- use renderer
+      lift $ SDL.copy rend tex (fmap toEnum <$> src) (Just $ fmap toEnum tgt)
+      SDL.destroyTexture tex
 
 
