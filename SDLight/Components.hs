@@ -39,6 +39,7 @@ instance Picture Component where
   color c pic = Component $ \_ -> runComponent pic c
   resize v pic = Component $ \c -> runComponent pic c <&> _3 . _size .~ v
 
+  text "" = error "emptyText at Component.text"
   text txt = Component $ \c -> do
     font' <- use font
     rend' <- use renderer
@@ -79,7 +80,9 @@ class Arrangement t where
   -- arrangement
   (<=>) :: t -> t -> t
   (<+>) :: t -> t -> t
-
+  divideHin :: V2 Int -> [t] -> [t]
+  divideVin :: V2 Int -> [t] -> [t]
+  
 instance Arrangement Component where
   pic1 <=> pic2 = Component $ \c -> do
     (tex1, src1, tgt1) <- runComponent pic1 c
@@ -112,6 +115,12 @@ instance Arrangement Component where
       SDL.copy rend tex2 (fmap (fmap toEnum) src2) (Just $ fmap toEnum $ SDL.Rectangle (SDL.P $ V2 0 (tgt1^._size^._y)) (tgt2^._size))
 
     return (texture, Nothing, SDL.Rectangle (tgt1^._position) siz)
+
+  divideHin area comps =
+    fmap (\(i,comp) -> translate (V2 (i * area^._x `div` length comps) 0) comp) $ zip [0..] comps
+
+  divideVin area comps =
+    fmap (\(i,comp) -> translate (V2 0 (i * area^._x `div` length comps)) comp) $ zip [0..] comps
 
 renders :: Color -> [Component] -> GameM ()
 renders color xs = mapM_ (\pic -> render =<< runComponent pic color) xs
