@@ -18,6 +18,8 @@ module SDLight.Widgets.Layer
   ( Layer
   , wLayer
   , Op'Layer
+  , Op'RenderAlpha(..)
+
   , wfLayered
   , Op'Layered
   , wfDelayed
@@ -82,6 +84,8 @@ resizeLayer imgTexture width height = do
   let targetLoc = M.fromList [(fromEnum $ ix+iy*3, SDL.Rectangle (SDL.P $ V2 (if ix/=2 then sx*ix else width-sx) (if iy/=2 then sy*iy else height-sy)) (V2 (if ix/=1 then sx else width-sx*2) (if iy/=1 then sy else height-sy*2))) | ix <- [0..2], iy <- [0..2]]
 
   emptyTexture <- lift $ SDL.createTexture rend SDL.ARGB8888 SDL.TextureAccessTarget (fmap toEnum $ V2 width height)
+  SDL.textureBlendMode emptyTexture SDL.$= SDL.BlendAlphaBlend
+  
   SDL.rendererRenderTarget rend SDL.$= Just emptyTexture
   forM_ [ix+iy*3 | ix <- [0..2], iy <- [0..2]] $ \loc ->
     lift $ SDL.copy rend imgTexture (Just $ fmap toEnum $ sourceLoc M.! loc) (Just $ fmap toEnum $ targetLoc M.! loc)
@@ -89,19 +93,27 @@ resizeLayer imgTexture width height = do
     
   return $ Layer width height emptyTexture
 
-renderLayer :: Layer -> V2 Int -> GameM ()
-renderLayer layer pos = do
+renderLayer :: Layer -> V2 Int -> Double -> GameM ()
+renderLayer layer pos alpha = do
   rend <- use renderer
   let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) (SDL.V2 (layer^.layerWidth) (layer^.layerHeight))
-  lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
 
-type Op'Layer = '[Op'Render]
+  alpha0 <- SDL.get $ SDL.textureAlphaMod (layer^.layerTexture)
+  SDL.textureAlphaMod (layer^.layerTexture) SDL.$= (floor $ alpha * 255)
+  lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
+  SDL.textureAlphaMod (layer^.layerTexture) SDL.$= alpha0
+
+type Op'Layer = '[Op'Render, Op'RenderAlpha]
+
+data Op'RenderAlpha m r where
+  Op'RenderAlpha :: Double -> V2 Int -> Op'RenderAlpha GameM ()
 
 wLayer :: FilePath -> V2 Int -> GameM (Widget Op'Layer)
 wLayer path v = go <$> newLayer path v where
-  go :: Layer -> Widget '[Op'Render]
+  go :: Layer -> Widget Op'Layer
   go layer = Widget $
-    (\(Op'Render v) -> lift $ renderLayer layer v)
+    (\(Op'Render v) -> lift $ renderLayer layer v 1.0)
+    @> (\(Op'RenderAlpha alpha v) -> lift $ renderLayer layer v alpha)
     @> emptyUnion
 
 -- Layered
@@ -115,9 +127,14 @@ wfLayered path v w = liftM2 go (newLayer path v) (return $ wlift w) where
      => Layer -> Widget (Lifted xs) -> Widget (Op'Layered xs)
   go layer widget = Widget $
     (\(Op'Render v) -> do
-      lift $ renderLayer layer v
+      lift $ renderLayer layer v 1.0
       lift $ wunlift widget @!? Op'Render v
-    ) @> bimapEitherT (go layer) id . runWidget widget
+    ) @>
+    (\(Op'RenderAlpha alpha v) -> do
+      lift $ renderLayer layer v alpha
+      lift $ wunlift widget @!? Op'Render v
+    )
+    @> bimapEitherT (go layer) id . runWidget widget
 
 -- Delayed
 
