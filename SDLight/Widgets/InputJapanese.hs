@@ -5,7 +5,8 @@
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
 module SDLight.Widgets.InputJapanese
-  ( Op'InputJapanese
+  ( Op'GetText(..)
+  , Op'InputJapanese
   , wInputJapanese
   ) where
 
@@ -21,11 +22,15 @@ import SDLight.Components
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 
+data Op'GetText m r where
+  Op'GetText :: Op'GetText Identity String
+
 type Op'InputJapanese =
   [ Op'Reset '[]
   , Op'Render
   , Op'HandleEvent
   , Op'IsFinished
+  , Op'GetText
   ]
 
 data IJState = Selecting | Finished deriving (Eq, Show)
@@ -64,6 +69,7 @@ wInputJapanese = \path -> go <$> new path where
     @> (\(Op'Render v) -> lift $ render model)
     @> (\(Op'HandleEvent keys) -> continueM go $ handler keys model)
     @> (\Op'IsFinished -> finish $ model^._state == Finished)
+    @> (\Op'GetText -> finish $ model^.currentText)
     @> emptyUnion
 
   reset :: InputJapanese -> InputJapanese
