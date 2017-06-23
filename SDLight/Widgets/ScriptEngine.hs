@@ -71,7 +71,7 @@ effectTime (Right NoEffectOut) = 0
 
 data SimpleDSL a where
   Wait :: Int -> SimpleDSL ()
-  LoadImage :: FilePath -> SimpleDSL RefImage
+  LoadImage :: FilePath -> Position -> SimpleDSL RefImage
   RenderImage :: RefImage -> SimpleDSL ()
   DestroyImage :: RefImage -> SimpleDSL ()
 
@@ -97,7 +97,7 @@ withEffect ein eout ref ma = do
 data Position = L | C | R deriving (Eq, Show)
 
 loadCharacter :: FilePath -> Position -> MiniScript RefImage
-loadCharacter path p = bone $ LoadImage path
+loadCharacter path p = bone $ LoadImage path p
 
 showCharacter :: RefImage -> MiniScript () -> MiniScript ()
 showCharacter ref ma = do
@@ -194,11 +194,16 @@ wMiniScriptEngine = \path v -> go <$> new path v where
     lift $ SDL.copy rend texture Nothing (Just loc)
     SDL.textureAlphaMod texture SDL.$= alpha0
 
+  toPos :: Position -> V2 Int
+  toPos L = V2 0 15
+  toPos C = V2 150 15
+  toPos R = V2 450 15
+
   render :: V2 Int -> ScriptEngine -> GameM ()
   render v model = do
     forM_ (model^.displaying) $ \(RefImage ref) -> do
       let layer = (model^.layers) IM.! ref
-      renderImage v (layer^.texture) (layer^.opacity)
+      renderImage (v + either toPos id (layer^.position)) (layer^.texture) (layer^.opacity)
 
     case model^._state of
       Message -> model^.message @!? Op'Render (V2 0 450)
@@ -226,10 +231,10 @@ wMiniScriptEngine = \path v -> go <$> new path v where
           & _state .~ Suspended
           & counter .~ n
           & script .~ k ()
-        (LoadImage path :>>= k) -> do
+        (LoadImage path p :>>= k) -> do
           rend <- use renderer
           imgTexture <- lift $ SDL.loadTexture rend path
-          let layer = Layer imgTexture (Right 0) 0
+          let layer = Layer imgTexture (Left p) 0
           let (key, mp) = findInsert layer (model^.layers)
           return $ model
             & script .~ k (RefImage key)
