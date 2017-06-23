@@ -15,8 +15,7 @@
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
 module SDLight.Widgets.Layer
-  ( Layer
-  , wLayer
+  ( wLayer
   , Op'Layer
   , Op'RenderAlpha(..)
 

@@ -9,4 +9,5 @@ import SDLight.Widgets.Selector as M
 import SDLight.Widgets.SelectLayer as M
 import SDLight.Widgets.InputJapanese as M
 import SDLight.Widgets.Balloon as M
+import SDLight.Widgets.ScriptEngine as M
 
