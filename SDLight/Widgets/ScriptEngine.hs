@@ -10,6 +10,7 @@ module SDLight.Widgets.ScriptEngine
   ( wMiniScriptEngine
   , Op'MiniScriptEngine
   , Op'LoadMiniScript(..)
+  , parseMiniScript
 
   , EffectIn(..)
   , EffectOut(..)
@@ -29,6 +30,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans (lift)
 import Control.Monad.Skeleton
+import Control.Applicative
 import Data.List
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
@@ -39,6 +41,7 @@ import SDLight.Components
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 import SDLight.Widgets.MessageLayer
+import qualified Text.Trifecta as Tf
 
 newtype RefImage = RefImage Int
   deriving (Eq, Show)
@@ -48,14 +51,14 @@ data EffectIn
   | FadeInEase Int
   | CharacterIn Int
   | NoEffectIn
-  deriving (Eq, Show)
+  deriving (Eq, Read, Show)
 
 data EffectOut
   = FadeOutLinear Int
   | FadeOutEase Int
   | CharacterOut Int
   | NoEffectOut
-  deriving (Eq, Show)
+  deriving (Eq, Read, Show)
 
 effectTime :: Either EffectIn EffectOut -> Int
 effectTime (Left (FadeInLinear n)) = n
@@ -74,9 +77,9 @@ data SimpleDSL a where
   LoadImage :: FilePath -> Position -> SimpleDSL RefImage
   RenderImage :: RefImage -> SimpleDSL ()
   DestroyImage :: RefImage -> SimpleDSL ()
-
   RunEffect :: Either EffectIn EffectOut -> RefImage -> SimpleDSL ()
   Speak :: Maybe RefImage -> [String] -> SimpleDSL ()
+
   ResetOpacity :: SimpleDSL ()
 
 type MiniScript = Skeleton SimpleDSL
@@ -94,7 +97,7 @@ withEffect ein eout ref ma = do
   bone $ RunEffect (Right eout) ref
   return a
 
-data Position = L | C | R deriving (Eq, Show)
+data Position = L | C | R deriving (Eq, Show, Read)
 
 loadCharacter :: FilePath -> Position -> MiniScript RefImage
 loadCharacter path p = bone $ LoadImage path p
@@ -111,6 +114,76 @@ speak ref s = bone $ Speak ref s
 resetOpacity :: MiniScript ()
 resetOpacity = bone ResetOpacity
 
+-- MiniScript parser
+
+type CharaName = String
+
+data MiniSyntax
+  = SynWait Int
+  | SynLoadCharacter FilePath Position CharaName
+  | SynShowCharacter CharaName [MiniSyntax]
+  | SynSpeak CharaName [String]
+  deriving (Eq, Show)
+
+interpret :: [MiniSyntax] -> MiniScript ()
+interpret = go M.empty where
+  go mp [] = return ()
+  go mp (x:xs) = case x of
+    SynWait n -> wait n >> go mp xs
+    SynLoadCharacter path pos name -> do
+      k <- loadCharacter path pos
+      go (M.insert name k mp) xs
+    SynShowCharacter name ms -> do
+      showCharacter (mp M.! name) $ go mp ms
+      go mp xs
+    SynSpeak name s -> do
+      speak (Just (mp M.! name)) s
+      go mp xs
+
+pminisyntax :: Tf.Parser [MiniSyntax]
+pminisyntax = Tf.option [] $ Tf.many expr where
+  select :: Tf.Parsing m => [m a] -> m a
+  select = Tf.choice . fmap Tf.try
+  
+  expr = Tf.try Tf.whiteSpace
+    *> select
+    [ pwait Tf.<?> "@wait"
+    , ploadCharacter Tf.<?> "@load"
+    , pshowCharacter Tf.<?> "@show"
+    , pspeak Tf.<?> "@speak"
+    ]
+
+  pwait = do
+    Tf.symbol "@wait"
+    SynWait . fromIntegral <$> Tf.natural
+  ploadCharacter = do
+    name <- Tf.some Tf.letter <* Tf.spaces
+    Tf.symbol "="
+    Tf.symbol "@load"
+    path <- Tf.stringLiteral <* Tf.spaces
+    pos <- read <$> Tf.some Tf.letter <* Tf.spaces
+    return $ SynLoadCharacter path pos name
+  pshowCharacter = do
+    Tf.symbol "@show"
+    name <- Tf.some Tf.letter <* Tf.spaces
+    prog <- Tf.braces pminisyntax
+    return $ SynShowCharacter name prog
+  pspeak = do
+    Tf.symbol "@speak"
+    name <- Tf.some Tf.letter <* Tf.spaces
+    s <- select [praw Tf.<?> "raw strings", plit Tf.<?> "literals"]
+    return $ SynSpeak name s
+
+    where
+      plit = Tf.braces $ Tf.many Tf.stringLiteral
+      praw = do
+        Tf.symbolic '<'
+        t <- Tf.manyTill Tf.anyChar (Tf.try (Tf.char '>'))
+        return $ lines t
+
+parseMiniScript :: FilePath -> IO (Maybe (MiniScript ()))
+parseMiniScript path = fmap interpret <$> Tf.parseFromFile pminisyntax path
+    
 --
 
 data Op'LoadMiniScript m r where
