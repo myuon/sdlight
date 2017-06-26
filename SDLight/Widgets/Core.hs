@@ -33,6 +33,7 @@ import Control.Concurrent.MVar
 import qualified Data.Map as M
 import Data.Void
 import SDLight.Types
+import GHC.Exts
 
 type (~>) f g = forall x. f x -> g x
 type (~~>) f g = forall m. Monad m => f m ~> g m
@@ -56,6 +57,10 @@ instance {-# OVERLAPPABLE #-} Member ts t => Member (any : ts) t where
   inj xv = UNext (inj xv)
 
 type (∈) x xs = Member xs x
+
+type family (⊆) xs ys :: Constraint where
+  '[] ⊆ ys = ()
+  (x : xs) ⊆ ys = (x ∈ ys, xs ⊆ ys)
 
 class CaseOf r t rs | r t -> rs where
   caseOf :: Union r m v -> Either (Union rs m v) (t m v)

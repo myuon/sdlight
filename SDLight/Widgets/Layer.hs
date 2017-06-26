@@ -134,6 +134,7 @@ wfLayered path v w = liftM2 go (newLayer path v) (return $ wlift w) where
       lift $ wunlift widget @!? Op'Render v
     )
     @> bimapEitherT (go layer) id . runWidget widget
+  
 
 -- Delayed
 
