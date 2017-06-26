@@ -7,9 +7,14 @@
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
 module SDLight.Widgets.Effector
-  ( Op'GetAlpha(..)
+  ( Op'Appear(..)
+  , Op'Disappear(..)
+  , Op'GetAlpha(..)
+  , Op'IsAppeared(..)
+  , Op'IsDisappeared(..)
   , Eff'Display
   , effDisplay
+  , Transition(..)
   ) where
 
 import qualified SDL as SDL
@@ -42,7 +47,7 @@ data Transition
 transit :: Transition -> Int -> Int -> Double
 transit tr current max = go tr (fromIntegral current / fromIntegral max) where
   go Linear t = t
-  go EaseOut t = sin (t * pi / 4)
+  go EaseOut t = sin (t * pi / 2)
   go (Inverse tr) t = go tr (1-t)
 
 data Effector
@@ -76,7 +81,7 @@ type Op'Effector =
 effector :: Transition -> Int -> Widget Op'Effector
 effector = \tr n -> go (new tr n) where
   new :: Transition -> Int -> Effector
-  new tr int = Effector 0 tr int NotReady 0
+  new tr int = Effector 0 tr int NotReady (transit tr 0 int)
 
   go :: Effector -> Widget Op'Effector
   go eff = Widget $
@@ -90,12 +95,13 @@ effector = \tr n -> go (new tr n) where
   reset eff = eff
     & _state .~ NotReady
     & counter .~ 0
+    & value .~ transit (eff^.function) 0 (eff^.interval) 
 
   run eff = case eff^._state of
-    Running | eff^.counter <= 0 -> return $ eff & _state .~ Finished
+    Running | eff^.counter >= eff^.interval -> return $ eff & _state .~ Finished
     Running -> return $ eff
-      & counter -~ 1
-      & value .~ transit (eff^.function) (eff^.interval) (eff^.counter)
+      & counter +~ 1
+      & value .~ transit (eff^.function) (eff^.counter) (eff^.interval) 
     _ -> return eff
 
 data Op'Appear m r where
@@ -107,13 +113,20 @@ data Op'Disappear m r where
 data Op'GetAlpha m r where
   Op'GetAlpha :: Op'GetAlpha Identity Double
 
+data Op'IsAppeared m r where
+  Op'IsAppeared :: Op'IsAppeared Identity Bool
+
+data Op'IsDisappeared m r where
+  Op'IsDisappeared :: Op'IsDisappeared Identity Bool
+
 type Eff'Display =
   [ Op'Reset '[]
   , Op'Run
   , Op'Appear
   , Op'Disappear
-  , Op'IsFinished
   , Op'GetAlpha
+  , Op'IsAppeared
+  , Op'IsDisappeared
   ]
 
 data EffDisplayeState
@@ -121,20 +134,24 @@ data EffDisplayeState
   | Disappearing
   | Invisible
   | Visible
+  deriving (Eq, Show)
 
-effDisplay :: Transition -> Int -> Transition -> Int -> Widget Eff'Display
-effDisplay = \tr1 n1 tr2 n2 -> go Invisible (effector tr1 n1) (effector tr2 n2) where
+effDisplay :: Transition -> Int -> Int -> Widget Eff'Display
+effDisplay = \tr n1 n2 -> go Invisible (effector tr n1) (effector (Inverse tr) n2) where
   uncurry' f (a,b,c) = f a b c
   
   go :: EffDisplayeState -> Widget Op'Effector -> Widget Op'Effector -> Widget Eff'Display
   go st eff1 eff2 = Widget $
-    (\(Op'Reset SNil) -> continue (uncurry' go) $ (Invisible, eff1, eff2))
+    (\(Op'Reset SNil) -> continue (uncurry' go) $ reset st eff1 eff2)
     @> (\Op'Run -> continueM (uncurry' go) $ run st eff1 eff2)
     @> (\Op'Appear -> continue (uncurry' go) (Appearing, eff1 @@. Op'Start, eff2))
     @> (\Op'Disappear -> continue (uncurry' go) (Disappearing, eff1, eff2 @@. Op'Start))
-    @> (\Op'IsFinished -> finish $ eff2 @@!? Op'IsFinished)
     @> (\Op'GetAlpha -> finish $ getAlpha st eff1 eff2)
+    @> (\Op'IsAppeared -> finish $ st == Visible && eff1 @@!? Op'IsFinished)
+    @> (\Op'IsDisappeared -> finish $ st == Invisible && eff2 @@!? Op'IsFinished)
     @> emptyUnion
+
+  reset st eff1 eff2 = (Invisible, eff1 @@. Op'Reset SNil, eff2 @@. Op'Reset SNil)
 
   run :: EffDisplayeState -> Widget Op'Effector -> Widget Op'Effector -> GameM (EffDisplayeState, Widget Op'Effector, Widget Op'Effector)
   run st eff1 eff2 = case st of
