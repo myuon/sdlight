@@ -22,12 +22,13 @@ import SDLight.Types
 import SDLight.Components
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
+import SDLight.Widgets.Effector
 
 type Op'Balloon =
   [ Op'Reset '[String]
   , Op'Render
   , Op'Run
-  , Op'Fly
+  , Op'Start
   , Op'IsFinished
   , Op'IsShowing
   ]
@@ -35,30 +36,16 @@ type Op'Balloon =
 data Op'IsShowing m r where
   Op'IsShowing :: Op'IsShowing Identity Bool
 
-data Op'Fly m r where
-  Op'Fly :: Op'Fly Identity NoValue
-
-data BalloonState
-  = NotReady
-  | Display
-  | Finished
-  deriving (Eq, Show)
-
 data Balloon
   = Balloon
   { _balloonLayer :: Widget Op'Layer
   , _balloonText :: String
-  , _bstate :: BalloonState
 
   , _counter :: Int
   , _popupTime :: Int
-  , _stayTime :: Int
   }
 
 makeLenses ''Balloon
-
-instance HasState Balloon BalloonState where
-  _state = bstate
 
 wBalloon :: FilePath -> String -> Int -> Int -> GameM (Widget Op'Balloon)
 wBalloon = \path t popup stay -> go <$> new path t popup stay where

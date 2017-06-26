@@ -8,8 +8,11 @@
 {-# LANGUAGE StrictData #-}
 module SDLight.Widgets.Effector
   ( Op'Start(..)
-  , Op'EffOpacity
-  , effOpacity
+  , Op'Effector
+  , effector
+
+  , Eff'Display
+  , effDisplay
   ) where
 
 import qualified SDL as SDL
@@ -62,38 +65,79 @@ instance HasState Effector EffectorState where
 data Op'Start m r where
   Op'Start :: Op'Start Identity NoValue
 
-type Op'EffOpacity =
-  [ Op'Reset '[Transition, Int]
-  , Op'Render
+type Op'Effector =
+  [ Op'Reset '[]
   , Op'Run
   , Op'Start
   , Op'IsFinished
   ]
 
-effOpacity :: (Op'RenderAlpha : Op'EffOpacity) ⊆ xs
-           => Transition -> Int -> Widget xs -> Widget (Op'EffOpacity ++ xs)
-effOpacity = \tr n w -> go (new tr n) w where
+effector :: Transition -> Int -> Widget Op'Effector
+effector = \tr n -> go (new tr n) where
   new :: Transition -> Int -> Effector
   new tr int = Effector 0 tr int NotReady 0
 
-  go :: (Op'RenderAlpha : Op'EffOpacity) ⊆ xs
-     => Effector -> Widget xs -> Widget (Op'EffOpacity ++ xs)
-  go eff widget = Widget $
-    (\(Op'Reset (tr :. (int :. SNil))) -> continue (go (eff & _state .~ NotReady & function .~ tr & interval .~ int)) widget)
-    @> (\(Op'Render v) -> lift $ render v eff widget)
-    @> (\Op'Run -> continueM (uncurry go) $ run eff widget)
-    @> (\Op'Start -> continue (go (eff & _state .~ Running)) $ widget)
-    @> (\Op'IsFinished -> finish $ widget @@!? Op'IsFinished && eff^._state == Finished)
-    @> bimapEitherT (go eff) id . runWidget widget
+  go :: Effector -> Widget Op'Effector
+  go eff = Widget $
+    (\(Op'Reset _) -> continue go $ reset eff)
+    @> (\Op'Run -> continueM go $ run eff)
+    @> (\Op'Start -> continue go $ eff & _state .~ Running)
+    @> (\Op'IsFinished -> finish $ eff^._state == Finished)
+    @> emptyUnion
 
-  render v eff widget = case eff^._state of
-    Running -> widget @!? Op'RenderAlpha (eff^.value) v
-    _ -> widget @!? Op'Render v
+  reset eff = eff
+    & _state .~ NotReady
+    & counter .~ 0
 
-  run eff widget = case eff^._state of
-    Running -> do
-      w' <- widget @. Op'Run
-      return $ (eff, w')
-      
-    
+  run eff = case eff^._state of
+    Running | eff^.counter <= 0 -> return $ eff & _state .~ Finished
+    Running -> return $ eff
+      & counter -~ 1
+      & value .~ transit (eff^.function) (eff^.interval) (eff^.counter)
+    _ -> return eff
+
+data Op'Appear m r where
+  Op'Appear :: Op'Appear Identity NoValue
+
+data Op'Disappear m r where
+  Op'Disappear :: Op'Disappear Identity NoValue
+
+type Eff'Display =
+  [ Op'Reset '[]
+  , Op'Run
+  , Op'Appear
+  , Op'Disappear
+  , Op'IsFinished
+  ]
+
+data EffDisplayeState
+  = Appearing
+  | Disappearing
+  | Other
+
+effDisplay :: Transition -> Int -> Transition -> Int -> Widget Eff'Display
+effDisplay = \tr1 n1 tr2 n2 -> go Other (effector tr1 n1) (effector tr2 n2) where
+  uncurry' f (a,b,c) = f a b c
+  
+  go :: EffDisplayeState -> Widget Op'Effector -> Widget Op'Effector -> Widget Eff'Display
+  go st eff1 eff2 = Widget $
+    (\(Op'Reset SNil) -> continue (uncurry' go) $ (Other, eff1, eff2))
+    @> (\Op'Run -> continueM (uncurry' go) $ run st eff1 eff2)
+    @> (\Op'Appear -> continue (uncurry' go) (Appearing, eff1 @@. Op'Start, eff2))
+    @> (\Op'Disappear -> continue (uncurry' go) (Disappearing, eff1, eff2 @@. Op'Start))
+    @> (\Op'IsFinished -> finish $ eff2 @@!? Op'IsFinished)
+    @> emptyUnion
+
+  run :: EffDisplayeState -> Widget Op'Effector -> Widget Op'Effector -> GameM (EffDisplayeState, Widget Op'Effector, Widget Op'Effector)
+  run st eff1 eff2 = case st of
+    Appearing | eff1 @@!? Op'IsFinished -> return (Other, eff1, eff2)
+    Appearing -> do
+      eff1' <- eff1 @. Op'Run
+      return (st, eff1', eff2)
+    Disappearing | eff2 @@!? Op'IsFinished -> return (Other, eff1, eff2)
+    Disappearing -> do
+      eff2' <- eff2 @. Op'Run
+      return (st, eff1, eff2')
+    Other -> return (st, eff1, eff2)
+
 
