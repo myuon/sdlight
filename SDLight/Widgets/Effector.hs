@@ -7,10 +7,7 @@
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
 module SDLight.Widgets.Effector
-  ( Op'Start(..)
-  , Op'Effector
-  , effector
-
+  ( Op'GetAlpha(..)
   , Eff'Display
   , effDisplay
   ) where
@@ -65,11 +62,15 @@ instance HasState Effector EffectorState where
 data Op'Start m r where
   Op'Start :: Op'Start Identity NoValue
 
+data Op'GetValue m r where
+  Op'GetValue :: Op'GetValue Identity Double
+
 type Op'Effector =
   [ Op'Reset '[]
   , Op'Run
   , Op'Start
   , Op'IsFinished
+  , Op'GetValue
   ]
 
 effector :: Transition -> Int -> Widget Op'Effector
@@ -83,6 +84,7 @@ effector = \tr n -> go (new tr n) where
     @> (\Op'Run -> continueM go $ run eff)
     @> (\Op'Start -> continue go $ eff & _state .~ Running)
     @> (\Op'IsFinished -> finish $ eff^._state == Finished)
+    @> (\Op'GetValue -> finish $ eff^.value)
     @> emptyUnion
 
   reset eff = eff
@@ -102,42 +104,54 @@ data Op'Appear m r where
 data Op'Disappear m r where
   Op'Disappear :: Op'Disappear Identity NoValue
 
+data Op'GetAlpha m r where
+  Op'GetAlpha :: Op'GetAlpha Identity Double
+
 type Eff'Display =
   [ Op'Reset '[]
   , Op'Run
   , Op'Appear
   , Op'Disappear
   , Op'IsFinished
+  , Op'GetAlpha
   ]
 
 data EffDisplayeState
   = Appearing
   | Disappearing
-  | Other
+  | Invisible
+  | Visible
 
 effDisplay :: Transition -> Int -> Transition -> Int -> Widget Eff'Display
-effDisplay = \tr1 n1 tr2 n2 -> go Other (effector tr1 n1) (effector tr2 n2) where
+effDisplay = \tr1 n1 tr2 n2 -> go Invisible (effector tr1 n1) (effector tr2 n2) where
   uncurry' f (a,b,c) = f a b c
   
   go :: EffDisplayeState -> Widget Op'Effector -> Widget Op'Effector -> Widget Eff'Display
   go st eff1 eff2 = Widget $
-    (\(Op'Reset SNil) -> continue (uncurry' go) $ (Other, eff1, eff2))
+    (\(Op'Reset SNil) -> continue (uncurry' go) $ (Invisible, eff1, eff2))
     @> (\Op'Run -> continueM (uncurry' go) $ run st eff1 eff2)
     @> (\Op'Appear -> continue (uncurry' go) (Appearing, eff1 @@. Op'Start, eff2))
     @> (\Op'Disappear -> continue (uncurry' go) (Disappearing, eff1, eff2 @@. Op'Start))
     @> (\Op'IsFinished -> finish $ eff2 @@!? Op'IsFinished)
+    @> (\Op'GetAlpha -> finish $ getAlpha st eff1 eff2)
     @> emptyUnion
 
   run :: EffDisplayeState -> Widget Op'Effector -> Widget Op'Effector -> GameM (EffDisplayeState, Widget Op'Effector, Widget Op'Effector)
   run st eff1 eff2 = case st of
-    Appearing | eff1 @@!? Op'IsFinished -> return (Other, eff1, eff2)
+    Appearing | eff1 @@!? Op'IsFinished -> return (Visible, eff1, eff2)
     Appearing -> do
       eff1' <- eff1 @. Op'Run
       return (st, eff1', eff2)
-    Disappearing | eff2 @@!? Op'IsFinished -> return (Other, eff1, eff2)
+    Disappearing | eff2 @@!? Op'IsFinished -> return (Invisible, eff1, eff2)
     Disappearing -> do
       eff2' <- eff2 @. Op'Run
       return (st, eff1, eff2')
-    Other -> return (st, eff1, eff2)
+    _ -> return (st, eff1, eff2)
+
+  getAlpha st eff1 eff2 = case st of
+    Appearing -> eff1 @@!? Op'GetValue
+    Disappearing -> eff2 @@!? Op'GetValue
+    Invisible -> 0.0
+    Visible -> 1.0
 
 
