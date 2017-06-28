@@ -279,7 +279,7 @@ wMiniScriptEngine = \path v -> go <$> new path v where
       renderImage (v + either toPos id (layer^.position)) (layer^.texture) (layer^.opacity)
 
     case model^._state of
-      Message -> model^.message @!? Op'Render (V2 0 450)
+      Message -> model^.message @! Op'Render (V2 0 450)
       _ -> return ()
 
   findInsert :: a -> IM.IntMap a -> (Int, IM.IntMap a)
@@ -334,12 +334,12 @@ wMiniScriptEngine = \path v -> go <$> new path v where
           return $ model
             & _state .~ Message
             & script .~ k ()
-            & message @@~ Op'Reset (text :. SNil)
+            & message @%~ Op'Reset (text :. SNil)
             & layers %~ IM.mapWithKey (\key -> if Just (RefImage key) == ref then id else opacity .~ 0.5)
         (ResetOpacity :>>= k) -> do
           return $ model
             & layers %~ fmap (opacity .~ 1.0)
-    Message | model^.message @@!? Op'IsFinished -> return $ model & _state .~ Running
+    Message | model^.message @@! Op'IsFinished -> return $ model & _state .~ Running
     Message -> model^.message @. Op'Run >>= \m -> return $ model & message .~ m
     PerformEffect _ _ | model^.counter <= 0 -> return $ model & _state .~ Running
     PerformEffect eff (RefImage ref) -> do

@@ -35,8 +35,8 @@ wSelectLayer = \win cur v labels num -> liftM3 go (wLayer win v) (wLayer cur (V2
     (\(Op'Reset args) -> continue (go wwindow wcursor) $ reset args wsel)
     @> (\(Op'Render v) -> lift $ render wwindow wcursor wsel v)
     @> (\(Op'HandleEvent keys) -> continueM (go wwindow wcursor) $ handler keys wsel)
-    @> (\Op'GetSelecting -> finish $ wsel @@!? Op'GetSelecting)
-    @> (\Op'IsFinished -> finish $ wsel @@!? Op'IsFinished)
+    @> (\Op'GetSelecting -> finish $ wsel @@! Op'GetSelecting)
+    @> (\Op'IsFinished -> finish $ wsel @@! Op'IsFinished)
     @> emptyUnion
 
   reset :: Seq '[] -> Widget Op'Selector -> Widget Op'Selector
@@ -44,10 +44,10 @@ wSelectLayer = \win cur v labels num -> liftM3 go (wLayer win v) (wLayer cur (V2
 
   render :: Widget Op'Layer -> Widget Op'Layer -> Widget Op'Selector -> V2 Int -> GameM ()
   render wwindow wcursor wsel v = do
-    wwindow @!? Op'Render v
-    (wsel @!?) $ Op'RenderBy $ \label i selecting focused -> do
+    wwindow @! Op'Render v
+    (wsel @!) $ Op'RenderBy $ \label i selecting focused -> do
       when focused $ do
-        wcursor @!? Op'Render (v + V2 10 (20+30*i))
+        wcursor @! Op'Render (v + V2 10 (20+30*i))
 
       let color = if selecting then red else white
       renders color $

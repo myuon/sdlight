@@ -77,8 +77,8 @@ wInputJapanese = \path -> go <$> new path where
 
   render :: InputJapanese -> GameM ()
   render model = do
-    model^.textLayer @!? Op'Render (V2 0 0)
-    model^.letterLayer @!? Op'Render (V2 0 50)
+    model^.textLayer @! Op'Render (V2 0 0)
+    model^.letterLayer @! Op'Render (V2 0 50)
 
     when (model^.currentText /= "") $
       renders white [ translate (V2 15 15) $ shaded black $ text (model^.currentText) ]

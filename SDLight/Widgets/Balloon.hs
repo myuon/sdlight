@@ -72,8 +72,8 @@ wBalloon = \path t stay -> go <$> new path t stay where
     (\(Op'Reset (t :. SNil)) -> continue go $ reset t model)
     @> (\(Op'Render v) -> lift $ render v model)
     @> (\Op'Run -> continueM go $ run model)
-    @> (\Op'Fly -> continue go $ model & _state .~ Running & eff @@~ Op'Appear)
-    @> (\Op'IsFinished -> finish $ model^._state == Finished && model^.eff @@!? Op'IsDisappeared)
+    @> (\Op'Fly -> continue go $ model & _state .~ Running & eff @%~ Op'Appear)
+    @> (\Op'IsFinished -> finish $ model^._state == Finished && model^.eff @@! Op'IsDisappeared)
     @> emptyUnion
 
   reset :: String -> Balloon -> Balloon
@@ -81,12 +81,12 @@ wBalloon = \path t stay -> go <$> new path t stay where
 
   render :: V2 Int -> Balloon -> GameM ()
   render v model = do
-    model^.balloonLayer @!? Op'RenderAlpha (model^.eff @@!? Op'GetAlpha) v
+    model^.balloonLayer @! Op'RenderAlpha (model^.eff @@! Op'GetAlpha) v
     when (model^.balloonText /= "") $
       renders white [ translate (v + V2 15 10) $ shaded black $ text (model^.balloonText) ]
 
   run :: Balloon -> GameM Balloon
   run model = case model^._state of
-    Running | model^.counter >= model^.stayTime -> return $ model & _state .~ Finished & eff @@~ Op'Disappear
-    Running | model^.eff @@!? Op'IsAppeared -> return $ model & counter +~ 1
+    Running | model^.counter >= model^.stayTime -> return $ model & _state .~ Finished & eff @%~ Op'Disappear
+    Running | model^.eff @@! Op'IsAppeared -> return $ model & counter +~ 1
     _ -> model^.eff @. Op'Run >>= \e -> return $ model & eff .~ e

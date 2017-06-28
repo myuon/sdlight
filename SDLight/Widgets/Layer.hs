@@ -21,8 +21,10 @@ module SDLight.Widgets.Layer
 
   , wfLayered
   , Op'Layered
-  , wfDelayed
-  , Op'Delayed
+
+  , wDelay
+  , Op'Delay
+  , Op'DelayRun(..)
   ) where
 
 import qualified SDL as SDL
@@ -102,7 +104,10 @@ renderLayer layer pos alpha = do
   lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
   SDL.textureAlphaMod (layer^.layerTexture) SDL.$= alpha0
 
-type Op'Layer = '[Op'Render, Op'RenderAlpha]
+type Op'Layer =
+  [ Op'Render
+  , Op'RenderAlpha
+  ]
 
 data Op'RenderAlpha m r where
   Op'RenderAlpha :: Double -> V2 Int -> Op'RenderAlpha GameM ()
@@ -127,14 +132,13 @@ wfLayered path v w = liftM2 go (newLayer path v) (return $ wlift w) where
   go layer widget = Widget $
     (\(Op'Render v) -> do
       lift $ renderLayer layer v 1.0
-      lift $ wunlift widget @!? Op'Render v
+      lift $ wunlift widget @! Op'Render v
     ) @>
     (\(Op'RenderAlpha alpha v) -> do
       lift $ renderLayer layer v alpha
-      lift $ wunlift widget @!? Op'Render v
+      lift $ wunlift widget @! Op'Render v
     )
     @> bimapEitherT (go layer) id . runWidget widget
-  
 
 -- Delayed
 
@@ -147,21 +151,22 @@ data Delay
 
 makeLenses ''Delay
 
-type Op'Delayed xs = xs :<<: '[Op'Run]
+data Op'DelayRun m r where
+  Op'DelayRun :: Op'DelayRun Identity Bool
 
-wfDelayed :: (Lifting xs, Op'Run ∈ xs)
-          => Int -> Widget xs -> Widget (Op'Delayed xs)
-wfDelayed n w = go (Delay 0 n) (wlift w) where
-  go :: (Lifting xs, Op'Run ∈ xs)
-     => Delay -> Widget (Lifted xs) -> Widget (Op'Delayed xs)
-  go delay widget = Widget $
-    (\Op'Run -> do
-      let delay' = delay & counter %~ (`mod` (delay^.delayCount)) . (+1)
-      if delay'^.counter == 0
-        then do
-          w' <- lift $ wunlift widget @. Op'Run
-          continueM (go delay') $ return $ wlift w'
-        else left $ go delay' widget
-    ) @> bimapEitherT (go delay) id . runWidget widget
+type Op'Delay =
+  [ Op'Run
+  , Op'DelayRun
+  ]
 
+wDelay :: Int -> Widget Op'Delay
+wDelay = \n -> go (Delay 0 n) where
+  go :: Delay -> Widget Op'Delay
+  go delay = Widget $
+    (\Op'Run -> continueM go $ run delay)
+    @> (\Op'DelayRun -> finish $ delay^.counter == 0)
+    @> emptyUnion
+
+  run :: Delay -> GameM Delay
+  run delay = return $ delay & counter %~ (`mod` (delay^.delayCount)) . (+1)
 

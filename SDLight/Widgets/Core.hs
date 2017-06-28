@@ -155,28 +155,16 @@ call :: (k ∈ xs, Monad m) => Widget xs -> (forall v. k m v -> m (Either (Widge
 call w op = runEitherT $ runWidget w (inj op)
 
 infixl 4 @!
-(@!) :: (k ∈ xs, Monad m) => Widget xs -> (forall v. k m v -> m (Either (Widget xs) v))
-w @! op = runEitherT $ runWidget w (inj op)
+(@!) :: (k ∈ xs, Monad m) => Widget xs -> (k m ~> m)
+w @! op = (\(Right v) -> v) <$> (runEitherT $ runWidget w (inj op))
 
 infixl 4 @@!
-(@@!) :: (k ∈ xs) => Widget xs -> (forall v. k Identity v -> Either (Widget xs) v)
+(@@!) :: (k ∈ xs) => Widget xs -> (k Identity v -> v)
 w @@! op = runIdentity $ w @! op
-
-infixl 4 @!?
-(@!?) :: (k ∈ xs, Monad m) => Widget xs -> (k m ~> m)
-w @!? op = (\(Right v) -> v) <$> (runEitherT $ runWidget w (inj op))
-
-infixl 4 @@!?
-(@@!?) :: (k ∈ xs) => Widget xs -> (k Identity v -> v)
-w @@!? op = runIdentity $ w @!? op
-
-infixl 4 @!!
-(@!!) :: (k ∈ xs, Monad m) => m (Widget xs) -> (forall v. k m v -> m (Either (Widget xs) v))
-mw @!! op = mw >>= \w -> w @! op
 
 infixl 4 @.
 (@.) :: (k ∈ xs, Monad m) => Widget xs -> k m Void -> m (Widget xs)
-w @. op = w @! op >>= \case
+w @. op = w `call` op >>= \case
   Left w' -> return w'
   Right v -> absurd v
 
@@ -184,13 +172,9 @@ infixl 4 @@.
 (@@.) :: (k ∈ xs) => Widget xs -> k Identity Void -> Widget xs
 w @@. op = runIdentity $ w @. op
 
-infixl 4 @..
-(@..) :: (k ∈ xs, Monad m) => m (Widget xs) -> k m Void -> m (Widget xs)
-mw @.. op = mw >>= \w -> w @. op
-
-infixr 4 @@~
-(@@~) :: (k ∈ xs) => Lens' s (Widget xs) -> k Identity Void -> s -> s
-w @@~ k = w %~ (@@. k)
+infixr 4 @%~
+(@%~) :: (k ∈ xs) => Lens' s (Widget xs) -> k Identity Void -> s -> s
+w @%~ k = w %~ (@@. k)
 
 --
 

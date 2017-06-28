@@ -147,28 +147,27 @@ effDisplay = \tr n1 n2 -> go Invisible (effector tr n1) (effector (Inverse tr) n
     @> (\Op'Appear -> continue (uncurry' go) (Appearing, eff1 @@. Op'Start, eff2))
     @> (\Op'Disappear -> continue (uncurry' go) (Disappearing, eff1, eff2 @@. Op'Start))
     @> (\Op'GetAlpha -> finish $ getAlpha st eff1 eff2)
-    @> (\Op'IsAppeared -> finish $ st == Visible && eff1 @@!? Op'IsFinished)
-    @> (\Op'IsDisappeared -> finish $ st == Invisible && eff2 @@!? Op'IsFinished)
+    @> (\Op'IsAppeared -> finish $ st == Visible && eff1 @@! Op'IsFinished)
+    @> (\Op'IsDisappeared -> finish $ st == Invisible && eff2 @@! Op'IsFinished)
     @> emptyUnion
 
   reset st eff1 eff2 = (Invisible, eff1 @@. Op'Reset SNil, eff2 @@. Op'Reset SNil)
 
   run :: EffDisplayeState -> Widget Op'Effector -> Widget Op'Effector -> GameM (EffDisplayeState, Widget Op'Effector, Widget Op'Effector)
   run st eff1 eff2 = case st of
-    Appearing | eff1 @@!? Op'IsFinished -> return (Visible, eff1, eff2)
+    Appearing | eff1 @@! Op'IsFinished -> return (Visible, eff1, eff2)
     Appearing -> do
       eff1' <- eff1 @. Op'Run
       return (st, eff1', eff2)
-    Disappearing | eff2 @@!? Op'IsFinished -> return (Invisible, eff1, eff2)
+    Disappearing | eff2 @@! Op'IsFinished -> return (Invisible, eff1, eff2)
     Disappearing -> do
       eff2' <- eff2 @. Op'Run
       return (st, eff1, eff2')
     _ -> return (st, eff1, eff2)
 
   getAlpha st eff1 eff2 = case st of
-    Appearing -> eff1 @@!? Op'GetValue
-    Disappearing -> eff2 @@!? Op'GetValue
+    Appearing -> eff1 @@! Op'GetValue
+    Disappearing -> eff2 @@! Op'GetValue
     Invisible -> 0.0
     Visible -> 1.0
-
 
