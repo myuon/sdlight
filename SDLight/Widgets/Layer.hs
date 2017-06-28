@@ -38,6 +38,8 @@ import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.Trans.Either
+import Data.Extensible
+import Data.Functor.Sum
 import Linear.V2
 import SDLight.Types
 import SDLight.Widgets.Core
@@ -120,23 +122,20 @@ wLayer path v = go <$> newLayer path v where
 
 -- Layered
 
-type Op'Layered xs = xs :<<: Op'Layer
+type Op'Layered xs = Op'Render : Op'RenderAlpha : xs
 
-wfLayered :: (Lifting xs, Op'Render ∈ xs)
-          => FilePath -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
-wfLayered path v w = liftM2 go (newLayer path v) (return $ wlift w) where
-  go :: (Lifting xs, Op'Render ∈ xs)
-     => Layer -> Widget (Lifted xs) -> Widget (Op'Layered xs)
-  go layer widget = Widget $
-    (\(Op'Render v) -> do
-      lift $ renderLayer layer v 1.0
-      lift $ wunlift widget @! Op'Render v
-    ) @>
-    (\(Op'RenderAlpha alpha v) -> do
-      lift $ renderLayer layer v alpha
-      lift $ wunlift widget @! Op'Render v
-    )
-    @> bimapEitherT (go layer) id . runWidget widget
+wfLayered :: Op'Render ∈ xs => FilePath -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
+wfLayered = \path v w -> liftM2 go (wLayer path v) (return w) where
+  go :: Op'Render ∈ xs => Widget Op'Layer -> Widget xs -> Widget (Op'Layered xs)
+  go wlayer wx = override wx $
+    (\(Op'Render v) -> InL $ lift $ renderAlpha 1.0 v wlayer wx)
+    @> (\(Op'RenderAlpha alpha v) -> InL $ lift $ renderAlpha alpha v wlayer wx)
+    @> InR
+
+  renderAlpha :: Op'Render ∈ xs => Double -> V2 Int -> Widget Op'Layer -> Widget xs -> GameM ()
+  renderAlpha alpha v wlayer wx = do
+    wlayer @! Op'RenderAlpha alpha v
+    wx @! Op'Render v
 
 -- Delayed
 
