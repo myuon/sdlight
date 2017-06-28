@@ -34,7 +34,7 @@ import qualified Data.Map as M
 import Data.Functor.Sum
 import Data.Void
 import Data.Extensible
-import Data.Extensible.Internal
+import Data.Extensible.Internal hiding (type (++))
 import SDLight.Types
 import GHC.Exts
 

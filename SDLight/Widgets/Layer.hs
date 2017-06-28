@@ -122,12 +122,12 @@ wLayer path v = go <$> newLayer path v where
 
 -- Layered
 
-type Op'Layered xs = Op'Render : Op'RenderAlpha : xs
+type Op'Layered xs = Op'Layer ↣ xs
 
-wfLayered :: Op'Render ∈ xs => FilePath -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
+wfLayered :: (Op'Render ∈ xs, Op'Layer >-> xs) => FilePath -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
 wfLayered = \path v w -> liftM2 go (wLayer path v) (return w) where
-  go :: Op'Render ∈ xs => Widget Op'Layer -> Widget xs -> Widget (Op'Layered xs)
-  go wlayer wx = override wx $
+  go :: (Op'Render ∈ xs, Op'Layer >-> xs) => Widget Op'Layer -> Widget xs -> Widget (Op'Layered xs)
+  go wlayer wx = override wx $ restrict @Op'Layer $ 
     (\(Op'Render v) -> InL $ lift $ renderAlpha 1.0 v wlayer wx)
     @> (\(Op'RenderAlpha alpha v) -> InL $ lift $ renderAlpha alpha v wlayer wx)
     @> InR
