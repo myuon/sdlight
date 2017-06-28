@@ -1,3 +1,4 @@
+{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -13,15 +14,19 @@ module SDLight.Widgets.Effector
   , Op'IsAppeared(..)
   , Op'IsDisappeared(..)
   , Eff'Display
+
   , effDisplay
   , Transition(..)
+
+  , effDisplayed
+  , Eff'Displayed
   ) where
 
 import qualified SDL as SDL
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans (lift)
-import Control.Monad.Trans.Either
+import Control.Monad.State.Strict
 import qualified Data.Map as M
 import Data.Functor.Sum
 import Linear.V2
@@ -170,4 +175,36 @@ effDisplay = \tr n1 n2 -> go Invisible (effector tr n1) (effector (Inverse tr) n
     Disappearing -> eff2 @@! Op'GetValue
     Invisible -> 0.0
     Visible -> 1.0
+
+type Eff'Displayed xs =
+  [ Op'Run
+  , Op'Appear
+  , Op'Disappear
+  , Op'IsFinished
+  ] ++ xs
+
+effDisplayed :: (Op'IsFinished ∈ xs, Op'Run ∈ xs)
+             => Transition -> Int -> Int -> Widget (Op'Reset r : xs) -> Widget (Eff'Displayed (Op'Reset r : xs))
+effDisplayed = \tr n1 n2 w -> go (effDisplay tr n1 n2) w where
+  go :: (Op'IsFinished ∈ xs, Op'Run ∈ xs)
+     => Widget Eff'Display -> Widget (Op'Reset r : xs) -> Widget (Eff'Displayed (Op'Reset r : xs))
+  go eff w = override (go eff) w $
+    (\Op'Run -> InL $ continueM (uncurry go) $ execStateT run (eff,w))
+    @> (\Op'Appear -> InL $ continue (uncurry go) $ (eff,w) & _1 @%~ Op'Appear)
+    @> (\Op'Disappear -> InL $ continue (uncurry go) $ (eff,w) & _1 @%~ Op'Disappear)
+    @> (\Op'IsFinished -> InL $ finish $ eff @@! Op'IsDisappeared && w @@! Op'IsFinished)
+    @> (\(Op'Reset r) -> InL $ continue (uncurry go) $ (eff,w) & _1 @%~ Op'Reset SNil & _2 @%~ Op'Reset r)
+    @> bisum id UNext . InR
+
+  bisum :: (f ~> f') -> (g ~> g') -> Sum f g ~> Sum f' g'
+  bisum f g (InL a) = InL $ f a
+  bisum f g (InR a) = InR $ g a
+
+  run :: Op'Run ∈ xs => StateT (Widget Eff'Display, Widget (Op'Reset r : xs)) GameM ()
+  run = do
+    eff <- use _1
+    _1 <~ lift (eff @. Op'Run)
+
+    w <- use _2
+    _2 <~ lift (w @. Op'Run)
 
