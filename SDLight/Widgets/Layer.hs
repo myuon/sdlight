@@ -19,12 +19,11 @@ module SDLight.Widgets.Layer
   , Op'Layer
   , Op'RenderAlpha(..)
 
-  , wfLayered
+  , wLayered
   , Op'Layered
 
-  , wDelay
-  , Op'Delay
-  , Op'DelayRun(..)
+  , wDelayed
+  , Op'Delayed
   ) where
 
 import qualified SDL as SDL
@@ -123,8 +122,8 @@ wLayer path v = go <$> newLayer path v where
 
 type Op'Layered xs = Op'Layer ++ xs
 
-wfLayered :: Op'Render ∈ xs => FilePath -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
-wfLayered = \path v w -> liftM2 go (wLayer path v) (return w) where
+wLayered :: Op'Render ∈ xs => FilePath -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
+wLayered = \path v w -> liftM2 go (wLayer path v) (return w) where
   go :: Op'Render ∈ xs => Widget Op'Layer -> Widget xs -> Widget (Op'Layered xs)
   go wlayer wx = override (go wlayer) wx $ 
     (\(Op'Render v) -> InL $ lift $ renderAlpha 1.0 v wlayer wx)
@@ -147,22 +146,23 @@ data Delay
 
 makeLenses ''Delay
 
-data Op'DelayRun m r where
-  Op'DelayRun :: Op'DelayRun Identity Bool
+type Op'Delayed xs = Op'Run : xs
 
-type Op'Delay =
-  [ Op'Run
-  , Op'DelayRun
-  ]
+wDelayed :: Op'Run ∈ xs => Int -> Widget xs -> Widget (Op'Delayed xs)
+wDelayed = \n w -> go (Delay 0 n) w where
+  go :: Op'Run ∈ xs => Delay -> Widget xs -> Widget (Op'Delayed xs)
+  go delay widget = override (go delay) widget $
+    (\Op'Run -> InL $ continueM (uncurry go) $ execStateT run (delay,widget))
+    @> InR
 
-wDelay :: Int -> Widget Op'Delay
-wDelay = \n -> go (Delay 0 n) where
-  go :: Delay -> Widget Op'Delay
-  go delay = Widget $
-    (\Op'Run -> continueM go $ run delay)
-    @> (\Op'DelayRun -> finish $ delay^.counter == 0)
-    @> emptyUnion
+  run :: Op'Run ∈ xs => StateT (Delay, Widget xs) GameM ()
+  run = do
+    c <- use $ _1.counter
+    when (c == 0) $ do
+      w <- use _2
+      _2 <~ lift (w @. Op'Run)
 
-  run :: Delay -> GameM Delay
-  run delay = return $ delay & counter %~ (`mod` (delay^.delayCount)) . (+1)
+    d <- use $ _1.delayCount
+    _1.counter %= (`mod` d) . (+1)
+  
 

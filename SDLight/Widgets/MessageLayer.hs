@@ -122,48 +122,14 @@ wMessageWriter = \mes -> go <$> (new mes) where
 
 type Op'MessageLayer = Op'MessageWriter
 
-data MessageLayer
-  = MessageLayer
-  { _wlayer :: Widget Op'Layer
-  , _wdelay :: Widget Op'Delay
-  , _wmes :: Widget Op'MessageWriter
-  }
-
-makeLenses ''MessageLayer
-
 wMessageLayer :: FilePath -> V2 Int -> [String] -> GameM (Widget Op'MessageLayer)
-wMessageLayer = \path v mes -> go <$> (new path v mes) where
-  new path v mes =
-    MessageLayer
-    <$> wLayer path v
-    <*> return (wDelay 2)
-    <*> wMessageWriter mes
-
-  go :: MessageLayer -> Widget Op'MessageLayer
+wMessageLayer = \path v mes -> go <$> (wDelayed 2 <$> (wLayered path v =<< wMessageWriter mes)) where
+  go :: Widget (Op'Delayed (Op'Layered Op'MessageWriter)) -> Widget Op'MessageLayer
   go wm = Widget $
-    (\(Op'Reset args) -> continue go $ reset wm args)
-    @> (\(Op'Render v) -> lift $ render v wm)
-    @> (\Op'Run -> continueM go $ execStateT run wm)
-    @> (\(Op'HandleEvent keys) -> continueM go $ execStateT (handler keys) wm)
-    @> (\Op'IsFinished -> finish $ wm^.wmes @@! Op'IsFinished)
+    (\(Op'Reset args) -> continue go $ wm @@. Op'Reset args)
+    @> (\(Op'Render v) -> lift $ wm @! Op'Render v)
+    @> (\Op'Run -> continueM go $ wm @. Op'Run)
+    @> (\(Op'HandleEvent keys) -> continueM go $ wm @. Op'HandleEvent keys)
+    @> (\Op'IsFinished -> finish $ wm @@! Op'IsFinished)
     @> emptyUnion
 
-  reset wm args = wm & wmes @%~ Op'Reset args
-
-  render v wm = do
-    wm^.wlayer @! Op'Render v
-    wm^.wmes @! Op'Render v
-
-  run :: StateT MessageLayer GameM ()
-  run = do
-    delay <- use wdelay
-    wdelay <~ lift (delay @. Op'Run)
-
-    when (delay @@! Op'DelayRun) $ do
-      mes <- use wmes
-      wmes <~ lift (mes @. Op'Run)
-
-  handler keys = do
-    mes <- use wmes
-    wmes <~ lift (mes @. Op'HandleEvent keys)
-    
