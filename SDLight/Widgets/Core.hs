@@ -33,19 +33,42 @@ import Control.Concurrent.MVar
 import qualified Data.Map as M
 import Data.Functor.Sum
 import Data.Void
-import Data.Extensible
-import Data.Extensible.Internal hiding (type (++))
 import SDLight.Types
 import GHC.Exts
 
 type (~>) f g = forall x. f x -> g x
 
-newtype Op m r (op :: (* -> *) -> * -> *) = Op { runOp :: op m r }
-newtype Union xs m r = Union { runOpUnion :: Op m r :| xs }
-newtype Widget ops = Widget { runWidget :: forall m. Monad m => Union ops m ~> EitherT (Widget ops) m }
+data Union (r :: [(* -> *) -> * -> *]) m v where
+  UNow  :: t m v -> Union (t : r) m v
+  UNext :: Union r m v -> Union (any : r) m v
 
-inj :: k ∈ xs => k m ~> Union xs m
-inj = Union . embed . Op
+class Member ts x where
+  inj :: x m ~> Union ts m
+
+instance {-# OVERLAPPING #-} Member (t : ts) t where
+  inj = UNow
+  
+instance {-# OVERLAPPABLE #-} Member ts t => Member (any : ts) t where
+  inj xv = UNext (inj xv)
+
+type (∈) x xs = Member xs x
+
+class CaseOf r t rs | r t -> rs where
+  caseOf :: Union r m v -> Either (Union rs m v) (t m v)
+
+instance CaseOf (r : rs) r rs where
+  caseOf (UNow tv) = Right tv
+  caseOf (UNext n) = Left n
+
+infixr 2 @>
+(@>) :: (t m ~> r) -> (Union ts m ~> r) -> Union (t : ts) m ~> r
+(@>) f g u = either g f $ caseOf u
+
+emptyUnion :: Union '[] m v -> a
+emptyUnion = \case
+
+newtype Op m r (op :: (* -> *) -> * -> *) = Op { runOp :: op m r }
+newtype Widget ops = Widget { runWidget :: forall m. Monad m => Union ops m ~> EitherT (Widget ops) m }
 
 call :: (k ∈ xs, Monad m) => Widget xs -> (forall v. k m v -> m (Either (Widget xs) v))
 call w op = runEitherT $ runWidget w $ inj op
@@ -109,17 +132,14 @@ data Op'HandleEvent m r where
 data Op'IsFinished m r where
   Op'IsFinished :: Op'IsFinished Identity Bool
 
-override :: Widget old -> (forall m. Union new m ~> (EitherT (Widget new) m `Sum` Union old m)) -> Widget new
-override wx f = Widget $ elim id (bimapEitherT (\wo -> override wo f) id . runWidget wx) . f where
+override :: (Widget old -> Widget new) -> Widget old -> (forall m. Union new m ~> (EitherT (Widget new) m `Sum` Union old m)) -> Widget new
+override updater wx f = Widget $ elim id (bimapEitherT updater id . runWidget wx) . f where
   elim :: (f ~> r) -> (g ~> r) -> (f `Sum` g ~> r)
   elim f g x = case x of
     InL a -> f a
     InR a -> g a
 
-infixr 2 @>
-(@>) :: (t m ~> r) -> (Union ts m ~> r) -> Union (t : ts) m ~> r
-(@>) f g (Union u) = f . (\(Op k) -> k) <:| (g . Union) $ u
-
-emptyUnion :: Union '[] m v -> a
-emptyUnion (Union a) = exhaust a
+type family (++) (a :: [k]) (b :: [k]) where
+  '[] ++ bs = bs
+  (a : as) ++ bs = a : (as ++ bs)
 

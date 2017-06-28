@@ -38,7 +38,6 @@ import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.Trans.Either
-import Data.Extensible
 import Data.Functor.Sum
 import Linear.V2
 import SDLight.Types
@@ -122,12 +121,12 @@ wLayer path v = go <$> newLayer path v where
 
 -- Layered
 
-type Op'Layered xs = Op'Layer ↣ xs
+type Op'Layered xs = Op'Layer ++ xs
 
-wfLayered :: (Op'Render ∈ xs, Op'Layer >-> xs) => FilePath -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
+wfLayered :: Op'Render ∈ xs => FilePath -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
 wfLayered = \path v w -> liftM2 go (wLayer path v) (return w) where
-  go :: (Op'Render ∈ xs, Op'Layer >-> xs) => Widget Op'Layer -> Widget xs -> Widget (Op'Layered xs)
-  go wlayer wx = override wx $ restrict @Op'Layer $ 
+  go :: Op'Render ∈ xs => Widget Op'Layer -> Widget xs -> Widget (Op'Layered xs)
+  go wlayer wx = override (go wlayer) wx $ 
     (\(Op'Render v) -> InL $ lift $ renderAlpha 1.0 v wlayer wx)
     @> (\(Op'RenderAlpha alpha v) -> InL $ lift $ renderAlpha alpha v wlayer wx)
     @> InR
