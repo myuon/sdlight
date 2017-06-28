@@ -38,8 +38,6 @@ import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.Trans.Either
-import Control.Object
-import Control.Concurrent.MVar
 import Linear.V2
 import SDLight.Types
 import SDLight.Widgets.Core
