@@ -181,6 +181,9 @@ type Eff'Displayed xs =
   , Op'Appear
   , Op'Disappear
   , Op'IsFinished
+  , Op'GetAlpha
+  , Op'IsAppeared
+  , Op'IsDisappeared
   ] ++ xs
 
 effDisplayed :: (Op'IsFinished ∈ xs, Op'Run ∈ xs)
@@ -193,6 +196,9 @@ effDisplayed = \tr n1 n2 w -> go (effDisplay tr n1 n2) w where
     @> (\Op'Appear -> InL $ continue (uncurry go) $ (eff,w) & _1 @%~ Op'Appear)
     @> (\Op'Disappear -> InL $ continue (uncurry go) $ (eff,w) & _1 @%~ Op'Disappear)
     @> (\Op'IsFinished -> InL $ finish $ eff @@! Op'IsDisappeared && w @@! Op'IsFinished)
+    @> (\Op'GetAlpha -> InL $ finish $ eff @@! Op'GetAlpha)
+    @> (\Op'IsAppeared -> InL $ finish $ eff @@! Op'IsAppeared)
+    @> (\Op'IsDisappeared -> InL $ finish $ eff @@! Op'IsDisappeared)
     @> (\(Op'Reset r) -> InL $ continue (uncurry go) $ (eff,w) & _1 @%~ Op'Reset SNil & _2 @%~ Op'Reset r)
     @> bisum id UNext . InR
 
