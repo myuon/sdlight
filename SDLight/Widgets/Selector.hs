@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -10,6 +11,9 @@ module SDLight.Widgets.Selector
   , Op'GetSelecting(..)
   , Op'GetPointer(..)
   , Op'SetLabels(..)
+
+  , wSelectLayer
+  , Op'SelectLayer
   ) where
 
 import qualified SDL as SDL
@@ -19,11 +23,14 @@ import Data.Maybe
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans
+import Control.Monad.State.Strict
+import Data.Functor.Sum
 import Linear.V2
 import SDLight.Util
 import SDLight.Types
 import SDLight.Components
 import SDLight.Widgets.Core
+import SDLight.Widgets.Layer
 
 data Selector
   = Selector
@@ -36,8 +43,8 @@ data Selector
 
 makeLenses ''Selector
 
--- Layeredにする都合上RenderDropdownをRenderとして登録しておくけれど
--- あとで差し替えられるようにしよう
+data Op'RenderBy m r where
+  Op'RenderBy :: (String -> Int -> Bool -> Bool -> GameM ()) -> Op'RenderBy GameM ()
 
 data Op'GetSelecting m r where
   Op'GetSelecting :: Op'GetSelecting Identity [Int]
@@ -47,9 +54,6 @@ data Op'GetPointer m r where
 
 data Op'SetLabels m r where
   Op'SetLabels :: [String] -> Op'SetLabels Identity NoValue
-
-data Op'RenderBy m r where
-  Op'RenderBy :: (String -> Int -> Bool -> Bool -> GameM ()) -> Op'RenderBy GameM ()
 
 type Op'Selector =
   [ Op'Reset '[]
@@ -62,6 +66,9 @@ type Op'Selector =
   , Op'SetLabels
   ]
 
+-- とりあえずrenderDropDownの実装
+-- 必要があればoverrideする
+
 wSelector :: [String] -> Int -> Widget Op'Selector
 wSelector = \labels selnum -> go $ new labels selnum where
   new :: [String] -> Int -> Selector
@@ -71,7 +78,7 @@ wSelector = \labels selnum -> go $ new labels selnum where
   go sel = Widget $
     (\(Op'Reset _) -> continue go $ reset sel)
     @> (\(Op'Render v) -> lift $ renderDropdown sel v)
-    @> (\(Op'RenderBy f) -> lift $ render sel f)
+    @> (\(Op'RenderBy rend) -> lift $ render sel rend)
     @> (\(Op'HandleEvent keys) -> continueM go $ handler keys sel)
     @> (\Op'IsFinished -> finish $ sel^.isFinished)
     @> (\Op'GetSelecting -> finish $ sel^.selecting)
@@ -123,4 +130,45 @@ wSelector = \labels selnum -> go $ new labels selnum where
                    & isFinished .~ (length (sel^.selecting) + 1 == sel^.selectNum)
         _ -> return sel
     | otherwise = return sel
+
+
+type Op'SelectLayer =
+  [ Op'Reset '[]
+  , Op'Render
+  , Op'HandleEvent
+  , Op'IsFinished
+  , Op'GetSelecting
+  , Op'GetPointer
+  , Op'SetLabels
+  ]
+
+type SelectLayer = (Widget Op'Layer, Widget Op'Layer, Widget Op'Selector)
+
+wSelectLayer :: FilePath -> FilePath -> V2 Int -> [String] -> Int -> GameM (Widget Op'SelectLayer)
+wSelectLayer = \win cur v labels num -> go <$> new win cur v labels num where
+  new :: FilePath -> FilePath -> V2 Int -> [String] -> Int -> GameM SelectLayer
+  new win cur v labels num = liftM3 (,,) (wLayer win v) (wLayer cur (V2 (v^._x - 20) 30)) (return $ wSelector labels num)
+  
+  go :: SelectLayer -> Widget Op'SelectLayer
+  go w = Widget $
+    (\(Op'Reset args) -> continue go $ w & _3 @%~ Op'Reset args)
+    @> (\(Op'Render v) -> lift $ render w v)
+    @> (\(Op'HandleEvent keys) -> continueM go $ (\x -> w & _3 .~ x) <$> (w^._3 @. Op'HandleEvent keys))
+    @> (\Op'IsFinished -> finish $ w^._3 @@! Op'IsFinished)
+    @> (\Op'GetSelecting -> finish $ w^._3 @@! Op'GetSelecting)
+    @> (\Op'GetPointer -> finish $ w^._3 @@! Op'GetPointer)
+    @> (\(Op'SetLabels t) -> continue go $ w & _3 @%~ Op'SetLabels t)
+    @> emptyUnion
+  
+  render :: SelectLayer -> V2 Int -> GameM ()
+  render sel v = do
+    sel^._1 @! Op'Render v
+    (sel^._3 @!) $ Op'RenderBy $ \label i selecting focused -> do
+      when focused $ do
+        sel^._2 @! Op'Render (v + V2 10 (20+30*i))
+
+      let color = if selecting then red else white
+      renders color $
+        [ translate (v + V2 (20+5) (20+30*i)) $ shaded black $ text label
+        ]
 

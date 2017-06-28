@@ -70,12 +70,12 @@ emptyUnion = \case
 newtype Op m r (op :: (* -> *) -> * -> *) = Op { runOp :: op m r }
 newtype Widget ops = Widget { runWidget :: forall m. Monad m => Union ops m ~> EitherT (Widget ops) m }
 
-call :: (k ∈ xs, Monad m) => Widget xs -> (forall v. k m v -> m (Either (Widget xs) v))
-call w op = runEitherT $ runWidget w $ inj op
+call :: (k ∈ xs, Monad m) => Widget xs -> (k m ~> EitherT (Widget xs) m)
+call w op = runWidget w $ inj op
 
 infixl 4 @!
 (@!) :: (k ∈ xs, Monad m) => Widget xs -> (k m ~> m)
-w @! op = (\(Right v) -> v) <$> w `call` op
+w @! op = (\(Right v) -> v) <$> runEitherT (w `call` op)
 
 infixl 4 @@!
 (@@!) :: (k ∈ xs) => Widget xs -> (k Identity v -> v)
@@ -83,7 +83,7 @@ w @@! op = runIdentity $ w @! op
 
 infixl 4 @.
 (@.) :: (k ∈ xs, Monad m) => Widget xs -> k m Void -> m (Widget xs)
-w @. op = w `call` op >>= \case
+w @. op = runEitherT (w `call` op) >>= \case
   Left w' -> return w'
   Right v -> absurd v
 
