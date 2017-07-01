@@ -85,10 +85,6 @@ infixl 4 @@.
 (@@.) :: (k ∈ xs) => Widget xs -> k Identity Void -> Widget xs
 w @@. op = runIdentity $ w @. op
 
-infixr 4 @%~
-(@%~) :: (k ∈ xs) => Lens' s (Widget xs) -> k Identity Void -> s -> s
-w @%~ k = w %~ (@@. k)
-
 continue :: (model -> Widget xs) -> model -> EitherT (Widget xs) Identity a
 continue go = EitherT . Identity . Left . go
 
@@ -100,6 +96,14 @@ finish = right
 
 finishM :: Functor m => m model -> EitherT (Widget xs) m model
 finishM = EitherT . (Right <$>)
+
+infixr 4 @%~
+(@%~) :: (k ∈ xs) => Lens' s (Widget xs) -> k Identity Void -> s -> s
+w @%~ k = w %~ (@@. k)
+
+infixr 4 <@%~
+(<@%~) :: (k ∈ xs, Functor m) => Lens' s (Widget xs) -> k m Void -> s -> m s
+(<@%~) w k s = (s^.w @. k) <&> \w' -> s & w .~ w'
 
 --
 
