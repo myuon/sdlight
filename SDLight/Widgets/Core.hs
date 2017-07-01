@@ -68,13 +68,13 @@ emptyUnion :: Union '[] m v -> a
 emptyUnion = \case
 
 newtype Op m r (op :: (* -> *) -> * -> *) = Op { runOp :: op m r }
-newtype Widget ops = Widget { runWidget :: forall m. Monad m => Union ops m ~> EitherT (Widget ops) m }
+newtype Widget ops = Widget { runWidget :: forall m. Functor m => Union ops m ~> EitherT (Widget ops) m }
 
-call :: (k ∈ xs, Monad m) => Widget xs -> (k m ~> EitherT (Widget xs) m)
+call :: (k ∈ xs, Functor m) => Widget xs -> (k m ~> EitherT (Widget xs) m)
 call w op = runWidget w $ inj op
 
 infixl 4 @!
-(@!) :: (k ∈ xs, Monad m) => Widget xs -> (k m ~> m)
+(@!) :: (k ∈ xs, Functor m) => Widget xs -> (k m ~> m)
 w @! op = (\(Right v) -> v) <$> runEitherT (w `call` op)
 
 infixl 4 @@!
@@ -82,9 +82,9 @@ infixl 4 @@!
 w @@! op = runIdentity $ w @! op
 
 infixl 4 @.
-(@.) :: (k ∈ xs, Monad m) => Widget xs -> k m Void -> m (Widget xs)
-w @. op = runEitherT (w `call` op) >>= \case
-  Left w' -> return w'
+(@.) :: (k ∈ xs, Functor m) => Widget xs -> k m Void -> m (Widget xs)
+w @. op = runEitherT (w `call` op) <&> \case
+  Left w' -> w'
   Right v -> absurd v
 
 infixl 4 @@.
@@ -101,7 +101,7 @@ continue go = EitherT . Identity . Left . go
 continueM :: Functor m => (model -> Widget xs) -> m model -> EitherT (Widget xs) m a
 continueM go v = EitherT $ Left . go <$> v
 
-finish :: Monad m => model -> EitherT (Widget xs) m model
+finish :: model -> EitherT (Widget xs) Identity model
 finish = right
 
 finishM :: Functor m => m model -> EitherT (Widget xs) m model
