@@ -45,6 +45,7 @@ instance Picture Component where
     rend' <- use renderer
     with (TTF.renderUTF8Blended font' txt (toRColor c)) SDL.freeSurface $ \surface -> do
       texture <- SDL.createTextureFromSurface rend' surface
+      SDL.textureBlendMode texture SDL.$= SDL.BlendAlphaBlend
       tinfo <- lift $ SDL.queryTexture texture
       return (texture, Nothing, SDL.Rectangle (SDL.P 0) (V2 (fromEnum $ SDL.textureWidth tinfo) (fromEnum $ SDL.textureHeight tinfo)))
     where
@@ -53,6 +54,7 @@ instance Picture Component where
   fillRectangle v = Component $ \(Color c) -> do
     rend <- use renderer
     texture <- SDL.createTexture rend SDL.RGBA8888 SDL.TextureAccessTarget (fmap toEnum v)
+    SDL.textureBlendMode texture SDL.$= SDL.BlendAlphaBlend
 
     with (SDL.get (SDL.rendererRenderTarget rend)) (\target -> SDL.rendererRenderTarget rend SDL.$= target) $ \_ -> do
       SDL.rendererRenderTarget rend SDL.$= Just texture
