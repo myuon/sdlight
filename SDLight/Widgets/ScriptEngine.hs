@@ -11,6 +11,7 @@ module SDLight.Widgets.ScriptEngine
   , Op'MiniScriptEngine
   , Op'LoadMiniScript(..)
   , parseMiniScript
+  , isReturn
 
   , EffectIn(..)
   , EffectOut(..)
@@ -82,6 +83,11 @@ data SimpleDSL a where
   ResetOpacity :: SimpleDSL ()
 
 type MiniScript = Skeleton SimpleDSL
+
+isReturn :: Skeleton t a -> Bool
+isReturn m = case debone m of
+  Return a -> True
+  _ -> False
 
 wait :: Int -> MiniScript ()
 wait = bone . Wait
