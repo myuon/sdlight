@@ -121,7 +121,7 @@ data MiniSyntax
   = SynWait Int
   | SynLoadCharacter FilePath Position CharaName
   | SynShowCharacter CharaName [MiniSyntax]
-  | SynSpeak CharaName [String]
+  | SynSpeak (Maybe CharaName) [String]
   deriving (Eq, Show)
 
 interpret :: [MiniSyntax] -> MiniScript ()
@@ -136,7 +136,7 @@ interpret = go M.empty where
       showCharacter (mp M.! name) $ go mp ms
       go mp xs
     SynSpeak name s -> do
-      speak (Just (mp M.! name)) s
+      speak ((mp M.!) <$> name) s
       go mp xs
 
 pminisyntax :: Tf.Parser [MiniSyntax]
@@ -169,7 +169,7 @@ pminisyntax = Tf.option [] $ Tf.many expr where
     return $ SynShowCharacter name prog
   pspeak = do
     Tf.symbol "@speak"
-    name <- Tf.some Tf.letter <* Tf.spaces
+    name <- Tf.option Nothing (Just <$> Tf.some Tf.letter <* Tf.spaces)
     s <- select [praw Tf.<?> "raw strings", plit Tf.<?> "literals"]
     return $ SynSpeak name s
 
@@ -331,7 +331,7 @@ wMiniScriptEngine = \texture v -> go <$> new texture v where
             & _state .~ Message
             & script .~ k ()
             & message @%~ Op'Reset (text :. SNil)
-            & layers %~ IM.mapWithKey (\key -> if Just (RefImage key) == ref then id else opacity .~ 0.5)
+            & layers %~ IM.mapWithKey (\key -> if Just (RefImage key) == ref then opacity .~ 1 else opacity .~ 0.5)
         (ResetOpacity :>>= k) -> do
           return $ model
             & layers %~ fmap (opacity .~ 1.0)
