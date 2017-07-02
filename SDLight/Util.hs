@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module SDLight.Util where
@@ -53,12 +54,22 @@ _position = lens (\(SDL.Rectangle a b) -> a) (\(SDL.Rectangle _ b) a' -> SDL.Rec
 _size :: Lens' (SDL.Rectangle a) (V2 a)
 _size = lens (\(SDL.Rectangle a b) -> b) (\(SDL.Rectangle a _) b' -> SDL.Rectangle a b')
 
--- surface -o texture
--- Be careful, this function *free* the surface
-linearlyGetTexture :: SDL.Surface -> GameM SDL.Texture
-linearlyGetTexture surf = do
-  rend <- use renderer
-  texture <- SDL.createTextureFromSurface rend surf
-  SDL.freeSurface surf
-  return texture
+-- closed interval [0,n]
+
+data Interval
+  = Interval
+  { _maxI :: Int
+  , _valueI :: Int
+  }
+
+makeLenses ''Interval
+
+(+.) :: Interval -> Int -> Interval
+Interval m v +. v' = Interval m ((v + v') `min` m)
+
+(-.) :: Interval -> Int -> Interval
+Interval m v -. v' = Interval m ((v - v') `max` 0)
+
+toInterval :: Int -> Interval
+toInterval n = Interval n n
 
