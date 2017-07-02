@@ -64,12 +64,10 @@ source/target
 
 -}
 
-newLayer :: FilePath -> V2 Int -> GameM Layer
-newLayer path (V2 width height) = do
-  rend <- use renderer
-  imgTexture <- lift $ SDL.loadTexture rend path
+-- Now, this functon does *not* destroy given texture
+newLayer :: SDL.Texture -> V2 Int -> GameM Layer
+newLayer imgTexture (V2 width height) = do
   layer <- resizeLayer imgTexture width height
-  SDL.destroyTexture imgTexture
   return layer
 
 resizeLayer :: SDL.Texture -> Int -> Int -> GameM Layer
@@ -110,20 +108,26 @@ type Op'Layer =
 data Op'RenderAlpha m r where
   Op'RenderAlpha :: Double -> V2 Int -> Op'RenderAlpha GameM ()
 
-wLayer :: FilePath -> V2 Int -> GameM (Widget Op'Layer)
-wLayer path v = go <$> newLayer path v where
+wLayer :: SDL.Texture -> V2 Int -> GameM (Widget Op'Layer)
+wLayer = \texture v -> go <$> newLayer texture v where
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
     (\(Op'Render v) -> lift $ renderLayer layer v 1.0)
     @> (\(Op'RenderAlpha alpha v) -> lift $ renderLayer layer v alpha)
     @> emptyUnion
 
+wLayerFilePath :: FilePath -> V2 Int -> GameM (Widget Op'Layer)
+wLayerFilePath path v = do
+  rend <- use renderer
+  texture <- SDL.loadTexture rend path
+  wLayer texture v
+
 -- Layered
 
 type Op'Layered xs = Op'Layer ++ xs
 
-wLayered :: Op'Render ∈ xs => FilePath -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
-wLayered = \path v w -> liftM2 go (wLayer path v) (return w) where
+wLayered :: Op'Render ∈ xs => SDL.Texture -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
+wLayered = \texture v w -> liftM2 go (wLayer texture v) (return w) where
   go :: Op'Render ∈ xs => Widget Op'Layer -> Widget xs -> Widget (Op'Layered xs)
   go wlayer wx = override (go wlayer) wx $ 
     (\(Op'Render v) -> InL $ lift $ renderAlpha 1.0 v wlayer wx)

@@ -52,12 +52,12 @@ data Balloon
 
 makeLenses ''Balloon
 
-wBalloon :: FilePath -> String -> Int -> GameM (Widget Op'Balloon)
-wBalloon = \path t stay -> go <$> new path t stay where
-  new :: FilePath -> String -> Int -> GameM Balloon
-  new path t stay =
+wBalloon :: SDL.Texture -> String -> Int -> GameM (Widget Op'Balloon)
+wBalloon = \texture t stay -> go <$> new texture t stay where
+  new :: SDL.Texture -> String -> Int -> GameM Balloon
+  new texture t stay =
     Balloon
-    <$> wLayer path (V2 100 60)
+    <$> wLayer texture (V2 100 60)
     <*> return t
     <*> return (effDisplay EaseOut 40 40)
     <*> return NotReady

@@ -227,17 +227,17 @@ data ScriptEngine
 
 makeLenses ''ScriptEngine
 
-wMiniScriptEngine :: FilePath -> V2 Int -> GameM (Widget Op'MiniScriptEngine)
-wMiniScriptEngine = \path v -> go <$> new path v where
-  new :: FilePath -> V2 Int -> GameM ScriptEngine
-  new path v =
+wMiniScriptEngine :: SDL.Texture -> V2 Int -> GameM (Widget Op'MiniScriptEngine)
+wMiniScriptEngine = \texture v -> go <$> new texture v where
+  new :: SDL.Texture -> V2 Int -> GameM ScriptEngine
+  new texture v =
     ScriptEngine
     <$> return NotReady
     <*> return IM.empty
     <*> return []
     <*> return (return ())
     <*> return 0
-    <*> wMessageLayer path v []
+    <*> wMessageLayer texture v []
   
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $

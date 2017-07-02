@@ -147,9 +147,9 @@ type Op'SelectLayer =
 
 type SelectLayer = (Widget Op'Layer, Widget Op'Layer, Widget Op'Selector)
 
-wSelectLayer :: FilePath -> FilePath -> V2 Int -> [String] -> Int -> GameM (Widget Op'SelectLayer)
+wSelectLayer :: SDL.Texture -> SDL.Texture -> V2 Int -> [String] -> Int -> GameM (Widget Op'SelectLayer)
 wSelectLayer = \win cur v labels num -> go <$> new win cur v labels num where
-  new :: FilePath -> FilePath -> V2 Int -> [String] -> Int -> GameM SelectLayer
+  new :: SDL.Texture -> SDL.Texture -> V2 Int -> [String] -> Int -> GameM SelectLayer
   new win cur v labels num = liftM3 (,,) (wLayer win v) (wLayer cur (V2 (v^._x - 20) 30)) (return $ wSelector labels num)
   
   go :: SelectLayer -> Widget Op'SelectLayer

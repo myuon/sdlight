@@ -47,17 +47,17 @@ data InputJapanese
 
 makeLenses ''InputJapanese
 
-wInputJapanese :: FilePath -> GameM (Widget Op'InputJapanese)
-wInputJapanese = \path -> go <$> new path where
+wInputJapanese :: SDL.Texture -> GameM (Widget Op'InputJapanese)
+wInputJapanese = \texture -> go <$> new texture where
   textLayerArea = V2 800 50
   letterLayerArea = V2 800 550
   
-  new :: FilePath -> GameM InputJapanese
-  new path =
+  new :: SDL.Texture -> GameM InputJapanese
+  new texture =
     InputJapanese
     <$> return ""
-    <*> wLayer path (V2 800 50)
-    <*> wLayer path (V2 800 550)
+    <*> wLayer texture (V2 800 50)
+    <*> wLayer texture (V2 800 550)
     <*> return (V2 0 0)
     <*> return Selecting
 

@@ -8,6 +8,7 @@ import Data.Proxy
 import GHC.TypeLits
 import Linear.V2
 import Linear.V4
+import SDLight.Types
 
 -- color
 
@@ -52,4 +53,12 @@ _position = lens (\(SDL.Rectangle a b) -> a) (\(SDL.Rectangle _ b) a' -> SDL.Rec
 _size :: Lens' (SDL.Rectangle a) (V2 a)
 _size = lens (\(SDL.Rectangle a b) -> b) (\(SDL.Rectangle a _) b' -> SDL.Rectangle a b')
 
+-- surface -o texture
+-- Be careful, this function *free* the surface
+linearlyGetTexture :: SDL.Surface -> GameM SDL.Texture
+linearlyGetTexture surf = do
+  rend <- use renderer
+  texture <- SDL.createTextureFromSurface rend surf
+  SDL.freeSurface surf
+  return texture
 
