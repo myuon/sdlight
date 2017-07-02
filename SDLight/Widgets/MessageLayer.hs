@@ -45,14 +45,11 @@ data MessageWriter
   { _messages :: [String]
   , _counter :: V2 Int
   , _currentMessages :: [String]
-  , _mwstate :: MessageState
+  , __state :: MessageState
   , _maxLine :: Int
   }
 
 makeLenses ''MessageWriter
-
-instance HasState MessageWriter MessageState where
-  _state = mwstate
 
 type Op'MessageWriter =
   [ Op'Reset '[[String]]
@@ -79,7 +76,7 @@ wMessageWriter = \mes -> go <$> (new mes) where
   reset xs mes = mes
     & messages .~ drop 1 xs
     & currentMessages .~ (if xs /= [] then (take 1 xs) else ["initの引数がemptyです"])
-    & mwstate .~ Typing
+    & _state .~ Typing
     & counter .~ V2 0 1
 
   render :: MessageWriter -> V2 Int -> GameM ()

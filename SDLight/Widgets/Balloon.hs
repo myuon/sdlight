@@ -45,15 +45,12 @@ data Balloon
   { _balloonLayer :: Widget Op'Layer
   , _balloonText :: String
   , _eff :: Widget Eff'Display
-  , _bstate :: BalloonState
+  , __state :: BalloonState
   , _counter :: Int
   , _stayTime :: Int
   }
 
 makeLenses ''Balloon
-
-instance HasState Balloon BalloonState where
-  _state = bstate
 
 wBalloon :: FilePath -> String -> Int -> GameM (Widget Op'Balloon)
 wBalloon = \path t stay -> go <$> new path t stay where

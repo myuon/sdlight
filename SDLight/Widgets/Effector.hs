@@ -60,14 +60,11 @@ data Effector
   { _counter :: Int
   , _function :: Transition
   , _interval :: Int
-  , _estate :: EffectorState
+  , __state :: EffectorState
   , _value :: Double
   }
 
 makeLenses ''Effector
-
-instance HasState Effector EffectorState where
-  _state = estate
 
 data Op'Start m r where
   Op'Start :: Op'Start Identity NoValue

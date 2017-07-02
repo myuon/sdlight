@@ -9,11 +9,6 @@ import GHC.TypeLits
 import Linear.V2
 import Linear.V4
 
--- State Management
-
-class HasState c a | c -> a where
-  _state :: Lens' c a
-
 -- color
 
 class RGBA c where

@@ -42,13 +42,10 @@ data InputJapanese
   , _textLayer :: Widget Op'Layer
   , _letterLayer :: Widget Op'Layer
   , _pointer :: V2 Int
-  , _ijstate :: IJState
+  , __state :: IJState
   }
 
 makeLenses ''InputJapanese
-
-instance HasState InputJapanese IJState where
-  _state = ijstate
 
 wInputJapanese :: FilePath -> GameM (Widget Op'InputJapanese)
 wInputJapanese = \path -> go <$> new path where

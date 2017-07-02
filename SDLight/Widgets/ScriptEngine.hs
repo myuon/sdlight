@@ -35,7 +35,6 @@ import Data.List
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import Linear.V2
-import SDLight.Util (HasState(..))
 import SDLight.Types
 import SDLight.Components
 import SDLight.Widgets.Core
@@ -218,7 +217,7 @@ makeLenses ''Layer
 
 data ScriptEngine
   = ScriptEngine
-  { _sestate :: ScriptEngineState
+  { __state :: ScriptEngineState
   , _layers :: IM.IntMap Layer
   , _displaying :: [RefImage]
   , _script :: MiniScript ()
@@ -227,9 +226,6 @@ data ScriptEngine
   }
 
 makeLenses ''ScriptEngine
-
-instance HasState ScriptEngine ScriptEngineState where
-  _state = sestate
 
 wMiniScriptEngine :: FilePath -> V2 Int -> GameM (Widget Op'MiniScriptEngine)
 wMiniScriptEngine = \path v -> go <$> new path v where
