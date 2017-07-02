@@ -141,3 +141,10 @@ type family (++) (a :: [k]) (b :: [k]) where
   '[] ++ bs = bs
   (a : as) ++ bs = a : (as ++ bs)
 
+onFinish :: (Op'IsFinished ∈ xs, k ∈ xs, Monad m) => Lens' s (Widget xs) -> k m Void -> s -> (s -> m s) -> m s
+onFinish lens op s cb = do
+  s' <- s & lens <@%~ op
+  if s'^.lens @@! Op'IsFinished
+    then cb s'
+    else return s'
+

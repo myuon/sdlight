@@ -59,6 +59,7 @@ type Op'Selector =
   [ Op'Reset '[]
   , Op'Render
   , Op'RenderBy
+  , Op'Run
   , Op'HandleEvent
   , Op'IsFinished
   , Op'GetSelecting
@@ -79,6 +80,7 @@ wSelector = \labels selnum -> go $ new labels selnum where
     (\(Op'Reset _) -> continue go $ reset sel)
     @> (\(Op'Render v) -> lift $ renderDropdown sel v)
     @> (\(Op'RenderBy rend) -> lift $ render sel rend)
+    @> (\Op'Run -> continueM go $ return sel)
     @> (\(Op'HandleEvent keys) -> continueM go $ handler keys sel)
     @> (\Op'IsFinished -> finish $ sel^.isFinished)
     @> (\Op'GetSelecting -> finish $ sel^.selecting)
@@ -135,6 +137,7 @@ wSelector = \labels selnum -> go $ new labels selnum where
 type Op'SelectLayer =
   [ Op'Reset '[]
   , Op'Render
+  , Op'Run
   , Op'HandleEvent
   , Op'IsFinished
   , Op'GetSelecting
@@ -153,6 +156,7 @@ wSelectLayer = \win cur v labels num -> go <$> new win cur v labels num where
   go w = Widget $
     (\(Op'Reset args) -> continue go $ w & _3 @%~ Op'Reset args)
     @> (\(Op'Render v) -> lift $ render w v)
+    @> (\Op'Run -> continueM go $ return w)
     @> (\(Op'HandleEvent keys) -> continueM go $ (\x -> w & _3 .~ x) <$> (w^._3 @. Op'HandleEvent keys))
     @> (\Op'IsFinished -> finish $ w^._3 @@! Op'IsFinished)
     @> (\Op'GetSelecting -> finish $ w^._3 @@! Op'GetSelecting)

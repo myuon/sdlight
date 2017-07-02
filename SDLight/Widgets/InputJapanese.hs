@@ -28,6 +28,7 @@ data Op'GetText m r where
 type Op'InputJapanese =
   [ Op'Reset '[]
   , Op'Render
+  , Op'Run
   , Op'HandleEvent
   , Op'IsFinished
   , Op'GetText
@@ -67,6 +68,7 @@ wInputJapanese = \path -> go <$> new path where
   go model = Widget $
     (\(Op'Reset _) -> continue go $ reset model)
     @> (\(Op'Render v) -> lift $ render model)
+    @> (\Op'Run -> continueM go $ return model)
     @> (\(Op'HandleEvent keys) -> continueM go $ handler keys model)
     @> (\Op'IsFinished -> finish $ model^._state == Finished)
     @> (\Op'GetText -> finish $ model^.currentText)
