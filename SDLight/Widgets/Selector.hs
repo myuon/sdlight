@@ -10,6 +10,7 @@ module SDLight.Widgets.Selector
   , Op'RenderBy(..)
   , Op'GetSelecting(..)
   , Op'GetPointer(..)
+  , Op'GetLabels(..)
   , Op'SetLabels(..)
 
   , wSelectLayer
@@ -52,6 +53,9 @@ data Op'GetSelecting m r where
 data Op'GetPointer m r where
   Op'GetPointer :: Op'GetPointer Identity (Maybe Int)
 
+data Op'GetLabels m r where
+  Op'GetLabels :: Op'GetLabels Identity [String]
+
 data Op'SetLabels m r where
   Op'SetLabels :: [String] -> Op'SetLabels Identity NoValue
 
@@ -64,6 +68,7 @@ type Op'Selector =
   , Op'IsFinished
   , Op'GetSelecting
   , Op'GetPointer
+  , Op'GetLabels
   , Op'SetLabels
   ]
 
@@ -85,6 +90,7 @@ wSelector = \labels selnum -> go $ new labels selnum where
     @> (\Op'IsFinished -> finish $ sel^.isFinished)
     @> (\Op'GetSelecting -> finish $ sel^.selecting)
     @> (\Op'GetPointer -> finish $ sel^.pointer)
+    @> (\Op'GetLabels -> finish $ sel^.labels)
     @> (\(Op'SetLabels ls) -> continue go $ sel & labels .~ ls)
     @> emptyUnion
 
@@ -142,6 +148,7 @@ type Op'SelectLayer =
   , Op'IsFinished
   , Op'GetSelecting
   , Op'GetPointer
+  , Op'GetLabels
   , Op'SetLabels
   ]
 
@@ -161,6 +168,7 @@ wSelectLayer = \win cur v labels num -> go <$> new win cur v labels num where
     @> (\Op'IsFinished -> finish $ w^._3 @@! Op'IsFinished)
     @> (\Op'GetSelecting -> finish $ w^._3 @@! Op'GetSelecting)
     @> (\Op'GetPointer -> finish $ w^._3 @@! Op'GetPointer)
+    @> (\Op'GetLabels -> finish $ w^._3 @@! Op'GetLabels)
     @> (\(Op'SetLabels t) -> continue go $ w & _3 @%~ Op'SetLabels t)
     @> emptyUnion
   
