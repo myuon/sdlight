@@ -10,5 +10,7 @@ import SDLight.Widgets.InputJapanese as M
 import SDLight.Widgets.ScriptEngine as M
 
 import SDLight.Widgets.Effector as M
+import SDLight.Widgets.Wallpaper as M
 
 import SDLight.Widgets.Balloon as M
+
