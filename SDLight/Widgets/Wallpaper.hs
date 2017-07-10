@@ -3,7 +3,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
-module SDLight.Widgets.Wallpaper where
+module SDLight.Widgets.Wallpaper
+  ( wWallpaper
+  , Op'Wallpaper
+  ) where
 
 import qualified SDL as SDL
 import qualified SDL.Image as SDL
