@@ -86,7 +86,7 @@ infixl 4 @@.
 w @@. op = runIdentity $ w @. op
 
 continue :: (model -> Widget xs) -> model -> EitherT (Widget xs) Identity a
-continue go = EitherT . Identity . Left . go
+continue go = left . go
 
 continueM :: Functor m => (model -> Widget xs) -> m model -> EitherT (Widget xs) m a
 continueM go v = EitherT $ Left . go <$> v
