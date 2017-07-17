@@ -31,7 +31,7 @@ data Wallpaper
 makeLenses ''Wallpaper
 
 type Op'Wallpaper =
-  [ Op'Reset '[]
+  [ Op'Reset ()
   , Op'Render
   , Op'HandleEvent
   ]

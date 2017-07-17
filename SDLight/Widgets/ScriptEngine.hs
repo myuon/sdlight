@@ -195,7 +195,7 @@ data Op'LoadMiniScript br m r where
   Op'LoadMiniScript :: MiniScript () -> Op'LoadMiniScript Self Identity a
 
 type Op'MiniScriptEngine =
-  [ Op'Reset '[]
+  [ Op'Reset ()
   , Op'Render
   , Op'Run
   , Op'HandleEvent
@@ -247,7 +247,7 @@ wMiniScriptEngine = \texture v -> go <$> new texture v where
   
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $
-    (\(Op'Reset SNil) -> continue go $ reset model)
+    (\(Op'Reset _) -> continue go $ reset model)
     @> (\(Op'Render v) -> lift $ render v model)
     @> (\Op'Run -> continueM go $ run model)
     @> (\(Op'HandleEvent keys) -> continueM go $ handler keys model)
@@ -336,7 +336,7 @@ wMiniScriptEngine = \texture v -> go <$> new texture v where
           return $ model
             & _state .~ Message
             & script .~ k ()
-            & message @%~ Op'Reset (text :. SNil)
+            & message @%~ Op'Reset text
             & layers %~ IM.mapWithKey (\key -> if Just (RefImage key) == ref then opacity .~ 1 else opacity .~ 0.5)
         (ResetOpacity :>>= k) -> do
           return $ model

@@ -52,7 +52,7 @@ data MessageWriter
 makeLenses ''MessageWriter
 
 type Op'MessageWriter =
-  [ Op'Reset '[[String]]
+  [ Op'Reset [String]
   , Op'Render
   , Op'Run
   , Op'HandleEvent
@@ -65,7 +65,7 @@ wMessageWriter = \mes -> go <$> (new mes) where
 
   go :: MessageWriter -> Widget Op'MessageWriter
   go mw = Widget $
-    (\(Op'Reset (mes' :. SNil)) -> continue go $ reset mes' mw)
+    (\(Op'Reset mes') -> continue go $ reset mes' mw)
     @> (\(Op'Render v) -> lift $ render mw v)
     @> (\Op'Run -> continueM go $ run mw)
     @> (\(Op'HandleEvent keys) -> continueM go $ handler keys mw)

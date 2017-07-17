@@ -60,7 +60,7 @@ data Op'SetLabels br m r where
   Op'SetLabels :: [String] -> Op'SetLabels Self Identity a
 
 type Op'Selector =
-  [ Op'Reset '[]
+  [ Op'Reset ()
   , Op'Render
   , Op'RenderBy
   , Op'Run
@@ -141,7 +141,7 @@ wSelector = \labels selnum -> go $ new labels selnum where
 
 
 type Op'SelectLayer =
-  [ Op'Reset '[]
+  [ Op'Reset ()
   , Op'Render
   , Op'Run
   , Op'HandleEvent

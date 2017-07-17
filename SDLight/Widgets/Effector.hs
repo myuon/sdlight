@@ -73,7 +73,7 @@ data Op'GetValue br m r where
   Op'GetValue :: Op'GetValue Value Identity Double
 
 type Op'Effector =
-  [ Op'Reset '[]
+  [ Op'Reset ()
   , Op'Run
   , Op'Start
   , Op'IsFinished
@@ -122,7 +122,7 @@ data Op'IsDisappeared br m r where
   Op'IsDisappeared :: Op'IsDisappeared Value Identity Bool
 
 type Eff'Display =
-  [ Op'Reset '[]
+  [ Op'Reset ()
   , Op'Run
   , Op'Appear
   , Op'Disappear
@@ -144,7 +144,7 @@ effDisplay = \tr n1 n2 -> go Invisible (effector tr n1) (effector (Inverse tr) n
   
   go :: EffDisplayeState -> Widget Op'Effector -> Widget Op'Effector -> Widget Eff'Display
   go st eff1 eff2 = Widget $
-    (\(Op'Reset SNil) -> continue (uncurry' go) $ reset st eff1 eff2)
+    (\(Op'Reset _) -> continue (uncurry' go) $ reset st eff1 eff2)
     @> (\Op'Run -> continueM (uncurry' go) $ run st eff1 eff2)
     @> (\Op'Appear -> continue (uncurry' go) (Appearing, eff1 @@. Op'Start, eff2))
     @> (\Op'Disappear -> continue (uncurry' go) (Disappearing, eff1, eff2 @@. Op'Start))
@@ -153,7 +153,7 @@ effDisplay = \tr n1 n2 -> go Invisible (effector tr n1) (effector (Inverse tr) n
     @> (\Op'IsDisappeared -> finish $ st == Invisible && eff2 @@! Op'IsFinished)
     @> emptyUnion
 
-  reset st eff1 eff2 = (Invisible, eff1 @@. Op'Reset SNil, eff2 @@. Op'Reset SNil)
+  reset st eff1 eff2 = (Invisible, eff1 @@. Op'Reset (), eff2 @@. Op'Reset ())
 
   run :: EffDisplayeState -> Widget Op'Effector -> Widget Op'Effector -> GameM (EffDisplayeState, Widget Op'Effector, Widget Op'Effector)
   run st eff1 eff2 = case st of
@@ -196,7 +196,7 @@ effDisplayed = \tr n1 n2 w -> go (effDisplay tr n1 n2) w where
     @> (\Op'GetAlpha -> InL $ finish $ eff @@! Op'GetAlpha)
     @> (\Op'IsAppeared -> InL $ finish $ eff @@! Op'IsAppeared)
     @> (\Op'IsDisappeared -> InL $ finish $ eff @@! Op'IsDisappeared)
-    @> (\(Op'Reset r) -> InL $ continue (uncurry go) $ (eff,w) & _1 @%~ Op'Reset SNil & _2 @%~ Op'Reset r)
+    @> (\(Op'Reset r) -> InL $ continue (uncurry go) $ (eff,w) & _1 @%~ Op'Reset () & _2 @%~ Op'Reset r)
     @> bisum id UNext . InR
 
   bisum :: (f ~> f') -> (g ~> g') -> Sum f g ~> Sum f' g'

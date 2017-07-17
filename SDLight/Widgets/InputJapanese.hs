@@ -26,7 +26,7 @@ data Op'GetText br m r where
   Op'GetText :: Op'GetText Value Identity String
 
 type Op'InputJapanese =
-  [ Op'Reset '[]
+  [ Op'Reset ()
   , Op'Render
   , Op'Run
   , Op'HandleEvent

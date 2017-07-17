@@ -149,20 +149,14 @@ infixr 4 <@%~
 
 --
 
-data Seq args where
-  SNil :: Seq '[]
-  SCons :: x -> Seq xs -> Seq (x : xs)
-
-pattern (:.) x y = SCons x y
-
 data Op'Render br m r where
   Op'Render :: SDL.V2 Int -> Op'Render Value GameM ()
 
 data Op'Run br m r where
   Op'Run :: Op'Run Self GameM a
 
-data Op'Reset args br m r where
-  Op'Reset :: Seq args -> Op'Reset args Self Identity a
+data Op'Reset arg br m r where
+  Op'Reset :: arg -> Op'Reset arg Self Identity a
 
 data Op'HandleEvent br m r where
   Op'HandleEvent :: M.Map SDL.Scancode Int -> Op'HandleEvent Self GameM a

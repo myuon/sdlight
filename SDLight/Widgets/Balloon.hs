@@ -27,7 +27,7 @@ data Op'Fly br m r where
   Op'Fly :: Op'Fly Self Identity a
 
 type Op'Balloon =
-  [ Op'Reset '[String]
+  [ Op'Reset String
   , Op'Render
   , Op'Run
   , Op'Fly
@@ -66,7 +66,7 @@ wBalloon = \texture t stay -> go <$> new texture t stay where
 
   go :: Balloon -> Widget Op'Balloon
   go model = Widget $
-    (\(Op'Reset (t :. SNil)) -> continue go $ reset t model)
+    (\(Op'Reset t) -> continue go $ reset t model)
     @> (\(Op'Render v) -> lift $ render v model)
     @> (\Op'Run -> continueM go $ run model)
     @> (\Op'Fly -> continue go $ model & _state .~ Running & eff @%~ Op'Appear)
