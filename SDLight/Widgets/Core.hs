@@ -1,4 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE EmptyCase #-}
@@ -166,10 +165,10 @@ data Op'IsFinished br m r where
 
 override :: (Widget old -> Widget new) -> Widget old -> (forall br m. Union new br m ~> (br (Widget new) m `Sum` Union old br m)) -> Widget new
 override updater wx f = Widget $ elim id (bimapT updater id . runWidget wx) . f where
-    elim :: (f ~> r) -> (g ~> r) -> (f `Sum` g ~> r)
-    elim f g x = case x of
-      InL a -> f a
-      InR a -> g a
+  elim :: (f ~> r) -> (g ~> r) -> (f `Sum` g ~> r)
+  elim f g x = case x of
+    InL a -> f a
+    InR a -> g a
 
 type family (++) (a :: [k]) (b :: [k]) where
   '[] ++ bs = bs
