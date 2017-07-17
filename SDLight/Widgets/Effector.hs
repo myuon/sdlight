@@ -67,7 +67,7 @@ data Effector
 makeLenses ''Effector
 
 data Op'Start br m r where
-  Op'Start :: Op'Start Self Identity NoValue
+  Op'Start :: Op'Start Self Identity a
 
 data Op'GetValue br m r where
   Op'GetValue :: Op'GetValue Value Identity Double
@@ -107,10 +107,10 @@ effector = \tr n -> go (new tr n) where
     _ -> return eff
 
 data Op'Appear br m r where
-  Op'Appear :: Op'Appear Self Identity NoValue
+  Op'Appear :: Op'Appear Self Identity a
 
 data Op'Disappear br m r where
-  Op'Disappear :: Op'Disappear Self Identity NoValue
+  Op'Disappear :: Op'Disappear Self Identity a
 
 data Op'GetAlpha br m r where
   Op'GetAlpha :: Op'GetAlpha Value Identity Double

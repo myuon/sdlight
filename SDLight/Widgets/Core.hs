@@ -155,19 +155,17 @@ data Seq args where
 
 pattern (:.) x y = SCons x y
 
-type NoValue = Void
-
 data Op'Render br m r where
   Op'Render :: SDL.V2 Int -> Op'Render Value GameM ()
 
 data Op'Run br m r where
-  Op'Run :: Op'Run Self GameM Void
+  Op'Run :: Op'Run Self GameM a
 
 data Op'Reset args br m r where
-  Op'Reset :: Seq args -> Op'Reset args Self Identity Void
+  Op'Reset :: Seq args -> Op'Reset args Self Identity a
 
 data Op'HandleEvent br m r where
-  Op'HandleEvent :: M.Map SDL.Scancode Int -> Op'HandleEvent Self GameM Void
+  Op'HandleEvent :: M.Map SDL.Scancode Int -> Op'HandleEvent Self GameM a
 
 data Op'IsFinished br m r where
   Op'IsFinished :: Op'IsFinished Value Identity Bool

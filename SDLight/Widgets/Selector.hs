@@ -57,7 +57,7 @@ data Op'GetLabels br m r where
   Op'GetLabels :: Op'GetLabels Value Identity [String]
 
 data Op'SetLabels br m r where
-  Op'SetLabels :: [String] -> Op'SetLabels Self Identity NoValue
+  Op'SetLabels :: [String] -> Op'SetLabels Self Identity a
 
 type Op'Selector =
   [ Op'Reset '[]

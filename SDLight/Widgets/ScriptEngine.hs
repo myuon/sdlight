@@ -192,7 +192,7 @@ parseMiniScript path = fmap interpret <$> Tf.parseFromFile pminisyntax path
 --
 
 data Op'LoadMiniScript br m r where
-  Op'LoadMiniScript :: MiniScript () -> Op'LoadMiniScript Self Identity NoValue
+  Op'LoadMiniScript :: MiniScript () -> Op'LoadMiniScript Self Identity a
 
 type Op'MiniScriptEngine =
   [ Op'Reset '[]
