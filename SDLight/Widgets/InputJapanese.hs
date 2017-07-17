@@ -22,8 +22,8 @@ import SDLight.Components
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 
-data Op'GetText m r where
-  Op'GetText :: Op'GetText Identity String
+data Op'GetText br m r where
+  Op'GetText :: Op'GetText Value Identity String
 
 type Op'InputJapanese =
   [ Op'Reset '[]

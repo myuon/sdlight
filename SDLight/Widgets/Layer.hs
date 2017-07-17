@@ -105,8 +105,8 @@ type Op'Layer =
   , Op'RenderAlpha
   ]
 
-data Op'RenderAlpha m r where
-  Op'RenderAlpha :: Double -> V2 Int -> Op'RenderAlpha GameM ()
+data Op'RenderAlpha br m r where
+  Op'RenderAlpha :: Double -> V2 Int -> Op'RenderAlpha Value GameM ()
 
 wLayer :: SDL.Texture -> V2 Int -> GameM (Widget Op'Layer)
 wLayer = \texture v -> go <$> newLayer texture v where

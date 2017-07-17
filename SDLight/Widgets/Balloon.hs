@@ -23,8 +23,8 @@ import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 import SDLight.Widgets.Effector
 
-data Op'Fly m r where
-  Op'Fly :: Op'Fly Identity NoValue
+data Op'Fly br m r where
+  Op'Fly :: Op'Fly Self Identity NoValue
 
 type Op'Balloon =
   [ Op'Reset '[String]

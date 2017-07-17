@@ -44,20 +44,20 @@ data Selector
 
 makeLenses ''Selector
 
-data Op'RenderBy m r where
-  Op'RenderBy :: (String -> Int -> Bool -> Bool -> GameM ()) -> Op'RenderBy GameM ()
+data Op'RenderBy br m r where
+  Op'RenderBy :: (String -> Int -> Bool -> Bool -> GameM ()) -> Op'RenderBy Value GameM ()
 
-data Op'GetSelecting m r where
-  Op'GetSelecting :: Op'GetSelecting Identity [Int]
+data Op'GetSelecting br m r where
+  Op'GetSelecting :: Op'GetSelecting Value Identity [Int]
 
-data Op'GetPointer m r where
-  Op'GetPointer :: Op'GetPointer Identity (Maybe Int)
+data Op'GetPointer br m r where
+  Op'GetPointer :: Op'GetPointer Value Identity (Maybe Int)
 
-data Op'GetLabels m r where
-  Op'GetLabels :: Op'GetLabels Identity [String]
+data Op'GetLabels br m r where
+  Op'GetLabels :: Op'GetLabels Value Identity [String]
 
-data Op'SetLabels m r where
-  Op'SetLabels :: [String] -> Op'SetLabels Identity NoValue
+data Op'SetLabels br m r where
+  Op'SetLabels :: [String] -> Op'SetLabels Self Identity NoValue
 
 type Op'Selector =
   [ Op'Reset '[]

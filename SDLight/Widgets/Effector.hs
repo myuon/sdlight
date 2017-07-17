@@ -66,11 +66,11 @@ data Effector
 
 makeLenses ''Effector
 
-data Op'Start m r where
-  Op'Start :: Op'Start Identity NoValue
+data Op'Start br m r where
+  Op'Start :: Op'Start Self Identity NoValue
 
-data Op'GetValue m r where
-  Op'GetValue :: Op'GetValue Identity Double
+data Op'GetValue br m r where
+  Op'GetValue :: Op'GetValue Value Identity Double
 
 type Op'Effector =
   [ Op'Reset '[]
@@ -106,20 +106,20 @@ effector = \tr n -> go (new tr n) where
       & value .~ transit (eff^.function) (eff^.counter) (eff^.interval) 
     _ -> return eff
 
-data Op'Appear m r where
-  Op'Appear :: Op'Appear Identity NoValue
+data Op'Appear br m r where
+  Op'Appear :: Op'Appear Self Identity NoValue
 
-data Op'Disappear m r where
-  Op'Disappear :: Op'Disappear Identity NoValue
+data Op'Disappear br m r where
+  Op'Disappear :: Op'Disappear Self Identity NoValue
 
-data Op'GetAlpha m r where
-  Op'GetAlpha :: Op'GetAlpha Identity Double
+data Op'GetAlpha br m r where
+  Op'GetAlpha :: Op'GetAlpha Value Identity Double
 
-data Op'IsAppeared m r where
-  Op'IsAppeared :: Op'IsAppeared Identity Bool
+data Op'IsAppeared br m r where
+  Op'IsAppeared :: Op'IsAppeared Value Identity Bool
 
-data Op'IsDisappeared m r where
-  Op'IsDisappeared :: Op'IsDisappeared Identity Bool
+data Op'IsDisappeared br m r where
+  Op'IsDisappeared :: Op'IsDisappeared Value Identity Bool
 
 type Eff'Display =
   [ Op'Reset '[]
