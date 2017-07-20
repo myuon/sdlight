@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE EmptyCase #-}
@@ -79,9 +80,6 @@ newtype Value w m a = Value { getValue :: m a }
 instance MonadTrans (Value w) where
   lift = Value
 
-instance Functor m => TransBifunctor EitherT m where
-  bimapT = bimapEitherT
-
 instance Functor m => TransBifunctor Self m where
   bimapT f g = Self . fmap f . runSelf
 
@@ -135,6 +133,26 @@ infixr 4 <@%~
 
 --
 
+data Freeze w a = Freeze w a | Keep w
+
+makePrisms ''Freeze
+
+refreeze :: (w -> z) -> Freeze w a -> Freeze z b
+refreeze f (Freeze w a) = Keep (f w)
+refreeze f (Keep w) = Keep (f w)
+
+unfreeze :: (w -> a -> r) -> (w -> r) -> Freeze w a -> r
+unfreeze fr ke (Freeze w a) = fr w a
+unfreeze fr ke (Keep w) = ke w
+
+_Frozen :: Lens' (Freeze w a) w
+_Frozen = lens get set where
+  get (Freeze w _) = w
+  get (Keep w) = w
+
+  set (Freeze _ a) w = Freeze w a
+  set (Keep _) w = Keep w
+
 data Op'Render br m r where
   Op'Render :: SDL.V2 Int -> Op'Render Value GameM ()
 
@@ -147,8 +165,32 @@ data Op'Reset arg br m r where
 data Op'HandleEvent br m r where
   Op'HandleEvent :: M.Map SDL.Scancode Int -> Op'HandleEvent Self GameM a
 
-data Op'IsFinished br m r where
-  Op'IsFinished :: Op'IsFinished Value Identity Bool
+
+data Op'Switch br m r where
+  Op'Switch :: Op'Switch FreezeT GameM ()
+
+newtype FreezeT w m a = FreezeT { runFreezeT :: m (Freeze w a) }
+
+instance Functor m => TransBifunctor FreezeT m where
+  bimapT f g = FreezeT . fmap (unfreeze (\a c -> Freeze (f a) (g c)) (Keep . f)) . runFreezeT
+
+instance NodeW FreezeT where
+  continue = FreezeT . return . Keep
+  continueM = FreezeT . fmap Keep
+
+  w @. op = fmap (^._Frozen) $ runFreezeT $ w `call` op
+
+freeze :: Monad m => Widget xs -> a -> FreezeT (Widget xs) m a
+freeze w a = FreezeT $ return $ Freeze w a
+
+freeze' :: Monad m => Widget xs -> FreezeT (Widget xs) m ()
+freeze' w = freeze w ()
+
+freezeM :: Monad m => m (Widget xs) -> a -> FreezeT (Widget xs) m a
+freezeM mw a = FreezeT $ fmap (\w -> Freeze w a) mw
+
+freezeM' :: Monad m => m (Widget xs) -> FreezeT (Widget xs) m ()
+freezeM' w = freezeM w ()
 
 override :: (Widget old -> Widget new) -> Widget old -> (forall br m. Union new br m ~> (br (Widget new) m `Sum` Union old br m)) -> Widget new
 override updater wx f = Widget $ elim id (bimapT updater id . runWidget wx) . f where
@@ -161,10 +203,20 @@ type family (++) (a :: [k]) (b :: [k]) where
   '[] ++ bs = bs
   (a : as) ++ bs = a : (as ++ bs)
 
-onFinish :: (Op'IsFinished ∈ xs, k ∈ xs, TransBifunctor br m, NodeW br, Monad m) => Lens' s (Widget xs) -> k br m Void -> s -> (s -> m s) -> m s
-onFinish lens op s cb = do
-  s' <- s & lens <@%~ op
-  if s'^.lens @@! Op'IsFinished
-    then cb s'
-    else return s'
+onFreeze :: (k ∈ xs, TransBifunctor FreezeT m, Monad m) => Lens' s (Widget xs) -> k FreezeT m a -> s -> (a -> Widget xs -> m s) -> m s
+onFreeze lens op s cb = do
+  fw <- runFreezeT $ (s^.lens) `call` op
+  case fw of
+    Freeze w a -> cb a w
+    Keep w -> return $ s & lens .~ w
+
+onFreeze' :: (k ∈ xs, TransBifunctor FreezeT m, Monad m) => Lens' s (Widget xs) -> k FreezeT m a -> s -> (Widget xs -> m s) -> m s
+onFreeze' lens op s cb = onFreeze lens op s (\_ -> cb)
+
+onFinish :: (k ∈ xs, TransBifunctor FreezeT m, Monad m) => Lens' s (Widget xs) -> k FreezeT m a -> s -> (a -> s -> m s) -> m s
+onFinish lens op s cb = onFreeze lens op s (\a w -> cb a (s & lens .~ w))
+
+runSwitch :: (k ∈ xs, Monad m) => Widget xs -> k FreezeT m a -> (Freeze (Widget xs) a -> m r) -> m r
+runSwitch w op k = runFreezeT (w `call` op) >>= k
+
 
