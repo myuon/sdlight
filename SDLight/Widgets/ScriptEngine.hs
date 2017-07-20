@@ -199,7 +199,7 @@ type Op'MiniScriptEngine =
   , Op'Render
   , Op'Run
   , Op'HandleEvent
-  , Op'IsFinished
+  , Op'Switch
   , Op'LoadMiniScript
   ]
 
@@ -251,7 +251,7 @@ wMiniScriptEngine = \texture v -> go <$> new texture v where
     @> (\(Op'Render v) -> lift $ render v model)
     @> (\Op'Run -> continueM $ fmap go $ run model)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys model)
-    @> (\Op'IsFinished -> finish $ model^._state == Finished)
+    @> (\Op'Switch -> (if model^._state == Finished then freeze' else continue) $ go model)
     @> (\(Op'LoadMiniScript ms) -> continue $ go $ model & script .~ ms & _state .~ Running)
     @> emptyUnion
 
@@ -341,8 +341,8 @@ wMiniScriptEngine = \texture v -> go <$> new texture v where
         (ResetOpacity :>>= k) -> do
           return $ model
             & layers %~ fmap (opacity .~ 1.0)
-    Message | model^.message @@! Op'IsFinished -> return $ model & _state .~ Running
-    Message -> model^.message @. Op'Run >>= \m -> return $ model & message .~ m
+    Message | op'isFreeze (model^.message) Op'Switch -> return $ model & _state .~ Running
+    Message -> model & message <@%~ Op'Run
     PerformEffect _ _ | model^.counter <= 0 -> return $ model & _state .~ Running
     PerformEffect eff (RefImage ref) -> do
       let ratio t = (fromIntegral $ model^.counter) / fromIntegral t

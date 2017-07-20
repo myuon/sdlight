@@ -56,7 +56,7 @@ type Op'MessageWriter =
   , Op'Render
   , Op'Run
   , Op'HandleEvent
-  , Op'IsFinished
+  , Op'Switch
   ]
 
 wMessageWriter :: [String] -> GameM (Widget Op'MessageWriter)
@@ -69,7 +69,7 @@ wMessageWriter = \mes -> go <$> (new mes) where
     @> (\(Op'Render v) -> lift $ render mw v)
     @> (\Op'Run -> continueM $ fmap go $ run mw)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys mw)
-    @> (\Op'IsFinished -> finish $ mw^._state == Finished)
+    @> (\Op'Switch -> (if mw^._state == Finished then freeze' else continue) $ go mw)
     @> emptyUnion
 
   reset :: [String] -> MessageWriter -> MessageWriter
@@ -127,6 +127,6 @@ wMessageLayer = \texture v mes -> go <$> (wDelayed 2 <$> (wLayered texture v =<<
     @> (\(Op'Render v) -> lift $ wm @! Op'Render v)
     @> (\Op'Run -> continueM $ fmap go $ wm @. Op'Run)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ wm @. Op'HandleEvent keys)
-    @> (\Op'IsFinished -> finish $ wm @@! Op'IsFinished)
+    @> (\Op'Switch -> bimapT go id $ wm `call` Op'Switch)
     @> emptyUnion
 

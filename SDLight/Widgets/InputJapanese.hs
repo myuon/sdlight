@@ -30,7 +30,7 @@ type Op'InputJapanese =
   , Op'Render
   , Op'Run
   , Op'HandleEvent
-  , Op'IsFinished
+  , Op'Switch
   , Op'GetText
   ]
 
@@ -67,7 +67,7 @@ wInputJapanese = \texture -> go <$> new texture where
     @> (\(Op'Render v) -> lift $ render model)
     @> (\Op'Run -> continue $ go model)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys model)
-    @> (\Op'IsFinished -> finish $ model^._state == Finished)
+    @> (\Op'Switch -> (if model^._state == Finished then freeze' else continue) $ go model)
     @> (\Op'GetText -> finish $ model^.currentText)
     @> emptyUnion
 

@@ -65,7 +65,7 @@ type Op'Selector =
   , Op'RenderBy
   , Op'Run
   , Op'HandleEvent
-  , Op'IsFinished
+  , Op'Switch
   , Op'GetSelecting
   , Op'GetPointer
   , Op'GetLabels
@@ -87,7 +87,7 @@ wSelector = \labels selnum -> go $ new labels selnum where
     @> (\(Op'RenderBy rend) -> lift $ render sel rend)
     @> (\Op'Run -> continueM $ fmap go $ return sel)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys sel)
-    @> (\Op'IsFinished -> finish $ sel^.isFinished)
+    @> (\Op'Switch -> (if sel^.isFinished then freeze' else continue) $ go sel)
     @> (\Op'GetSelecting -> finish $ sel^.selecting)
     @> (\Op'GetPointer -> finish $ sel^.pointer)
     @> (\Op'GetLabels -> finish $ sel^.labels)
@@ -145,7 +145,7 @@ type Op'SelectLayer =
   , Op'Render
   , Op'Run
   , Op'HandleEvent
-  , Op'IsFinished
+  , Op'Switch
   , Op'GetSelecting
   , Op'GetPointer
   , Op'GetLabels
@@ -165,13 +165,13 @@ wSelectLayer = \win cur v labels num -> go <$> new win cur v labels num where
     @> (\(Op'Render v) -> lift $ render w v)
     @> (\Op'Run -> continue $ go w)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ (\x -> w & _3 .~ x) <$> (w^._3 @. Op'HandleEvent keys))
-    @> (\Op'IsFinished -> finish $ w^._3 @@! Op'IsFinished)
+    @> (\Op'Switch -> (if op'isFreeze (w^._3) Op'Switch then freeze' else continue) $ go w)
     @> (\Op'GetSelecting -> finish $ w^._3 @@! Op'GetSelecting)
     @> (\Op'GetPointer -> finish $ w^._3 @@! Op'GetPointer)
     @> (\Op'GetLabels -> finish $ w^._3 @@! Op'GetLabels)
     @> (\(Op'SetLabels t) -> continue $ go $ w & _3 @%~ Op'SetLabels t)
     @> emptyUnion
-  
+
   render :: SelectLayer -> V2 Int -> GameM ()
   render sel v = do
     sel^._1 @! Op'Render v

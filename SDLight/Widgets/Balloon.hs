@@ -31,7 +31,7 @@ type Op'Balloon =
   , Op'Render
   , Op'Run
   , Op'Fly
-  , Op'IsFinished
+  , Op'Switch
   ]
 
 data BalloonState
@@ -70,7 +70,7 @@ wBalloon = \texture t stay -> go <$> new texture t stay where
     @> (\(Op'Render v) -> lift $ render v model)
     @> (\Op'Run -> continueM $ fmap go $ run model)
     @> (\Op'Fly -> continue $ go $ model & _state .~ Running & eff @%~ Op'Appear)
-    @> (\Op'IsFinished -> finish $ model^._state == Finished && model^.eff @@! Op'IsDisappeared)
+    @> (\Op'Switch -> (if model^._state == Finished && model^.eff @@! Op'IsDisappeared then freeze' else continue) $ go model)
     @> emptyUnion
 
   reset :: String -> Balloon -> Balloon
