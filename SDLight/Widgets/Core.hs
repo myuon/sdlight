@@ -74,6 +74,9 @@ class TransBifunctor f m where
 newtype Op m r (op :: (* -> *) -> * -> *) = Op { runOp :: op m r }
 newtype Widget ops = Widget { runWidget :: forall br m. (Functor m, TransBifunctor br m) => Union ops br m ~> br (Widget ops) m }
 
+call :: (k ∈ xs, TransBifunctor br m, Functor m) => Widget xs -> (k br m ~> br (Widget xs) m)
+call w op = runWidget w $ inj op
+
 newtype Self w m a = Self { runSelf :: m w }
 newtype Value w m a = Value { getValue :: m a }
 
@@ -85,9 +88,6 @@ instance Functor m => TransBifunctor Self m where
 
 instance Functor m => TransBifunctor Value m where
   bimapT f g = Value . fmap g . getValue
-
-call :: (k ∈ xs, TransBifunctor br m, Functor m) => Widget xs -> (k br m ~> br (Widget xs) m)
-call w op = runWidget w $ inj op
 
 class NodeW br where
   continue :: Monad m => Widget xs -> br (Widget xs) m a
@@ -206,21 +206,25 @@ type family (++) (a :: [k]) (b :: [k]) where
   '[] ++ bs = bs
   (a : as) ++ bs = a : (as ++ bs)
 
-onFreeze :: (k ∈ xs, TransBifunctor FreezeT m, Monad m) => Lens' s (Widget xs) -> k FreezeT Identity a -> s -> (a -> Widget xs -> m s) -> m s
+onFreeze :: (TransBifunctor FreezeT m, Monad m)
+  => Lens' s (Widget xs) -> (Widget xs -> FreezeT (Widget xs) Identity a) -> s -> (a -> Widget xs -> m s) -> m s
 onFreeze lens op s cb = do
-  case runIdentity $ runFreezeT $ (s^.lens) `call` op of
+  case runIdentity $ runFreezeT $ op (s^.lens) of
     Freeze w a -> cb a w
     Keep w -> return $ s & lens .~ w
 
-onFreeze' :: (k ∈ xs, TransBifunctor FreezeT m, Monad m) => Lens' s (Widget xs) -> k FreezeT Identity a -> s -> (Widget xs -> m s) -> m s
+onFreeze' :: (TransBifunctor FreezeT m, Monad m)
+  => Lens' s (Widget xs) -> (Widget xs -> FreezeT (Widget xs) Identity ()) -> s -> (Widget xs -> m s) -> m s
 onFreeze' lens op s cb = onFreeze lens op s (\_ -> cb)
 
-onFinish :: (k ∈ xs, Monad m) => Lens' s (Widget xs) -> k FreezeT Identity a -> s -> (a -> s -> m s) -> m s
+onFinish :: Monad m
+         => Lens' s (Widget xs) -> (Widget xs -> FreezeT (Widget xs) Identity a) -> s -> (a -> s -> m s) -> m s
 onFinish lens op s cb = onFreeze lens op s (\a w -> cb a (s & lens .~ w))
 
-onFinishM :: (k ∈ xs, TransBifunctor FreezeT m, Monad m) => Lens' s (Widget xs) -> k FreezeT m a -> s -> (a -> s -> m s) -> m s
+onFinishM :: (TransBifunctor FreezeT m, Monad m)
+          => Lens' s (Widget xs) -> (Widget xs -> m (FreezeT (Widget xs) Identity a)) -> s -> (a -> s -> m s) -> m s
 onFinishM lens op s cb = do
-  fw <- runFreezeT $ (s^.lens) `call` op
+  fw <- fmap (runIdentity . runFreezeT) $ op (s^.lens)
   case fw of
     Freeze w a -> cb a (s & lens .~ w)
     Keep w -> return $ s & lens .~ w
