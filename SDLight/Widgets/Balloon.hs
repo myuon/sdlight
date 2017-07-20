@@ -66,10 +66,10 @@ wBalloon = \texture t stay -> go <$> new texture t stay where
 
   go :: Balloon -> Widget Op'Balloon
   go model = Widget $
-    (\(Op'Reset t) -> continue go $ reset t model)
+    (\(Op'Reset t) -> continue $ go $ reset t model)
     @> (\(Op'Render v) -> lift $ render v model)
-    @> (\Op'Run -> continueM go $ run model)
-    @> (\Op'Fly -> continue go $ model & _state .~ Running & eff @%~ Op'Appear)
+    @> (\Op'Run -> continueM $ fmap go $ run model)
+    @> (\Op'Fly -> continue $ go $ model & _state .~ Running & eff @%~ Op'Appear)
     @> (\Op'IsFinished -> finish $ model^._state == Finished && model^.eff @@! Op'IsDisappeared)
     @> emptyUnion
 

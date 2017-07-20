@@ -82,16 +82,16 @@ wSelector = \labels selnum -> go $ new labels selnum where
 
   go :: Selector -> Widget Op'Selector
   go sel = Widget $
-    (\(Op'Reset _) -> continue go $ reset sel)
+    (\(Op'Reset _) -> continue $ go $ reset sel)
     @> (\(Op'Render v) -> lift $ renderDropdown sel v)
     @> (\(Op'RenderBy rend) -> lift $ render sel rend)
-    @> (\Op'Run -> continueM go $ return sel)
-    @> (\(Op'HandleEvent keys) -> continueM go $ handler keys sel)
+    @> (\Op'Run -> continueM $ fmap go $ return sel)
+    @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys sel)
     @> (\Op'IsFinished -> finish $ sel^.isFinished)
     @> (\Op'GetSelecting -> finish $ sel^.selecting)
     @> (\Op'GetPointer -> finish $ sel^.pointer)
     @> (\Op'GetLabels -> finish $ sel^.labels)
-    @> (\(Op'SetLabels ls) -> continue go $ sel & labels .~ ls)
+    @> (\(Op'SetLabels ls) -> continue $ go $ sel & labels .~ ls)
     @> emptyUnion
 
   reset :: Selector -> Selector
@@ -161,15 +161,15 @@ wSelectLayer = \win cur v labels num -> go <$> new win cur v labels num where
   
   go :: SelectLayer -> Widget Op'SelectLayer
   go w = Widget $
-    (\(Op'Reset args) -> continue go $ w & _3 @%~ Op'Reset args)
+    (\(Op'Reset args) -> continue $ go $ w & _3 @%~ Op'Reset args)
     @> (\(Op'Render v) -> lift $ render w v)
-    @> (\Op'Run -> continueM go $ return w)
-    @> (\(Op'HandleEvent keys) -> continueM go $ (\x -> w & _3 .~ x) <$> (w^._3 @. Op'HandleEvent keys))
+    @> (\Op'Run -> continue $ go w)
+    @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ (\x -> w & _3 .~ x) <$> (w^._3 @. Op'HandleEvent keys))
     @> (\Op'IsFinished -> finish $ w^._3 @@! Op'IsFinished)
     @> (\Op'GetSelecting -> finish $ w^._3 @@! Op'GetSelecting)
     @> (\Op'GetPointer -> finish $ w^._3 @@! Op'GetPointer)
     @> (\Op'GetLabels -> finish $ w^._3 @@! Op'GetLabels)
-    @> (\(Op'SetLabels t) -> continue go $ w & _3 @%~ Op'SetLabels t)
+    @> (\(Op'SetLabels t) -> continue $ go $ w & _3 @%~ Op'SetLabels t)
     @> emptyUnion
   
   render :: SelectLayer -> V2 Int -> GameM ()

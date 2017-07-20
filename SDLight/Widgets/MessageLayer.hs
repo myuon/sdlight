@@ -65,10 +65,10 @@ wMessageWriter = \mes -> go <$> (new mes) where
 
   go :: MessageWriter -> Widget Op'MessageWriter
   go mw = Widget $
-    (\(Op'Reset mes') -> continue go $ reset mes' mw)
+    (\(Op'Reset mes') -> continue $ go $ reset mes' mw)
     @> (\(Op'Render v) -> lift $ render mw v)
-    @> (\Op'Run -> continueM go $ run mw)
-    @> (\(Op'HandleEvent keys) -> continueM go $ handler keys mw)
+    @> (\Op'Run -> continueM $ fmap go $ run mw)
+    @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys mw)
     @> (\Op'IsFinished -> finish $ mw^._state == Finished)
     @> emptyUnion
 
@@ -123,10 +123,10 @@ wMessageLayer :: SDL.Texture -> V2 Int -> [String] -> GameM (Widget Op'MessageLa
 wMessageLayer = \texture v mes -> go <$> (wDelayed 2 <$> (wLayered texture v =<< wMessageWriter mes)) where
   go :: Widget (Op'Delayed (Op'Layered Op'MessageWriter)) -> Widget Op'MessageLayer
   go wm = Widget $
-    (\(Op'Reset args) -> continue go $ wm @@. Op'Reset args)
+    (\(Op'Reset args) -> continue $ go $ wm @@. Op'Reset args)
     @> (\(Op'Render v) -> lift $ wm @! Op'Render v)
-    @> (\Op'Run -> continueM go $ wm @. Op'Run)
-    @> (\(Op'HandleEvent keys) -> continueM go $ wm @. Op'HandleEvent keys)
+    @> (\Op'Run -> continueM $ fmap go $ wm @. Op'Run)
+    @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ wm @. Op'HandleEvent keys)
     @> (\Op'IsFinished -> finish $ wm @@! Op'IsFinished)
     @> emptyUnion
 

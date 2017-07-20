@@ -22,6 +22,7 @@ import Control.Lens
 import Control.Monad.State.Strict
 import Control.Monad.Reader
 import Control.Monad.Trans.Either
+import Control.Monad.Except
 import Control.Concurrent.MVar
 import qualified Data.Map as M
 import Data.Functor.Sum
@@ -91,8 +92,8 @@ call :: (k ∈ xs, TransBifunctor br m, Functor m) => Widget xs -> (k br m ~> br
 call w op = runWidget w $ inj op
 
 class NodeW br where
-  continue :: (model -> Widget xs) -> model -> br (Widget xs) Identity a
-  continueM :: Functor m => (model -> Widget xs) -> m model -> br (Widget xs) m a
+  continue :: Monad m => Widget xs -> br (Widget xs) m a
+  continueM :: Functor m => m (Widget xs) -> br (Widget xs) m a
 
   infixl 4 @.
   (@.) :: (k ∈ xs, TransBifunctor br m, Functor m) => Widget xs -> k br m Void -> m (Widget xs)
@@ -113,8 +114,8 @@ infixl 4 @@!
 w @@! op = runIdentity $ w @! op
 
 instance NodeW Self where
-  continue go = Self . Identity . go
-  continueM go = Self . (go <$>)
+  continue = Self . return
+  continueM = Self
 
   w @. op = runSelf $ w `call` op
 
@@ -123,20 +124,6 @@ instance LeafW Value where
   finishM = Value
 
   w @! op = getValue $ w `call` op
-
-instance NodeW EitherT where
-  continue go = left . go
-  continueM go v = EitherT $ Left . go <$> v
-
-  w @. op = runEitherT (w `call` op) <&> \case
-    Left w' -> w'
-    Right v -> absurd v
-
-instance LeafW EitherT where
-  finish = right
-  finishM = EitherT . (Right <$>)
-
-  w @! op = (\(Right v) -> v) <$> runEitherT (w `call` op)
 
 infixr 4 @%~
 (@%~) :: (k ∈ xs, NodeW br, TransBifunctor br Identity) => Lens' s (Widget xs) -> k br Identity Void -> s -> s

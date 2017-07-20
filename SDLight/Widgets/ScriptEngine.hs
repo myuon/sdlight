@@ -247,12 +247,12 @@ wMiniScriptEngine = \texture v -> go <$> new texture v where
   
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $
-    (\(Op'Reset _) -> continue go $ reset model)
+    (\(Op'Reset _) -> continue $ go $ reset model)
     @> (\(Op'Render v) -> lift $ render v model)
-    @> (\Op'Run -> continueM go $ run model)
-    @> (\(Op'HandleEvent keys) -> continueM go $ handler keys model)
+    @> (\Op'Run -> continueM $ fmap go $ run model)
+    @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys model)
     @> (\Op'IsFinished -> finish $ model^._state == Finished)
-    @> (\(Op'LoadMiniScript ms) -> continue go $ model & script .~ ms & _state .~ Running)
+    @> (\(Op'LoadMiniScript ms) -> continue $ go $ model & script .~ ms & _state .~ Running)
     @> emptyUnion
 
   reset :: ScriptEngine -> ScriptEngine

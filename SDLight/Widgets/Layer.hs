@@ -156,7 +156,7 @@ wDelayed :: Op'Run ∈ xs => Int -> Widget xs -> Widget (Op'Delayed xs)
 wDelayed = \n w -> go (Delay 0 n) w where
   go :: Op'Run ∈ xs => Delay -> Widget xs -> Widget (Op'Delayed xs)
   go delay widget = override (go delay) widget $
-    (\Op'Run -> InL $ continueM (uncurry go) $ execStateT run (delay,widget))
+    (\Op'Run -> InL $ continueM $ fmap (uncurry go) $ execStateT run (delay,widget))
     @> InR
 
   run :: Op'Run ∈ xs => StateT (Delay, Widget xs) GameM ()

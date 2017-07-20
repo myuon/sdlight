@@ -63,10 +63,10 @@ wInputJapanese = \texture -> go <$> new texture where
 
   go :: InputJapanese -> Widget Op'InputJapanese
   go model = Widget $
-    (\(Op'Reset _) -> continue go $ reset model)
+    (\(Op'Reset _) -> continue $ go $ reset model)
     @> (\(Op'Render v) -> lift $ render model)
-    @> (\Op'Run -> continueM go $ return model)
-    @> (\(Op'HandleEvent keys) -> continueM go $ handler keys model)
+    @> (\Op'Run -> continue $ go model)
+    @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys model)
     @> (\Op'IsFinished -> finish $ model^._state == Finished)
     @> (\Op'GetText -> finish $ model^.currentText)
     @> emptyUnion

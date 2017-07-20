@@ -87,9 +87,9 @@ effector = \tr n -> go (new tr n) where
 
   go :: Effector -> Widget Op'Effector
   go eff = Widget $
-    (\(Op'Reset _) -> continue go $ reset eff)
-    @> (\Op'Run -> continueM go $ run eff)
-    @> (\Op'Start -> continue go $ eff & _state .~ Running)
+    (\(Op'Reset _) -> continue $ go $ reset eff)
+    @> (\Op'Run -> continueM $ fmap go $ run eff)
+    @> (\Op'Start -> continue $ go $ eff & _state .~ Running)
     @> (\Op'IsFinished -> finish $ eff^._state == Finished)
     @> (\Op'GetValue -> finish $ eff^.value)
     @> emptyUnion
@@ -144,16 +144,16 @@ effDisplay = \tr n1 n2 -> go Invisible (effector tr n1) (effector (Inverse tr) n
   
   go :: EffDisplayeState -> Widget Op'Effector -> Widget Op'Effector -> Widget Eff'Display
   go st eff1 eff2 = Widget $
-    (\(Op'Reset _) -> continue (uncurry' go) $ reset st eff1 eff2)
-    @> (\Op'Run -> continueM (uncurry' go) $ run st eff1 eff2)
-    @> (\Op'Appear -> continue (uncurry' go) (Appearing, eff1 @@. Op'Start, eff2))
-    @> (\Op'Disappear -> continue (uncurry' go) (Disappearing, eff1, eff2 @@. Op'Start))
+    (\(Op'Reset _) -> continue $ reset st eff1 eff2)
+    @> (\Op'Run -> continueM $ fmap (uncurry' go) $ run st eff1 eff2)
+    @> (\Op'Appear -> continue $ go Appearing (eff1 @@. Op'Start) eff2)
+    @> (\Op'Disappear -> continue $ go Disappearing eff1 (eff2 @@. Op'Start))
     @> (\Op'GetAlpha -> finish $ getAlpha st eff1 eff2)
     @> (\Op'IsAppeared -> finish $ st == Visible && eff1 @@! Op'IsFinished)
     @> (\Op'IsDisappeared -> finish $ st == Invisible && eff2 @@! Op'IsFinished)
     @> emptyUnion
 
-  reset st eff1 eff2 = (Invisible, eff1 @@. Op'Reset (), eff2 @@. Op'Reset ())
+  reset st eff1 eff2 = go Invisible (eff1 @@. Op'Reset ()) (eff2 @@. Op'Reset ())
 
   run :: EffDisplayeState -> Widget Op'Effector -> Widget Op'Effector -> GameM (EffDisplayeState, Widget Op'Effector, Widget Op'Effector)
   run st eff1 eff2 = case st of
@@ -189,14 +189,14 @@ effDisplayed = \tr n1 n2 w -> go (effDisplay tr n1 n2) w where
   go :: (Op'IsFinished ∈ xs, Op'Run ∈ xs)
      => Widget Eff'Display -> Widget (Op'Reset r : xs) -> Widget (Eff'Displayed (Op'Reset r : xs))
   go eff w = override (go eff) w $
-    (\Op'Run -> InL $ continueM (uncurry go) $ execStateT run (eff,w))
-    @> (\Op'Appear -> InL $ continue (uncurry go) $ (eff,w) & _1 @%~ Op'Appear)
-    @> (\Op'Disappear -> InL $ continue (uncurry go) $ (eff,w) & _1 @%~ Op'Disappear)
+    (\Op'Run -> InL $ continueM $ fmap (uncurry go) $ execStateT run (eff,w))
+    @> (\Op'Appear -> InL $ continue $ go (eff @@. Op'Appear) w)
+    @> (\Op'Disappear -> InL $ continue $ go (eff @@. Op'Disappear) w)
     @> (\Op'IsFinished -> InL $ finish $ eff @@! Op'IsDisappeared && w @@! Op'IsFinished)
     @> (\Op'GetAlpha -> InL $ finish $ eff @@! Op'GetAlpha)
     @> (\Op'IsAppeared -> InL $ finish $ eff @@! Op'IsAppeared)
     @> (\Op'IsDisappeared -> InL $ finish $ eff @@! Op'IsDisappeared)
-    @> (\(Op'Reset r) -> InL $ continue (uncurry go) $ (eff,w) & _1 @%~ Op'Reset () & _2 @%~ Op'Reset r)
+    @> (\(Op'Reset r) -> InL $ continue $ go (eff @@. Op'Reset ()) (w @@. Op'Reset r))
     @> bisum id UNext . InR
 
   bisum :: (f ~> f') -> (g ~> g') -> Sum f g ~> Sum f' g'
