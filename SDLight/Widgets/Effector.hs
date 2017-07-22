@@ -1,3 +1,5 @@
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
@@ -36,6 +38,43 @@ import SDLight.Types
 import SDLight.Components
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
+
+{-
+data Eff'Start w br m a where
+  Eff'Start :: Eff'Start w Self Identity w
+
+data Eff'Finish w br m a where
+  Eff'Finish :: Eff'Finish w Self Identity w
+
+data Eff'Get w br m a where
+  Eff'Get :: Eff'Get w Value Identity w
+
+data Eff'Put w br m a where
+  Eff'Put :: w -> Eff'Put w Self Identity ()
+
+type Op'FadeIn =
+  [ Eff'Start
+  , Eff'Finish
+  , Eff'Get
+  , Eff'Put
+  ]
+
+type family (:$) (fs :: [a -> b]) (x :: a) where
+  '[] :$ x = '[]
+  (f : fs) :$ x = f x : fs :$ x
+
+newtype FadeIn w = FadeIn { runFadeIn :: Widget (Op'FadeIn :$ w) }
+
+eff'fadein :: Widget xs -> FadeIn (Widget xs)
+eff'fadein = FadeIn . go where
+  go :: Widget xs -> Widget (Op'FadeIn :$ (Widget xs))
+  go widget = Widget $
+    (\Eff'Start -> _)
+    @> (\Eff'Finish -> _)
+    @> (\Eff'Get -> finish widget)
+    @> (\(Eff'Put widget') -> continue $ go widget')
+    @> emptyUnion
+-}
 
 data EffectorState
   = NotReady
