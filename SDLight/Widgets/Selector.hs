@@ -178,7 +178,7 @@ wSelectLayer = \win cur v labels num -> go <$> new win cur v labels num where
   
   go :: SelectLayer -> Widget Op'SelectLayer
   go w = Widget $
-    (\(Op'Reset args) -> continue $ go $ w & _3 @%~ Op'Reset args)
+    (\(Op'Reset args) -> continue $ go $ w & _3 ^%~ op'reset args)
     @> (\(Op'Render _ v) -> lift $ render w v)
     @> (\Op'Run -> continue $ go w)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ (\x -> w & _3 .~ x) <$> (w^._3^.op'handleEvent keys))
@@ -186,7 +186,7 @@ wSelectLayer = \win cur v labels num -> go <$> new win cur v labels num where
     @> (\Op'GetSelecting -> finish $ w^._3^.op'getSelecting)
     @> (\Op'GetPointer -> finish $ w^._3^.op'getPointer)
     @> (\Op'GetLabels -> finish $ w^._3^.op'getLabels)
-    @> (\(Op'SetLabels t) -> continue $ go $ w & _3 %~ (^. op'setLabels t))
+    @> (\(Op'SetLabels t) -> continue $ go $ w & _3 ^%~ op'setLabels t)
     @> emptyUnion
 
   render :: SelectLayer -> V2 Int -> GameM ()

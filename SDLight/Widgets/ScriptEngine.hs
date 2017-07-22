@@ -244,7 +244,7 @@ wMiniScriptEngine = \texture v -> go <$> new texture v where
     <*> return (return ())
     <*> return 0
     <*> wMessageLayer texture v []
-  
+
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $
     (\(Op'Reset _) -> continue $ go $ reset model)
@@ -336,13 +336,13 @@ wMiniScriptEngine = \texture v -> go <$> new texture v where
           return $ model
             & _state .~ Message
             & script .~ k ()
-            & message @%~ Op'Reset text
+            & message ^%~ op'reset text
             & layers %~ IM.mapWithKey (\key -> if Just (RefImage key) == ref then opacity .~ 1 else opacity .~ 0.5)
         (ResetOpacity :>>= k) -> do
           return $ model
             & layers %~ fmap (opacity .~ 1.0)
     Message | op'isFreeze (model^.message) op'switch -> return $ model & _state .~ Running
-    Message -> model & message <@%~ Op'Run
+    Message -> model & message ^%%~ op'run
     PerformEffect _ _ | model^.counter <= 0 -> return $ model & _state .~ Running
     PerformEffect eff (RefImage ref) -> do
       let ratio t = (fromIntegral $ model^.counter) / fromIntegral t
@@ -362,7 +362,7 @@ wMiniScriptEngine = \texture v -> go <$> new texture v where
 
   handler :: M.Map SDL.Scancode Int -> ScriptEngine -> GameM ScriptEngine
   handler keys model = case model^._state of
-    Message -> model & message %%~ (^. op'handleEvent keys)
+    Message -> model & message ^%%~ op'handleEvent keys
     _ -> return model
   
 

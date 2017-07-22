@@ -33,6 +33,14 @@ import GHC.Exts
 
 type (~>) f g = forall x. f x -> g x
 
+infixr 4 ^%~
+(^%~) :: Lens' s a -> (Getter a a) -> s -> s
+s ^%~ f = s %~ (^. f)
+
+infixr 4 ^%%~
+(^%%~) :: Functor m => Lens' s a -> (Getter a (m a)) -> s -> m s
+s ^%%~ f = s %%~ (^. f)
+
 data Union (r :: [(* -> (* -> *) -> * -> *) -> (* -> *) -> * -> *]) br m v where
   UNow  :: t br m v -> Union (t : r) br m v
   UNext :: Union r br m v -> Union (any : r) br m v
@@ -121,14 +129,6 @@ _self' op = _self op . to runIdentity
 
 _value' :: (k ∈ xs, LeafW br) => k br Identity a -> Getter (Widget xs) a
 _value' op = _value op . to runIdentity
-
-infixr 4 @%~
-(@%~) :: (k ∈ xs, NodeW br, TransBifunctor br Identity) => Lens' s (Widget xs) -> k br Identity Void -> s -> s
-w @%~ k = w %~ (^. _self' k)
-
-infixr 4 <@%~
-(<@%~) :: (k ∈ xs, Functor m, TransBifunctor br m, NodeW br) => Lens' s (Widget xs) -> k br m Void -> s -> m s
-(<@%~) w k s = (s^.w^._self k) <&> \w' -> s & w .~ w'
 
 --
 
