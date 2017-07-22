@@ -1,3 +1,6 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -6,7 +9,7 @@
 {-# LANGUAGE StrictData #-}
 module SDLight.Widgets.Balloon
   ( Op'Balloon
-  , Op'Fly(..)
+  , op'fly
   , wBalloon
   ) where
 
@@ -25,6 +28,9 @@ import SDLight.Widgets.Effector
 
 data Op'Fly br m r where
   Op'Fly :: Op'Fly Self Identity a
+
+op'fly :: Op'Fly ∈ xs => Getter (Widget xs) (Widget xs)
+op'fly = _self' Op'Fly
 
 type Op'Balloon =
   [ Op'Reset String
@@ -67,10 +73,10 @@ wBalloon = \texture t stay -> go <$> new texture t stay where
   go :: Balloon -> Widget Op'Balloon
   go model = Widget $
     (\(Op'Reset t) -> continue $ go $ reset t model)
-    @> (\(Op'Render v) -> lift $ render v model)
+    @> (\(Op'Render _ v) -> lift $ render v model)
     @> (\Op'Run -> continueM $ fmap go $ run model)
-    @> (\Op'Fly -> continue $ go $ model & _state .~ Running & eff @%~ Op'Appear)
-    @> (\Op'Switch -> (if model^._state == Finished && model^.eff @@! Op'IsDisappeared then freeze' else continue) $ go model)
+    @> (\Op'Fly -> continue $ go $ model & _state .~ Running & eff %~ (^.op'appear))
+    @> (\Op'Switch -> (if model^._state == Finished && model^.eff^.op'isDisappeared then freeze' else continue) $ go model)
     @> emptyUnion
 
   reset :: String -> Balloon -> Balloon
@@ -78,12 +84,12 @@ wBalloon = \texture t stay -> go <$> new texture t stay where
 
   render :: V2 Int -> Balloon -> GameM ()
   render v model = do
-    model^.balloonLayer @! Op'RenderAlpha (model^.eff @@! Op'GetAlpha) v
+    model^.balloonLayer^.op'renderAlpha (model^.eff^.op'getAlpha) v
     when (model^.balloonText /= "") $
       renders white [ translate (v + V2 15 10) $ shaded black $ text (model^.balloonText) ]
 
   run :: Balloon -> GameM Balloon
   run model = case model^._state of
-    Running | model^.counter >= model^.stayTime -> return $ model & _state .~ Finished & eff @%~ Op'Disappear
-    Running | model^.eff @@! Op'IsAppeared -> return $ model & counter +~ 1
-    _ -> model^.eff @. Op'Run >>= \e -> return $ model & eff .~ e
+    Running | model^.counter >= model^.stayTime -> return $ model & _state .~ Finished & eff %~ (^. op'disappear)
+    Running | model^.eff^.op'isAppeared -> return $ model & counter +~ 1
+    _ -> model & eff %%~ (^.op'run)

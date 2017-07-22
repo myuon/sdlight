@@ -47,7 +47,7 @@ wWallpaper = \path -> go <$> new path where
   go :: Wallpaper -> Widget Op'Wallpaper
   go model = Widget $
     (\(Op'Reset _) -> continue $ go $ reset model)
-    @> (\(Op'Render v) -> lift $ render v model)
+    @> (\(Op'Render _ v) -> lift $ render v model)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys model)
     @> emptyUnion
 

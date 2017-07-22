@@ -77,6 +77,9 @@ newtype Widget ops = Widget { runWidget :: forall br m. (Functor m, TransBifunct
 call :: (k ∈ xs, TransBifunctor br m, Functor m) => Widget xs -> (k br m ~> br (Widget xs) m)
 call w op = runWidget w $ inj op
 
+_Op :: (k ∈ xs, TransBifunctor br m, Functor m) => k br m a -> Getter (Widget xs) (br (Widget xs) m a)
+_Op op = to (\w -> call w op)
+
 newtype Self w m a = Self { runSelf :: m w }
 newtype Value w m a = Value { getValue :: m a }
 
@@ -93,43 +96,39 @@ class NodeW br where
   continue :: Monad m => Widget xs -> br (Widget xs) m a
   continueM :: Functor m => m (Widget xs) -> br (Widget xs) m a
 
-  infixl 4 @.
-  (@.) :: (k ∈ xs, TransBifunctor br m, Functor m) => Widget xs -> k br m Void -> m (Widget xs)
+  _self :: (k ∈ xs, TransBifunctor br m, Functor m) => k br m Void -> Getter (Widget xs) (m (Widget xs))
 
 class LeafW br where
   finish :: Monad m => model -> br (Widget xs) m model
   finishM :: Functor m => m model -> br (Widget xs) m model
 
-  infixl 4 @!
-  (@!) :: (k ∈ xs, Functor m) => Widget xs -> (k br m ~> m)
-
-infixl 4 @@.
-(@@.) :: (k ∈ xs, NodeW br, TransBifunctor br Identity) => Widget xs -> k br Identity Void -> Widget xs
-w @@. op = runIdentity $ w @. op
-
-infixl 4 @@!
-(@@!) :: (LeafW br, k ∈ xs) => Widget xs -> (k br Identity v -> v)
-w @@! op = runIdentity $ w @! op
+  _value :: (k ∈ xs, Functor m) => k br m a -> Getter (Widget xs) (m a)
 
 instance NodeW Self where
   continue = Self . return
   continueM = Self
 
-  w @. op = runSelf $ w `call` op
+  _self op = to $ \w -> runSelf $ w `call` op
 
 instance LeafW Value where
   finish = Value . return
   finishM = Value
 
-  w @! op = getValue $ w `call` op
+  _value op = to $ \w -> getValue $ w `call` op
+
+_self' :: (k ∈ xs, TransBifunctor br Identity, NodeW br) => k br Identity Void -> Getter (Widget xs) (Widget xs)
+_self' op = _self op . to runIdentity
+
+_value' :: (k ∈ xs, LeafW br) => k br Identity a -> Getter (Widget xs) a
+_value' op = _value op . to runIdentity
 
 infixr 4 @%~
 (@%~) :: (k ∈ xs, NodeW br, TransBifunctor br Identity) => Lens' s (Widget xs) -> k br Identity Void -> s -> s
-w @%~ k = w %~ (@@. k)
+w @%~ k = w %~ (^. _self' k)
 
 infixr 4 <@%~
 (<@%~) :: (k ∈ xs, Functor m, TransBifunctor br m, NodeW br) => Lens' s (Widget xs) -> k br m Void -> s -> m s
-(<@%~) w k s = (s^.w @. k) <&> \w' -> s & w .~ w'
+(<@%~) w k s = (s^.w^._self k) <&> \w' -> s & w .~ w'
 
 --
 
@@ -157,7 +156,7 @@ _Frozen = lens get set where
   set (Keep _) w = Keep w
 
 data Op'Render br m r where
-  Op'Render :: SDL.V2 Int -> Op'Render Value GameM ()
+  Op'Render :: Double -> SDL.V2 Int -> Op'Render Value GameM ()
 
 data Op'Run br m r where
   Op'Run :: Op'Run Self GameM a
@@ -172,6 +171,21 @@ data Op'HandleEvent br m r where
 data Op'Switch br m r where
   Op'Switch :: Op'Switch FreezeT Identity ()
 
+op'renderAlpha :: Op'Render ∈ xs => Double -> SDL.V2 Int -> Getter (Widget xs) (GameM ())
+op'renderAlpha d v = to $ \w -> w ^. _value (Op'Render d v)
+
+op'render :: Op'Render ∈ xs => SDL.V2 Int -> Getter (Widget xs) (GameM ())
+op'render = op'renderAlpha 1.0
+
+op'run :: Op'Run ∈ xs => Getter (Widget xs) (GameM (Widget xs))
+op'run = _self Op'Run
+
+op'reset :: Op'Reset arg ∈ xs => arg -> Getter (Widget xs) (Widget xs)
+op'reset = _self' . Op'Reset
+
+op'handleEvent :: Op'HandleEvent ∈ xs => M.Map SDL.Scancode Int -> Getter (Widget xs) (GameM (Widget xs))
+op'handleEvent = _self . Op'HandleEvent
+
 newtype FreezeT w m a = FreezeT { runFreezeT :: m (Freeze w a) }
 
 instance Functor m => TransBifunctor FreezeT m where
@@ -181,7 +195,12 @@ instance NodeW FreezeT where
   continue = FreezeT . return . Keep
   continueM = FreezeT . fmap Keep
 
-  w @. op = fmap (^._Frozen) $ runFreezeT $ w `call` op
+  _self op = to $ \w -> fmap (^._Frozen) $ runFreezeT $ w `call` op
+
+op'switch :: Op'Switch ∈ xs => Getter (Widget xs) (FreezeT (Widget xs) Identity ())
+op'switch = _Op Op'Switch
+
+--
 
 freeze :: Monad m => Widget xs -> a -> FreezeT (Widget xs) m a
 freeze w a = FreezeT $ return $ Freeze w a
@@ -229,13 +248,13 @@ onFinishM lens op s cb = do
     Freeze w a -> cb a (s & lens .~ w)
     Keep w -> return $ s & lens .~ w
 
-runSwitch :: k ∈ xs => Widget xs -> k FreezeT Identity a -> (Freeze (Widget xs) a -> r) -> r
-runSwitch w op k = k $ runIdentity $ runFreezeT (w `call` op)
+runSwitch :: Widget xs -> Getter (Widget xs) (FreezeT (Widget xs) Identity a) -> (Freeze (Widget xs) a -> r) -> r
+runSwitch w op k = k $ runIdentity $ runFreezeT (w ^. op)
 
 runSwitchM :: (k ∈ xs, Monad m) => Widget xs -> k FreezeT m a -> (Freeze (Widget xs) a -> m r) -> m r
 runSwitchM w op k = runFreezeT (w `call` op) >>= k
 
-op'isFreeze :: k ∈ xs => Widget xs -> k FreezeT Identity a -> Bool
+op'isFreeze :: Widget xs -> Getter (Widget xs) (FreezeT (Widget xs) Identity a) -> Bool 
 op'isFreeze w op = runSwitch w op isFreeze
 
 

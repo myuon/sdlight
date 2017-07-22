@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
@@ -7,11 +9,11 @@
 module SDLight.Widgets.Selector
   ( wSelector
   , Op'Selector
-  , Op'RenderBy(..)
-  , Op'GetSelecting(..)
-  , Op'GetPointer(..)
-  , Op'GetLabels(..)
-  , Op'SetLabels(..)
+  , op'renderBy
+  , op'getSelecting
+  , op'getPointer
+  , op'getLabels
+  , op'setLabels
 
   , wSelectLayer
   , Op'SelectLayer
@@ -59,6 +61,21 @@ data Op'GetLabels br m r where
 data Op'SetLabels br m r where
   Op'SetLabels :: [String] -> Op'SetLabels Self Identity a
 
+op'renderBy :: Op'RenderBy ∈ xs => (String -> Int -> Bool -> Bool -> GameM ()) -> Getter (Widget xs) (GameM ())
+op'renderBy = _value . Op'RenderBy
+
+op'getSelecting :: Op'GetSelecting ∈ xs => Getter (Widget xs) [Int]
+op'getSelecting = _value' Op'GetSelecting
+
+op'getPointer :: Op'GetPointer ∈ xs => Getter (Widget xs) (Maybe Int)
+op'getPointer = _value' Op'GetPointer
+
+op'getLabels :: Op'GetLabels ∈ xs => Getter (Widget xs) [String]
+op'getLabels = _value' Op'GetLabels
+
+op'setLabels :: Op'SetLabels ∈ xs => [String] -> Getter (Widget xs) (Widget xs)
+op'setLabels = _self' . Op'SetLabels
+
 type Op'Selector =
   [ Op'Reset ()
   , Op'Render
@@ -83,7 +100,7 @@ wSelector = \labels selnum -> go $ new labels selnum where
   go :: Selector -> Widget Op'Selector
   go sel = Widget $
     (\(Op'Reset _) -> continue $ go $ reset sel)
-    @> (\(Op'Render v) -> lift $ renderDropdown sel v)
+    @> (\(Op'Render _ v) -> lift $ renderDropdown sel v)
     @> (\(Op'RenderBy rend) -> lift $ render sel rend)
     @> (\Op'Run -> continueM $ fmap go $ return sel)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys sel)
@@ -162,22 +179,22 @@ wSelectLayer = \win cur v labels num -> go <$> new win cur v labels num where
   go :: SelectLayer -> Widget Op'SelectLayer
   go w = Widget $
     (\(Op'Reset args) -> continue $ go $ w & _3 @%~ Op'Reset args)
-    @> (\(Op'Render v) -> lift $ render w v)
+    @> (\(Op'Render _ v) -> lift $ render w v)
     @> (\Op'Run -> continue $ go w)
-    @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ (\x -> w & _3 .~ x) <$> (w^._3 @. Op'HandleEvent keys))
-    @> (\Op'Switch -> (if op'isFreeze (w^._3) Op'Switch then freeze' else continue) $ go w)
-    @> (\Op'GetSelecting -> finish $ w^._3 @@! Op'GetSelecting)
-    @> (\Op'GetPointer -> finish $ w^._3 @@! Op'GetPointer)
-    @> (\Op'GetLabels -> finish $ w^._3 @@! Op'GetLabels)
-    @> (\(Op'SetLabels t) -> continue $ go $ w & _3 @%~ Op'SetLabels t)
+    @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ (\x -> w & _3 .~ x) <$> (w^._3^.op'handleEvent keys))
+    @> (\Op'Switch -> (if op'isFreeze (w^._3) op'switch then freeze' else continue) $ go w)
+    @> (\Op'GetSelecting -> finish $ w^._3^.op'getSelecting)
+    @> (\Op'GetPointer -> finish $ w^._3^.op'getPointer)
+    @> (\Op'GetLabels -> finish $ w^._3^.op'getLabels)
+    @> (\(Op'SetLabels t) -> continue $ go $ w & _3 %~ (^. op'setLabels t))
     @> emptyUnion
 
   render :: SelectLayer -> V2 Int -> GameM ()
   render sel v = do
-    sel^._1 @! Op'Render v
-    (sel^._3 @!) $ Op'RenderBy $ \label i selecting focused -> do
+    sel^._1^.op'render v
+    (sel^._3^.) $ op'renderBy $ \label i selecting focused -> do
       when focused $ do
-        sel^._2 @! Op'Render (v + V2 10 (20+30*i))
+        sel^._2^.op'render (v + V2 10 (20+30*i))
 
       let color = if selecting then red else white
       renders color $

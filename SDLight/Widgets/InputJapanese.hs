@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -5,7 +7,7 @@
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
 module SDLight.Widgets.InputJapanese
-  ( Op'GetText(..)
+  ( op'getText
   , Op'InputJapanese
   , wInputJapanese
   ) where
@@ -24,6 +26,9 @@ import SDLight.Widgets.Layer
 
 data Op'GetText br m r where
   Op'GetText :: Op'GetText Value Identity String
+
+op'getText :: Op'GetText ∈ xs => Getter (Widget xs) String
+op'getText = _value' Op'GetText
 
 type Op'InputJapanese =
   [ Op'Reset ()
@@ -64,7 +69,7 @@ wInputJapanese = \texture -> go <$> new texture where
   go :: InputJapanese -> Widget Op'InputJapanese
   go model = Widget $
     (\(Op'Reset _) -> continue $ go $ reset model)
-    @> (\(Op'Render v) -> lift $ render model)
+    @> (\(Op'Render _ v) -> lift $ render model)
     @> (\Op'Run -> continue $ go model)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys model)
     @> (\Op'Switch -> (if model^._state == Finished then freeze' else continue) $ go model)
@@ -76,8 +81,8 @@ wInputJapanese = \texture -> go <$> new texture where
 
   render :: InputJapanese -> GameM ()
   render model = do
-    model^.textLayer @! Op'Render (V2 0 0)
-    model^.letterLayer @! Op'Render (V2 0 50)
+    model^.textLayer^.op'render 0
+    model^.letterLayer^.op'render 0
 
     when (model^.currentText /= "") $
       renders white [ translate (V2 15 15) $ shaded black $ text (model^.currentText) ]

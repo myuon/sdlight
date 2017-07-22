@@ -17,7 +17,6 @@
 module SDLight.Widgets.Layer
   ( wLayer
   , Op'Layer
-  , Op'RenderAlpha(..)
 
   , wLayered
   , Op'Layered
@@ -101,19 +100,14 @@ renderLayer layer pos alpha = do
   SDL.textureAlphaMod (layer^.layerTexture) SDL.$= alpha0
 
 type Op'Layer =
-  [ Op'Render
-  , Op'RenderAlpha
+  '[ Op'Render
   ]
-
-data Op'RenderAlpha br m r where
-  Op'RenderAlpha :: Double -> V2 Int -> Op'RenderAlpha Value GameM ()
 
 wLayer :: SDL.Texture -> V2 Int -> GameM (Widget Op'Layer)
 wLayer = \texture v -> go <$> newLayer texture v where
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
-    (\(Op'Render v) -> lift $ renderLayer layer v 1.0)
-    @> (\(Op'RenderAlpha alpha v) -> lift $ renderLayer layer v alpha)
+    (\(Op'Render alpha v) -> lift $ renderLayer layer v alpha)
     @> emptyUnion
 
 wLayerFilePath :: FilePath -> V2 Int -> GameM (Widget Op'Layer)
@@ -130,14 +124,13 @@ wLayered :: Op'Render ∈ xs => SDL.Texture -> V2 Int -> Widget xs -> GameM (Wid
 wLayered = \texture v w -> liftM2 go (wLayer texture v) (return w) where
   go :: Op'Render ∈ xs => Widget Op'Layer -> Widget xs -> Widget (Op'Layered xs)
   go wlayer wx = override (go wlayer) wx $ 
-    (\(Op'Render v) -> InL $ lift $ renderAlpha 1.0 v wlayer wx)
-    @> (\(Op'RenderAlpha alpha v) -> InL $ lift $ renderAlpha alpha v wlayer wx)
+    (\(Op'Render alpha v) -> InL $ lift $ renderAlpha alpha v wlayer wx)
     @> InR
 
   renderAlpha :: Op'Render ∈ xs => Double -> V2 Int -> Widget Op'Layer -> Widget xs -> GameM ()
   renderAlpha alpha v wlayer wx = do
-    wlayer @! Op'RenderAlpha alpha v
-    wx @! Op'Render v
+    wlayer ^. op'renderAlpha alpha v
+    wx ^. op'render v
 
 -- Delayed
 
@@ -164,7 +157,7 @@ wDelayed = \n w -> go (Delay 0 n) w where
     c <- use $ _1.counter
     when (c == 0) $ do
       w <- use _2
-      _2 <~ lift (w @. Op'Run)
+      _2 <~ lift (w ^. op'run)
 
     d <- use $ _1.delayCount
     _1.counter %= (`mod` d) . (+1)

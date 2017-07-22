@@ -10,11 +10,11 @@
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
 module SDLight.Widgets.Effector
-  ( Op'Appear(..)
-  , Op'Disappear(..)
-  , Op'GetAlpha(..)
-  , Op'IsAppeared(..)
-  , Op'IsDisappeared(..)
+  ( op'appear
+  , op'disappear
+  , op'getAlpha
+  , op'isAppeared
+  , op'isDisappeared
   , Eff'Display
 
   , effDisplay
@@ -111,6 +111,12 @@ data Op'Start br m r where
 data Op'GetValue br m r where
   Op'GetValue :: Op'GetValue Value Identity Double
 
+op'start :: Op'Start ∈ xs => Getter (Widget xs) (Widget xs)
+op'start = _self' Op'Start
+
+op'getValue :: Op'GetValue ∈ xs => Getter (Widget xs) Double
+op'getValue = _value' Op'GetValue
+
 type Op'Effector =
   [ Op'Reset ()
   , Op'Run
@@ -160,6 +166,21 @@ data Op'IsAppeared br m r where
 data Op'IsDisappeared br m r where
   Op'IsDisappeared :: Op'IsDisappeared Value Identity Bool
 
+op'appear :: Op'Appear ∈ xs => Getter (Widget xs) (Widget xs)
+op'appear = _self' Op'Appear
+
+op'disappear :: Op'Disappear ∈ xs => Getter (Widget xs) (Widget xs)
+op'disappear = _self' Op'Disappear
+
+op'getAlpha :: Op'GetAlpha ∈ xs => Getter (Widget xs) Double
+op'getAlpha = _value' Op'GetAlpha
+
+op'isAppeared :: Op'IsAppeared ∈ xs => Getter (Widget xs) Bool
+op'isAppeared = _value' Op'IsAppeared
+
+op'isDisappeared :: Op'IsDisappeared ∈ xs => Getter (Widget xs) Bool
+op'isDisappeared = _value' Op'IsDisappeared
+
 type Eff'Display =
   [ Op'Reset ()
   , Op'Run
@@ -185,30 +206,30 @@ effDisplay = \tr n1 n2 -> go Invisible (effector tr n1) (effector (Inverse tr) n
   go st eff1 eff2 = Widget $
     (\(Op'Reset _) -> continue $ reset st eff1 eff2)
     @> (\Op'Run -> continueM $ fmap (uncurry' go) $ run st eff1 eff2)
-    @> (\Op'Appear -> continue $ go Appearing (eff1 @@. Op'Start) eff2)
-    @> (\Op'Disappear -> continue $ go Disappearing eff1 (eff2 @@. Op'Start))
+    @> (\Op'Appear -> continue $ go Appearing (eff1 ^. op'start) eff2)
+    @> (\Op'Disappear -> continue $ go Disappearing eff1 (eff2 ^. op'start))
     @> (\Op'GetAlpha -> finish $ getAlpha st eff1 eff2)
-    @> (\Op'IsAppeared -> finish $ st == Visible && op'isFreeze eff1 Op'Switch)
-    @> (\Op'IsDisappeared -> finish $ st == Invisible && op'isFreeze eff2 Op'Switch)
+    @> (\Op'IsAppeared -> finish $ st == Visible && op'isFreeze eff1 op'switch)
+    @> (\Op'IsDisappeared -> finish $ st == Invisible && op'isFreeze eff2 op'switch)
     @> emptyUnion
 
-  reset st eff1 eff2 = go Invisible (eff1 @@. Op'Reset ()) (eff2 @@. Op'Reset ())
+  reset st eff1 eff2 = go Invisible (eff1 ^. op'reset ()) (eff2 ^. op'reset ())
 
   run :: EffDisplayeState -> Widget Op'Effector -> Widget Op'Effector -> GameM (EffDisplayeState, Widget Op'Effector, Widget Op'Effector)
   run st eff1 eff2 = case st of
-    Appearing | op'isFreeze eff1 Op'Switch -> return (Visible, eff1, eff2)
+    Appearing | op'isFreeze eff1 op'switch -> return (Visible, eff1, eff2)
     Appearing -> do
-      eff1' <- eff1 @. Op'Run
+      eff1' <- eff1 ^. op'run
       return (st, eff1', eff2)
-    Disappearing | op'isFreeze eff2 Op'Switch -> return (Invisible, eff1, eff2)
+    Disappearing | op'isFreeze eff2 op'switch -> return (Invisible, eff1, eff2)
     Disappearing -> do
-      eff2' <- eff2 @. Op'Run
+      eff2' <- eff2 ^. op'run
       return (st, eff1, eff2')
     _ -> return (st, eff1, eff2)
 
   getAlpha st eff1 eff2 = case st of
-    Appearing -> eff1 @@! Op'GetValue
-    Disappearing -> eff2 @@! Op'GetValue
+    Appearing -> eff1 ^. _value' Op'GetValue
+    Disappearing -> eff2 ^. _value' Op'GetValue
     Invisible -> 0.0
     Visible -> 1.0
 
@@ -229,13 +250,13 @@ effDisplayed = \tr n1 n2 w -> go (effDisplay tr n1 n2) w where
      => Widget Eff'Display -> Widget (Op'Reset r : xs) -> Widget (Eff'Displayed (Op'Reset r : xs))
   go eff w = override (go eff) w $
     (\Op'Run -> InL $ continueM $ fmap (uncurry go) $ execStateT run (eff,w))
-    @> (\Op'Appear -> InL $ continue $ go (eff @@. Op'Appear) w)
-    @> (\Op'Disappear -> InL $ continue $ go (eff @@. Op'Disappear) w)
-    @> (\Op'Switch -> InL $ (if eff @@! Op'IsDisappeared && op'isFreeze w Op'Switch then freeze' else continue) $ go eff w)
-    @> (\Op'GetAlpha -> InL $ finish $ eff @@! Op'GetAlpha)
-    @> (\Op'IsAppeared -> InL $ finish $ eff @@! Op'IsAppeared)
-    @> (\Op'IsDisappeared -> InL $ finish $ eff @@! Op'IsDisappeared)
-    @> (\(Op'Reset r) -> InL $ continue $ go (eff @@. Op'Reset ()) (w @@. Op'Reset r))
+    @> (\Op'Appear -> InL $ continue $ go (eff ^. op'appear) w)
+    @> (\Op'Disappear -> InL $ continue $ go (eff ^. op'disappear) w)
+    @> (\Op'Switch -> InL $ (if eff ^. op'isDisappeared && op'isFreeze w op'switch then freeze' else continue) $ go eff w)
+    @> (\Op'GetAlpha -> InL $ finish $ eff ^. op'getAlpha)
+    @> (\Op'IsAppeared -> InL $ finish $ eff ^. op'isAppeared)
+    @> (\Op'IsDisappeared -> InL $ finish $ eff ^. op'isDisappeared)
+    @> (\(Op'Reset r) -> InL $ continue $ go (eff ^. op'reset ()) (w ^. op'reset r))
     @> bisum id UNext . InR
 
   bisum :: (f ~> f') -> (g ~> g') -> Sum f g ~> Sum f' g'
@@ -245,8 +266,8 @@ effDisplayed = \tr n1 n2 w -> go (effDisplay tr n1 n2) w where
   run :: Op'Run ∈ xs => StateT (Widget Eff'Display, Widget (Op'Reset r : xs)) GameM ()
   run = do
     eff <- use _1
-    _1 <~ lift (eff @. Op'Run)
+    _1 <~ lift (eff ^. op'run)
 
     w <- use _2
-    _2 <~ lift (w @. Op'Run)
+    _2 <~ lift (w ^. op'run)
 

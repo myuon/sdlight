@@ -248,7 +248,7 @@ wMiniScriptEngine = \texture v -> go <$> new texture v where
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $
     (\(Op'Reset _) -> continue $ go $ reset model)
-    @> (\(Op'Render v) -> lift $ render v model)
+    @> (\(Op'Render _ v) -> lift $ render v model)
     @> (\Op'Run -> continueM $ fmap go $ run model)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys model)
     @> (\Op'Switch -> (if model^._state == Finished then freeze' else continue) $ go model)
@@ -281,7 +281,7 @@ wMiniScriptEngine = \texture v -> go <$> new texture v where
       renderImage (v + either toPos id (layer^.position)) (layer^.texture) (layer^.opacity)
 
     case model^._state of
-      Message -> model^.message @! Op'Render (V2 0 450)
+      Message -> model^.message^.op'render (V2 0 450)
       _ -> return ()
 
   findInsert :: a -> IM.IntMap a -> (Int, IM.IntMap a)
@@ -341,7 +341,7 @@ wMiniScriptEngine = \texture v -> go <$> new texture v where
         (ResetOpacity :>>= k) -> do
           return $ model
             & layers %~ fmap (opacity .~ 1.0)
-    Message | op'isFreeze (model^.message) Op'Switch -> return $ model & _state .~ Running
+    Message | op'isFreeze (model^.message) op'switch -> return $ model & _state .~ Running
     Message -> model & message <@%~ Op'Run
     PerformEffect _ _ | model^.counter <= 0 -> return $ model & _state .~ Running
     PerformEffect eff (RefImage ref) -> do
@@ -362,7 +362,7 @@ wMiniScriptEngine = \texture v -> go <$> new texture v where
 
   handler :: M.Map SDL.Scancode Int -> ScriptEngine -> GameM ScriptEngine
   handler keys model = case model^._state of
-    Message -> model^.message @. Op'HandleEvent keys >>= \m -> return $ model & message .~ m
+    Message -> model & message %%~ (^. op'handleEvent keys)
     _ -> return model
   
 
