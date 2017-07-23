@@ -257,4 +257,8 @@ runSwitchM w op k = runFreezeT (w `call` op) >>= k
 op'isFreeze :: Widget xs -> Getter (Widget xs) (FreezeT (Widget xs) Identity a) -> Bool 
 op'isFreeze w op = runSwitch w op isFreeze
 
+--
+
+wEmpty :: Widget '[]
+wEmpty = Widget emptyUnion
 

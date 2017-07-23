@@ -17,11 +17,13 @@ module SDLight.Widgets.Effector
   , op'isDisappeared
   , Eff'Display
 
+  , op'start
+  , op'getValue
+  , effector
+  , Op'Effector
+
   , effDisplay
   , Transition(..)
-
-  , effDisplayed
-  , Eff'Displayed
   ) where
 
 import qualified SDL as SDL
@@ -38,43 +40,6 @@ import SDLight.Types
 import SDLight.Components
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
-
-{-
-data Eff'Start w br m a where
-  Eff'Start :: Eff'Start w Self Identity w
-
-data Eff'Finish w br m a where
-  Eff'Finish :: Eff'Finish w Self Identity w
-
-data Eff'Get w br m a where
-  Eff'Get :: Eff'Get w Value Identity w
-
-data Eff'Put w br m a where
-  Eff'Put :: w -> Eff'Put w Self Identity ()
-
-type Op'FadeIn =
-  [ Eff'Start
-  , Eff'Finish
-  , Eff'Get
-  , Eff'Put
-  ]
-
-type family (:$) (fs :: [a -> b]) (x :: a) where
-  '[] :$ x = '[]
-  (f : fs) :$ x = f x : fs :$ x
-
-newtype FadeIn w = FadeIn { runFadeIn :: Widget (Op'FadeIn :$ w) }
-
-eff'fadein :: Widget xs -> FadeIn (Widget xs)
-eff'fadein = FadeIn . go where
-  go :: Widget xs -> Widget (Op'FadeIn :$ (Widget xs))
-  go widget = Widget $
-    (\Eff'Start -> _)
-    @> (\Eff'Finish -> _)
-    @> (\Eff'Get -> finish widget)
-    @> (\(Eff'Put widget') -> continue $ go widget')
-    @> emptyUnion
--}
 
 data EffectorState
   = NotReady
@@ -232,42 +197,3 @@ effDisplay = \tr n1 n2 -> go Invisible (effector tr n1) (effector (Inverse tr) n
     Disappearing -> eff2 ^. _value' Op'GetValue
     Invisible -> 0.0
     Visible -> 1.0
-
-type Eff'Displayed xs =
-  [ Op'Run
-  , Op'Appear
-  , Op'Disappear
-  , Op'Switch
-  , Op'GetAlpha
-  , Op'IsAppeared
-  , Op'IsDisappeared
-  ] ++ xs
-
-effDisplayed :: (Op'Switch ∈ xs, Op'Run ∈ xs)
-             => Transition -> Int -> Int -> Widget (Op'Reset r : xs) -> Widget (Eff'Displayed (Op'Reset r : xs))
-effDisplayed = \tr n1 n2 w -> go (effDisplay tr n1 n2) w where
-  go :: (Op'Switch ∈ xs, Op'Run ∈ xs)
-     => Widget Eff'Display -> Widget (Op'Reset r : xs) -> Widget (Eff'Displayed (Op'Reset r : xs))
-  go eff w = override (go eff) w $
-    (\Op'Run -> InL $ continueM $ fmap (uncurry go) $ execStateT run (eff,w))
-    @> (\Op'Appear -> InL $ continue $ go (eff ^. op'appear) w)
-    @> (\Op'Disappear -> InL $ continue $ go (eff ^. op'disappear) w)
-    @> (\Op'Switch -> InL $ (if eff ^. op'isDisappeared && op'isFreeze w op'switch then freeze' else continue) $ go eff w)
-    @> (\Op'GetAlpha -> InL $ finish $ eff ^. op'getAlpha)
-    @> (\Op'IsAppeared -> InL $ finish $ eff ^. op'isAppeared)
-    @> (\Op'IsDisappeared -> InL $ finish $ eff ^. op'isDisappeared)
-    @> (\(Op'Reset r) -> InL $ continue $ go (eff ^. op'reset ()) (w ^. op'reset r))
-    @> bisum id UNext . InR
-
-  bisum :: (f ~> f') -> (g ~> g') -> Sum f g ~> Sum f' g'
-  bisum f g (InL a) = InL $ f a
-  bisum f g (InR a) = InR $ g a
-
-  run :: Op'Run ∈ xs => StateT (Widget Eff'Display, Widget (Op'Reset r : xs)) GameM ()
-  run = do
-    eff <- use _1
-    _1 <~ lift (eff ^. op'run)
-
-    w <- use _2
-    _2 <~ lift (w ^. op'run)
-

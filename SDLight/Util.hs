@@ -1,9 +1,11 @@
+{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module SDLight.Util where
 
 import qualified SDL as SDL
+import Control.Monad
 import Control.Lens
 import Data.Proxy
 import GHC.TypeLits
@@ -72,4 +74,12 @@ Interval m v -. v' = Interval m ((v - v') `max` 0)
 
 toInterval :: Int -> Interval
 toInterval n = Interval n n
+
+-- lens
+
+functorial :: Functor f => Getter a b -> Getter (f a) (f b)
+functorial l = to $ fmap (^.l)
+
+monadic :: Monad m => Lens' a b -> Lens' (m a) (m b)
+monadic l = lens (^. functorial l) (liftM2 (\a b -> a & l .~ b))
 
