@@ -6,8 +6,6 @@
 module SDLight where
 
 import qualified SDL as SDL
-import qualified SDL.Raw.Types as SDLR
-import qualified SDL.Internal.Numbered as SDL
 import qualified SDL.TTF as TTF
 import Control.Lens
 import Control.Monad.State.Strict

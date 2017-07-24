@@ -3,11 +3,8 @@ module SDLight.Util where
 import qualified SDL as SDL
 import Control.Monad
 import Control.Lens
-import Data.Proxy
-import GHC.TypeLits
 import Linear.V2
 import Linear.V4
-import SDLight.Types
 
 -- color
 
@@ -47,10 +44,10 @@ orange = rgba 255 128 0 255
 -- rectangle
 
 _position :: Lens' (SDL.Rectangle a) (SDL.Point V2 a)
-_position = lens (\(SDL.Rectangle a b) -> a) (\(SDL.Rectangle _ b) a' -> SDL.Rectangle a' b)
+_position = lens (\(SDL.Rectangle a _) -> a) (\(SDL.Rectangle _ b) a' -> SDL.Rectangle a' b)
 
 _size :: Lens' (SDL.Rectangle a) (V2 a)
-_size = lens (\(SDL.Rectangle a b) -> b) (\(SDL.Rectangle a _) b' -> SDL.Rectangle a b')
+_size = lens (\(SDL.Rectangle _ b) -> b) (\(SDL.Rectangle a _) b' -> SDL.Rectangle a b')
 
 -- closed interval [0,n]
 

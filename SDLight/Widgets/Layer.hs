@@ -12,14 +12,10 @@ module SDLight.Widgets.Layer
 import qualified SDL as SDL
 import qualified SDL.Image as SDL
 import qualified Data.Map as M
-import Data.List
-import Data.Maybe
-import Control.Arrow (first, second)
 import Control.Lens hiding ((:>))
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
-import Control.Monad.Trans.Either
 import Data.Functor.Sum
 import Linear.V2
 import SDLight.Types

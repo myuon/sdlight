@@ -53,8 +53,8 @@ wInputJapanese = \texture -> go <$> new texture where
   new texture =
     InputJapanese
     <$> return ""
-    <*> wLayer texture (V2 800 50)
-    <*> wLayer texture (V2 800 550)
+    <*> wLayer texture textLayerArea
+    <*> wLayer texture letterLayerArea
     <*> return (V2 0 0)
     <*> return Selecting
 
@@ -79,7 +79,6 @@ wInputJapanese = \texture -> go <$> new texture where
     when (model^.currentText /= "") $
       renders white [ translate (V2 15 15) $ shaded black $ text (model^.currentText) ]
 
-    let V2 px py = model^.pointer
     let coordOfPos (V2 ix iy) = V2 ((9 - ix) * 75) (iy * 50) + V2 15 75
     forM_ (zip hiragana [0..]) $ \(hs,ix) -> do
       forM_ (zip hs [0..]) $ \(h,iy) -> do

@@ -8,18 +8,12 @@
 module SDLight.Widgets.Core where
   
 import qualified SDL as SDL
-import Control.Arrow (first, second)
 import Control.Lens
 import Control.Monad.State.Strict
-import Control.Monad.Reader
-import Control.Monad.Trans.Either
-import Control.Monad.Except
-import Control.Concurrent.MVar
 import qualified Data.Map as M
 import Data.Functor.Sum
 import Data.Void
 import SDLight.Types
-import GHC.Exts
 
 type (~>) f g = forall x. f x -> g x
 
@@ -73,10 +67,10 @@ newtype Op m r (op :: (* -> *) -> * -> *) = Op { runOp :: op m r }
 newtype Widget ops = Widget { runWidget :: forall br m. (Functor m, TransBifunctor br m) => Union ops br m ~> br (Widget ops) m }
 
 call :: (k ∈ xs, TransBifunctor br m, Functor m) => Widget xs -> (k br m ~> br (Widget xs) m)
-call w op = runWidget w $ inj op
+call w = runWidget w . inj
 
 _Op :: (k ∈ xs, TransBifunctor br m, Functor m) => k br m a -> Getter (Widget xs) (br (Widget xs) m a)
-_Op op = to (\w -> call w op)
+_Op opr = to (\w -> call w opr)
 
 newtype Self w m a = Self { runSelf :: m w }
 newtype Value w m a = Value { getValue :: m a }
@@ -85,10 +79,10 @@ instance MonadTrans (Value w) where
   lift = Value
 
 instance Functor m => TransBifunctor Self m where
-  bimapT f g = Self . fmap f . runSelf
+  bimapT f _ = Self . fmap f . runSelf
 
 instance Functor m => TransBifunctor Value m where
-  bimapT f g = Value . fmap g . getValue
+  bimapT _ g = Value . fmap g . getValue
 
 class NodeW br where
   continue :: Monad m => Widget xs -> br (Widget xs) m a
@@ -106,19 +100,19 @@ instance NodeW Self where
   continue = Self . return
   continueM = Self
 
-  _self op = to $ \w -> runSelf $ w `call` op
+  _self opr = to $ \w -> runSelf $ w `call` opr
 
 instance LeafW Value where
   finish = Value . return
   finishM = Value
 
-  _value op = to $ \w -> getValue $ w `call` op
+  _value opr = to $ \w -> getValue $ w `call` opr
 
 _self' :: (k ∈ xs, TransBifunctor br Identity, NodeW br) => k br Identity Void -> Getter (Widget xs) (Widget xs)
-_self' op = _self op . to runIdentity
+_self' opr = _self opr . to runIdentity
 
 _value' :: (k ∈ xs, LeafW br) => k br Identity a -> Getter (Widget xs) a
-_value' op = _value op . to runIdentity
+_value' opr = _value opr . to runIdentity
 
 --
 
@@ -127,23 +121,23 @@ data Freeze w a = Freeze w a | Keep w
 makePrisms ''Freeze
 
 refreeze :: (w -> z) -> Freeze w a -> Freeze z b
-refreeze f (Freeze w a) = Keep (f w)
+refreeze f (Freeze w _) = Keep (f w)
 refreeze f (Keep w) = Keep (f w)
 
 unfreeze :: (w -> a -> r) -> (w -> r) -> Freeze w a -> r
-unfreeze fr ke (Freeze w a) = fr w a
-unfreeze fr ke (Keep w) = ke w
+unfreeze fr _ (Freeze w a) = fr w a
+unfreeze _ ke (Keep w) = ke w
 
 isFreeze :: Freeze w a -> Bool
 isFreeze = unfreeze (\_ _ -> True) (\_ -> False)
 
 _Frozen :: Lens' (Freeze w a) w
-_Frozen = lens get set where
-  get (Freeze w _) = w
-  get (Keep w) = w
+_Frozen = lens lget lset where
+  lget (Freeze w _) = w
+  lget (Keep w) = w
 
-  set (Freeze _ a) w = Freeze w a
-  set (Keep _) w = Keep w
+  lset (Freeze _ a) w = Freeze w a
+  lset (Keep _) w = Keep w
 
 data Op'Render br m r where
   Op'Render :: Double -> SDL.V2 Int -> Op'Render Value GameM ()
@@ -185,7 +179,7 @@ instance NodeW FreezeT where
   continue = FreezeT . return . Keep
   continueM = FreezeT . fmap Keep
 
-  _self op = to $ \w -> fmap (^._Frozen) $ runFreezeT $ w `call` op
+  _self opr = to $ \w -> fmap (^._Frozen) $ runFreezeT $ w `call` opr
 
 op'switch :: Op'Switch ∈ xs => Getter (Widget xs) (FreezeT (Widget xs) Identity ())
 op'switch = _Op Op'Switch
@@ -205,7 +199,7 @@ freezeM' :: Monad m => m (Widget xs) -> FreezeT (Widget xs) m ()
 freezeM' w = freezeM w ()
 
 override :: (Widget old -> Widget new) -> Widget old -> (forall br m. Union new br m ~> (br (Widget new) m `Sum` Union old br m)) -> Widget new
-override updater wx f = Widget $ elim id (bimapT updater id . runWidget wx) . f where
+override updater wx fu = Widget $ elim id (bimapT updater id . runWidget wx) . fu where
   elim :: (f ~> r) -> (g ~> r) -> (f `Sum` g ~> r)
   elim f g x = case x of
     InL a -> f a

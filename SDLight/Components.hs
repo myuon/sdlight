@@ -3,15 +3,11 @@ module SDLight.Components where
 import qualified SDL as SDL
 import qualified SDL.Raw.Types as SDLR
 import qualified SDL.TTF as TTF
-import Data.List
-import Data.Maybe
 import Control.Lens
-import Control.Monad
 import Control.Monad.State
 import Linear.V2
 import SDLight.Types
 import SDLight.Util
-import SDLight.Widgets.Layer
 
 type Area = SDL.Rectangle Int
 

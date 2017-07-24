@@ -23,15 +23,12 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans (lift)
 import Control.Monad.Skeleton
-import Control.Applicative
 import Data.List
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import Linear.V2
 import SDLight.Types
-import SDLight.Components
 import SDLight.Widgets.Core
-import SDLight.Widgets.Layer
 import SDLight.Widgets.MessageLayer
 import qualified Text.Trifecta as Tf
 

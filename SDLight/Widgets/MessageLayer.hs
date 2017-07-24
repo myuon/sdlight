@@ -6,11 +6,7 @@ module SDLight.Widgets.MessageLayer
   ) where
 
 import qualified SDL as SDL
-import qualified SDL.Image as SDL
 import qualified Data.Map as M
-import Data.List
-import Data.Maybe
-import Data.Proxy
 import Control.Lens
 import Control.Monad
 import Control.Monad.State.Strict
@@ -20,7 +16,6 @@ import SDLight.Components
 import SDLight.Types
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
-import Debug.Trace
 
 data MessageState = Typing | Waiting | Finished
   deriving (Eq, Show)

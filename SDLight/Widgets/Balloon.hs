@@ -8,7 +8,6 @@ import qualified SDL as SDL
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans (lift)
-import qualified Data.Map as M
 import Linear.V2
 import SDLight.Util
 import SDLight.Types

@@ -18,8 +18,6 @@ import Data.Maybe
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans
-import Control.Monad.State.Strict
-import Data.Functor.Sum
 import Linear.V2
 import SDLight.Util
 import SDLight.Types

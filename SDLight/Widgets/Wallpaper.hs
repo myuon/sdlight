@@ -9,7 +9,6 @@ import Control.Lens
 import Control.Monad.Trans
 import qualified Data.Map as M
 import Linear.V2
-import SDLight.Widgets.Effector
 import SDLight.Widgets.Core
 import SDLight.Types
 
