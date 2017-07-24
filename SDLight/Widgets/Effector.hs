@@ -1,14 +1,3 @@
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE Strict #-}
-{-# LANGUAGE StrictData #-}
 module SDLight.Widgets.Effector
   ( op'appear
   , op'disappear

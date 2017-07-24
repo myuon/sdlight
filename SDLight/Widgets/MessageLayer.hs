@@ -1,18 +1,3 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE Strict #-}
-{-# LANGUAGE StrictData #-}
 module SDLight.Widgets.MessageLayer
   ( wMessageWriter
   , Op'MessageWriter

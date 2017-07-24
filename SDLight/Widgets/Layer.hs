@@ -1,19 +1,3 @@
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE Strict #-}
-{-# LANGUAGE StrictData #-}
 module SDLight.Widgets.Layer
   ( wLayer
   , Op'Layer

@@ -1,7 +1,3 @@
-{-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 module SDLight.Util where
 
 import qualified SDL as SDL

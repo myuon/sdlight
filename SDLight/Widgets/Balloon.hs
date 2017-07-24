@@ -1,12 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE Strict #-}
-{-# LANGUAGE StrictData #-}
 module SDLight.Widgets.Balloon
   ( Op'Balloon
   , op'fly

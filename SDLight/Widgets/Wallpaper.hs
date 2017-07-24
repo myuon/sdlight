@@ -1,8 +1,3 @@
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE Strict #-}
-{-# LANGUAGE StrictData #-}
 module SDLight.Widgets.Wallpaper
   ( wWallpaper
   , Op'Wallpaper

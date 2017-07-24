@@ -1,11 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE Strict #-}
-{-# LANGUAGE StrictData #-}
 module SDLight.Widgets.Selector
   ( wSelector
   , Op'Selector

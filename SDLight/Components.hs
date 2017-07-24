@@ -1,6 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE Strict #-}
-{-# LANGUAGE StrictData #-}
 module SDLight.Components where
 
 import qualified SDL as SDL

@@ -1,15 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE Strict, StrictData #-}
 module SDLight.Widgets.FadeInOut
   ( eff'widget
   , eff'reset

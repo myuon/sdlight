@@ -1,6 +1,3 @@
-{-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE Strict, StrictData #-}
-{-# LANGUAGE TemplateHaskell #-}
 module SDLight.Types where
 
 import qualified SDL as SDL

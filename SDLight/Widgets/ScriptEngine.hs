@@ -1,11 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE Strict #-}
-{-# LANGUAGE StrictData #-}
 module SDLight.Widgets.ScriptEngine
   ( wMiniScriptEngine
   , Op'MiniScriptEngine

@@ -1,11 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE Strict #-}
-{-# LANGUAGE StrictData #-}
 module SDLight.Widgets.InputJapanese
   ( op'getText
   , Op'InputJapanese

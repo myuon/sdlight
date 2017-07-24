@@ -1,20 +1,10 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE EmptyCase #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE Strict #-}
-{-# LANGUAGE StrictData #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE EmptyCase #-}
 module SDLight.Widgets.Core where
   
 import qualified SDL as SDL
@@ -70,7 +60,7 @@ infixr 2 @>
 emptyUnion :: Union '[] br m v -> a
 emptyUnion = \case
 
-class TransBifunctor f m where
+class TransBifunctor f (m :: * -> *) where
   bimapT :: (a -> b) -> (c -> d) -> f a m c -> f b m d
 
   firstT :: (a -> b) -> f a m c -> f b m c
