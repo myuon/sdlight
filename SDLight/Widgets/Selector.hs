@@ -1,7 +1,8 @@
 module SDLight.Widgets.Selector
   ( wSelector
   , Op'Selector
-  , op'renderBy
+  , SelectorConfig(..)
+  , op'renderSelector
   , op'getSelecting
   , op'getPointer
   , op'getLabels
@@ -9,6 +10,10 @@ module SDLight.Widgets.Selector
 
   , wSelectLayer
   , Op'SelectLayer
+
+  , Op'GetSelecting(..)
+  , Op'GetPointer(..)
+  , Op'GetLabels(..)
   ) where
 
 import qualified SDL as SDL
@@ -36,8 +41,16 @@ data Selector
 
 makeLenses ''Selector
 
-data Op'RenderBy br m r where
-  Op'RenderBy :: (String -> Int -> Bool -> Bool -> GameM ()) -> Op'RenderBy Value GameM ()
+data SelectorConfig
+  = SelectorConfig
+  { _CfgText :: String
+  , _CfgIndex :: Int
+  , _CfgIsSelected :: Bool
+  , _CfgIsFocused :: Bool
+  }
+
+data Op'RenderSelector br m r where
+  Op'RenderSelector :: (SelectorConfig -> GameM ()) -> Op'RenderSelector Value GameM ()
 
 data Op'GetSelecting br m r where
   Op'GetSelecting :: Op'GetSelecting Value Identity [Int]
@@ -51,8 +64,8 @@ data Op'GetLabels br m r where
 data Op'SetLabels br m r where
   Op'SetLabels :: [String] -> Op'SetLabels Self Identity a
 
-op'renderBy :: Op'RenderBy ∈ xs => (String -> Int -> Bool -> Bool -> GameM ()) -> Getter (Widget xs) (GameM ())
-op'renderBy = _value . Op'RenderBy
+op'renderSelector :: Op'RenderSelector ∈ xs => (SelectorConfig -> GameM ()) -> Getter (Widget xs) (GameM ())
+op'renderSelector = _value . Op'RenderSelector
 
 op'getSelecting :: Op'GetSelecting ∈ xs => Getter (Widget xs) [Int]
 op'getSelecting = _value' Op'GetSelecting
@@ -69,7 +82,7 @@ op'setLabels = _self' . Op'SetLabels
 type Op'Selector =
   [ Op'Reset ()
   , Op'Render
-  , Op'RenderBy
+  , Op'RenderSelector
   , Op'Run
   , Op'HandleEvent
   , Op'Switch
@@ -91,7 +104,7 @@ wSelector = \labels selnum -> go $ new labels selnum where
   go sel = Widget $
     (\(Op'Reset _) -> continue $ go $ reset sel)
     @> (\(Op'Render _ v) -> lift $ renderDropdown sel v)
-    @> (\(Op'RenderBy rend) -> lift $ render sel rend)
+    @> (\(Op'RenderSelector rend) -> lift $ render sel rend)
     @> (\Op'Run -> continueM $ fmap go $ return sel)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys sel)
     @> (\Op'Switch -> (if sel^.isFinished then freeze' else continue) $ go sel)
@@ -104,14 +117,14 @@ wSelector = \labels selnum -> go $ new labels selnum where
   reset :: Selector -> Selector
   reset sel = sel & pointer .~ Nothing & selecting .~ [] & isFinished .~ False
 
-  render :: Selector -> (String -> Int -> Bool -> Bool -> GameM ()) -> GameM ()
+  render :: Selector -> (SelectorConfig -> GameM ()) -> GameM ()
   render sel rendItem = do
     forM_ (zip [0..] (sel^.labels)) $ \(i,label) ->
-      rendItem label i (i `elem` (sel^.selecting)) (Just i == sel^.pointer)
+      rendItem $ SelectorConfig label i (i `elem` (sel^.selecting)) (Just i == sel^.pointer)
 
   renderDropdown :: Selector -> V2 Int -> GameM ()
   renderDropdown sel p = do
-    render sel $ \label i selecting focused -> do
+    render sel $ \(SelectorConfig label i selecting focused) -> do
       when focused $ do
         renders white $
           [ translate (p + V2 20 (20+30*i)) $ shaded black $ text "▶"
@@ -182,12 +195,12 @@ wSelectLayer = \win cur v labels num -> go <$> new win cur v labels num where
   render :: SelectLayer -> V2 Int -> GameM ()
   render sel v = do
     sel^._1^.op'render v
-    (sel^._3^.) $ op'renderBy $ \label i selecting focused -> do
-      when focused $ do
-        sel^._2^.op'render (v + V2 10 (20+30*i))
+    (sel^._3^.) $ op'renderSelector $ \cfg -> do
+      when (_CfgIsFocused cfg) $ do
+        sel^._2^.op'render (v + V2 10 (20+30*_CfgIndex cfg))
 
-      let color = if selecting then red else white
+      let color = if _CfgIsSelected cfg then red else white
       renders color $
-        [ translate (v + V2 (20+5) (20+30*i)) $ shaded black $ text label
+        [ translate (v + V2 (20+5) (20+30*_CfgIndex cfg)) $ shaded black $ text $ _CfgText cfg
         ]
 
