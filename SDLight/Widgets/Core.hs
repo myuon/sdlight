@@ -12,7 +12,6 @@ import Control.Lens
 import Control.Monad.State.Strict
 import qualified Data.Map as M
 import Data.Functor.Sum
-import Data.Void
 import SDLight.Types
 
 type (~>) f g = forall x. f x -> g x
@@ -88,7 +87,7 @@ class NodeW br where
   continue :: Monad m => Widget xs -> br (Widget xs) m a
   continueM :: Functor m => m (Widget xs) -> br (Widget xs) m a
 
-  _self :: (k ∈ xs, TransBifunctor br m, Functor m) => k br m Void -> Getter (Widget xs) (m (Widget xs))
+  _self :: (k ∈ xs, TransBifunctor br m, Functor m) => k br m () -> Getter (Widget xs) (m (Widget xs))
 
 class LeafW br where
   finish :: Monad m => model -> br (Widget xs) m model
@@ -108,7 +107,7 @@ instance LeafW Value where
 
   _value opr = to $ \w -> getValue $ w `call` opr
 
-_self' :: (k ∈ xs, TransBifunctor br Identity, NodeW br) => k br Identity Void -> Getter (Widget xs) (Widget xs)
+_self' :: (k ∈ xs, TransBifunctor br Identity, NodeW br) => k br Identity () -> Getter (Widget xs) (Widget xs)
 _self' opr = _self opr . to runIdentity
 
 _value' :: (k ∈ xs, LeafW br) => k br Identity a -> Getter (Widget xs) a

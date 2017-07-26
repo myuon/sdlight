@@ -32,29 +32,10 @@ data TabSelectorConfig
   , _CfgIsTabSelected :: Bool
   }
 
-data Op'GetTabName br m a where
-  Op'GetTabName :: Op'GetTabName Value Identity (Maybe String)
-
-data Op'RenderTabSelector br m r where
-  Op'RenderTabSelector :: (TabSelectorConfig -> SelectorConfig -> GameM ()) -> Op'RenderTabSelector Value GameM ()
-
-data Op'GetCurrentSelector br m r where
-  Op'GetCurrentSelector :: Op'GetCurrentSelector Value Identity (Maybe (Widget Op'Selector))
-
-data Op'SetTabs br m r where
-  Op'SetTabs :: [(String, [String])] -> Op'SetTabs Self Identity a
-
-op'getTabName :: Op'GetTabName ∈ xs => Getter (Widget xs) (Maybe String)
-op'getTabName = to $ \w -> w ^. _value' Op'GetTabName
-
-op'getCurrentSelector :: Op'GetCurrentSelector ∈ xs => Getter (Widget xs) (Maybe (Widget Op'Selector))
-op'getCurrentSelector = to $ \w -> w ^. _value' Op'GetCurrentSelector
-
-op'renderTabSelector :: Op'RenderTabSelector ∈ xs => (TabSelectorConfig -> SelectorConfig -> GameM ()) -> Getter (Widget xs) (GameM ())
-op'renderTabSelector = _value . Op'RenderTabSelector
-
-op'setTabs :: Op'SetTabs ∈ xs => [(String, [String])] -> Getter (Widget xs) (Widget xs)
-op'setTabs t = to $ \w -> w ^. _self' (Op'SetTabs t)
+makeOp "GetTabName" [t| _ Value Identity (Maybe String) |]
+makeOp "RenderTabSelector" [t| (TabSelectorConfig -> SelectorConfig -> GameM ()) -> _ Value GameM () |]
+makeOp "GetCurrentSelector" [t| _ Value Identity (Maybe (Widget Op'Selector)) |]
+makeOp "SetTabs" [t| [(String, [String])] -> _ Self Identity () |]
 
 type Op'TabSelector =
   [ Op'Reset ()
