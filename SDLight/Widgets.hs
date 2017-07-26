@@ -15,3 +15,5 @@ import SDLight.Widgets.Wallpaper as M
 
 import SDLight.Widgets.Balloon as M
 
+import SDLight.Widgets.TH as M
+

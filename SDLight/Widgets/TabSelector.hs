@@ -12,6 +12,7 @@ import Linear.V2
 import SDLight.Util
 import SDLight.Types
 import SDLight.Components
+import SDLight.Widgets.TH
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 import SDLight.Widgets.Selector
