@@ -1,7 +1,7 @@
 module SDLight.Widgets.Selector
   ( wSelector
   , Op'Selector
-  , SelectorConfig(..)
+  , SelectorRenderConfig(..)
   , op'renderSelector
   , op'getSelecting
   , op'getPointer
@@ -41,8 +41,8 @@ data Selector
 
 makeLenses ''Selector
 
-data SelectorConfig
-  = SelectorConfig
+data SelectorRenderConfig
+  = SelectorRenderConfig
   { _CfgText :: String
   , _CfgIndex :: Int
   , _CfgIsSelected :: Bool
@@ -50,7 +50,7 @@ data SelectorConfig
   }
 
 data Op'RenderSelector br m r where
-  Op'RenderSelector :: (SelectorConfig -> GameM ()) -> Op'RenderSelector Value GameM ()
+  Op'RenderSelector :: (SelectorRenderConfig -> GameM ()) -> Op'RenderSelector Value GameM ()
 
 data Op'GetSelecting br m r where
   Op'GetSelecting :: Op'GetSelecting Value Identity [Int]
@@ -64,7 +64,7 @@ data Op'GetLabels br m r where
 data Op'SetLabels br m r where
   Op'SetLabels :: [String] -> Op'SetLabels Self Identity a
 
-op'renderSelector :: Op'RenderSelector ∈ xs => (SelectorConfig -> GameM ()) -> Getter (Widget xs) (GameM ())
+op'renderSelector :: Op'RenderSelector ∈ xs => (SelectorRenderConfig -> GameM ()) -> Getter (Widget xs) (GameM ())
 op'renderSelector = _value . Op'RenderSelector
 
 op'getSelecting :: Op'GetSelecting ∈ xs => Getter (Widget xs) [Int]
@@ -117,14 +117,14 @@ wSelector = \labels selnum -> go $ new labels selnum where
   reset :: Selector -> Selector
   reset sel = sel & pointer .~ Nothing & selecting .~ [] & isFinished .~ False
 
-  render :: Selector -> (SelectorConfig -> GameM ()) -> GameM ()
+  render :: Selector -> (SelectorRenderConfig -> GameM ()) -> GameM ()
   render sel rendItem = do
     forM_ (zip [0..] (sel^.labels)) $ \(i,label) ->
-      rendItem $ SelectorConfig label i (i `elem` (sel^.selecting)) (Just i == sel^.pointer)
+      rendItem $ SelectorRenderConfig label i (i `elem` (sel^.selecting)) (Just i == sel^.pointer)
 
   renderDropdown :: Selector -> V2 Int -> GameM ()
   renderDropdown sel p = do
-    render sel $ \(SelectorConfig label i selecting focused) -> do
+    render sel $ \(SelectorRenderConfig label i selecting focused) -> do
       when focused $ do
         renders white $
           [ translate (p + V2 20 (20+30*i)) $ shaded black $ text "▶"

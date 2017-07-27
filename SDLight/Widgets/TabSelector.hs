@@ -8,7 +8,7 @@ module SDLight.Widgets.TabSelector
   , Op'TabSelectLayer
   , wTabSelectLayer
 
-  , TabSelectorConfig(..)
+  , TabSelectorRenderConfig(..)
   ) where
 
 import qualified SDL as SDL
@@ -17,6 +17,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans
 import qualified Data.Map as M
+import Data.Default
 import Linear.V2
 import SDLight.Util
 import SDLight.Types
@@ -34,15 +35,15 @@ data TabSelector
 
 makeLenses ''TabSelector
 
-data TabSelectorConfig
-  = TabSelectorConfig
+data TabSelectorRenderConfig
+  = TabSelectorRenderConfig
   { _CfgTabName :: String
   , _CfgTabIndex :: Int
   , _CfgIsTabSelected :: Bool
   }
 
 makeOp "GetTabName" [t| _ Value Identity (Maybe String) |]
-makeOp "RenderTabSelector" [t| (TabSelectorConfig -> SelectorConfig -> GameM ()) -> _ Value GameM () |]
+makeOp "RenderTabSelector" [t| (TabSelectorRenderConfig -> SelectorRenderConfig -> GameM ()) -> _ Value GameM () |]
 makeOp "GetCurrentSelector" [t| _ Value Identity (Maybe (Widget Op'Selector)) |]
 makeOp "SetTabs" [t| [(String, [String])] -> _ Self Identity () |]
 
@@ -93,10 +94,10 @@ wTabSelector selnum = go new where
 
       model^.wtabs^?!ix here^._2.op'render (V2 0 40 + v)
 
-  render :: (TabSelectorConfig -> SelectorConfig -> GameM ()) -> TabSelector -> GameM ()
+  render :: (TabSelectorRenderConfig -> SelectorRenderConfig -> GameM ()) -> TabSelector -> GameM ()
   render rend model = do
     forM_ (zip [0..] $ model^.wtabs) $ \(i,(name,wtab)) -> do
-      wtab^.op'renderSelector (rend (TabSelectorConfig name i (model^.pointer == Just i)))
+      wtab^.op'renderSelector (rend (TabSelectorRenderConfig name i (model^.pointer == Just i)))
 
   handler keys model = case model^.pointer of
     Nothing -> return model
