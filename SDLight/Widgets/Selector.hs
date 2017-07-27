@@ -18,12 +18,14 @@ module SDLight.Widgets.Selector
 
 import qualified SDL as SDL
 import qualified Data.Map as M
-import Data.List
+import Data.Ix
 import Data.Maybe
+import Data.List
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans
 import Linear.V2
+import Data.Scoped
 import SDLight.Util
 import SDLight.Types
 import SDLight.Components
@@ -34,9 +36,8 @@ import SDLight.Widgets.Layer
 data Selector
   = Selector
   { _labels :: [(Int,String)]
-  , _pointer :: Maybe Int
-  , _pager :: Int
-  , _pageLineNum :: Maybe Int
+  , _pointer :: Maybe (Scoped Int)
+  , _pagerStyle :: Maybe Int
   , _selectNum :: Int
   , _selecting :: [Int]
   , _isFinished :: Bool
@@ -75,8 +76,15 @@ type Op'Selector =
 -- 必要があればoverrideする
 
 wSelector :: [String] -> Int -> Maybe Int -> Widget Op'Selector
-wSelector = \labels selnum page -> go $ new labels selnum page where
-  new labels selectNum page = Selector (zip [0..] labels) Nothing 0 page selectNum [] False
+wSelector = \labels selnum pager -> go $ new labels selnum pager where
+  pointerFromPagerStyle labels pager = maybe (rangeScope labels (length labels - 1)) (rangeScope labels) pager
+
+  new labels selectNum pager =
+    Selector
+    (zip [0..] labels)
+    (pointerFromPagerStyle labels pager)
+    pager
+    selectNum [] False
 
   go :: Selector -> Widget Op'Selector
   go sel = Widget $
@@ -87,19 +95,18 @@ wSelector = \labels selnum page -> go $ new labels selnum page where
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys sel)
     @> (\Op'Switch -> (if sel^.isFinished then freeze' else continue) $ go sel)
     @> (\Op'GetSelecting -> finish $ sel^.selecting)
-    @> (\Op'GetPointer -> finish $ sel^.pointer)
+    @> (\Op'GetPointer -> finish $ sel^.pointer <&> (^.scoped))
     @> (\Op'GetLabels -> finish $ fmap snd $ sel^.labels)
-    @> (\(Op'SetLabels ls) -> continue $ go $ sel & labels .~ zip [0..] ls)
+    @> (\(Op'SetLabels ls) -> continue $ go $ sel & labels .~ zip [0..] ls & pointer .~ pointerFromPagerStyle ls (sel^.pagerStyle))
     @> emptyUnion
 
   reset :: Selector -> Selector
-  reset sel = sel & pointer .~ Nothing & selecting .~ [] & isFinished .~ False
+  reset sel = sel & pointer._Just %~ adjustTo0 & selecting .~ [] & isFinished .~ False
 
   render :: Selector -> (SelectorRenderConfig -> GameM ()) -> GameM ()
   render sel rendItem = do
-    let itemNum = maybe (length $ sel^.labels) id $ sel^.pageLineNum
-    forM_ (zip [0..] $ drop (sel^.pager) $ take (itemNum + sel^.pager) (sel^.labels)) $ \(i,label) ->
-      rendItem $ SelectorRenderConfig (snd label) i (i `elem` (sel^.selecting)) (Just i == sel^.pointer)
+    forM_ (zip [0..] $ fmap ((sel^.labels) !!) $ range $ maybe (0,length (sel^.labels)-1) (^.locally) (sel^.pointer)) $ \(i,label) ->
+      rendItem $ SelectorRenderConfig (snd label) i (i `elem` (sel^.selecting)) (Just (fst label) == ((sel^.pointer) <&> (^.scoped)))
 
   renderDropdown :: Selector -> V2 Int -> GameM ()
   renderDropdown sel p = do
@@ -116,34 +123,15 @@ wSelector = \labels selnum page -> go $ new labels selnum page where
 
   handler :: M.Map SDL.Scancode Int -> Selector -> GameM Selector
   handler keys sel
-    | keys M.! SDL.ScancodeUp == 1 =
-      case sel^.pointer of
-        Nothing -> return $ sel & pointer .~ Just 0
-        Just 0 ->
-          if sel^.pager == 0
-          then return $ sel
-               & pointer .~ Just (maybe (length $ sel^.labels) id (sel^.pageLineNum) `min` (length $ sel^.labels) - 1)
-               & pager .~ (length (sel^.labels) - maybe (length $ (sel^.labels)) id (sel^.pageLineNum)) `max` 0
-          else return $ sel & pager -~ 1
-        Just p -> return $ sel & pointer .~ Just (p-1)
-    | keys M.! SDL.ScancodeDown == 1 =
-      case sel^.pointer of
-        Nothing -> return $ sel & pointer .~ Just 0
-        Just p | p >= (maybe (length (sel^.labels)) id (sel^.pageLineNum) `min` (length $ sel^.labels)) - 1 ->
-          if sel^.pager >= length (sel^.labels) - maybe (length $ (sel^.labels)) id (sel^.pageLineNum)
-          then return $ sel & pointer .~ Just 0 & pager .~ 0
-          else return $ sel & pager +~ 1
-        Just p -> return $ sel & pointer .~ Just (p+1)
-    | keys M.! SDL.ScancodeZ == 1 =
-      case sel^.isFinished of
-        False | isJust (sel^.pointer) -> do
-          let p = fst $ ((sel^.labels) !!) $ fromJust $ sel^.pointer
-          if p `elem` sel^.selecting
-            then return $ sel & selecting %~ delete p
-            else return $ sel
-                   & selecting %~ (p :)
-                   & isFinished .~ (length (sel^.selecting) + 1 == sel^.selectNum)
-        _ -> return sel
+    | keys M.! SDL.ScancodeUp == 1 = return $ sel & pointer._Just %~ back
+    | keys M.! SDL.ScancodeDown == 1 = return $ sel & pointer._Just %~ forward
+    | keys M.! SDL.ScancodeZ == 1 && not (sel^.isFinished) && (not $ isNothing $ sel^.pointer) = do
+        let p = fst $ (sel^.labels) !! (sel^.pointer^?!_Just^.scoped)
+        if p `elem` sel^.selecting
+          then return $ sel & selecting %~ delete p
+          else return $ sel
+               & selecting %~ (p :)
+               & isFinished .~ (length (sel^.selecting) + 1 == sel^.selectNum)
     | otherwise = return sel
 
 

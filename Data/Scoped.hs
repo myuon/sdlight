@@ -12,8 +12,16 @@ data Scoped a
 
 makeLenses ''Scoped
 
-scopedTo :: (Num a, Ord a) => a -> a -> Scoped a
-scopedTo local global | 0 < local && 0 < global = Scoped 0 (0,local) (0,global)
+rangeScope :: [a] -> Int -> Maybe (Scoped Int)
+rangeScope [] _ = Nothing
+rangeScope xs n = Just $ scopedTo n (length xs - 1)
+
+scopedTo :: (Num a, Ord a, Show a) => a -> a -> Scoped a
+scopedTo local global | 0 <= local && 0 <= global = Scoped 0 (0,local) (0,global)
+scopedTo local global = error $ show (local,global)
+
+adjustTo0 :: Num a => Scoped a -> Scoped a
+adjustTo0 sc = sc & scoped .~ 0 & locally %~ (\(a,b) -> (0,b-a)) & globally %~ (\(a,b) -> (0,b-a))
 
 localIx :: Num a => Getter (Scoped a) a
 localIx = to $ \sc -> sc^.scoped - sc^.locally^._1

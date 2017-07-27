@@ -2,10 +2,9 @@ module SDLight.Util where
 
 import qualified SDL as SDL
 import Control.Monad
-import Control.Lens hiding ((...))
+import Control.Lens
 import Linear.V2
 import Linear.V4
-import Numeric.Interval
 
 -- color
 
