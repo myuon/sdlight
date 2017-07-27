@@ -1,5 +1,14 @@
 module SDLight.Widgets.TabSelector
-  (
+  ( op'getTabName
+  , op'renderTabSelector
+  , op'getCurrentSelector
+  , op'setTabs
+  , Op'TabSelector
+  , wTabSelector
+  , Op'TabSelectLayer
+  , wTabSelectLayer
+
+  , TabSelectorConfig(..)
   ) where
 
 import qualified SDL as SDL
@@ -67,7 +76,7 @@ wTabSelector selnum = go new where
     @> (\Op'GetPointer -> finish $ maybe Nothing (^.op'getPointer) (go model^.op'getCurrentSelector))
     @> (\Op'GetCurrentSelector -> finish $ maybe Nothing (\p -> model^.wtabs^?ix p._2) (model^.pointer))
     @> (\Op'GetTabName -> finish $ maybe Nothing (\p -> model^.wtabs^?ix p._1) $ model^.pointer)
-    @> (\(Op'SetTabs ts) -> continue $ go $ model & wtabs .~ fmap (second (\s -> wSelector s selnum)) ts)
+    @> (\(Op'SetTabs ts) -> continue $ go $ model & wtabs .~ fmap (second (\s -> wSelector s selnum)) ts & pointer .~ (if ts /= [] then Just 0 else Nothing))
     @> emptyUnion
 
   reset model = model &~ do
@@ -95,7 +104,7 @@ wTabSelector selnum = go new where
       return $ model & pointer .~ if tab == length (model^.wtabs) - 1 then Just 0 else Just (tab + 1)
     Just tab | keys M.! SDL.ScancodeLeft == 1 ->
       return $ model & pointer .~ if tab == 0 then Just (length (model^.wtabs) - 1) else Just (tab - 1)
-
+    Just tab -> fmap (\w -> model & wtabs.ix tab._2 .~ w) $ model^.wtabs^?!ix tab^._2^.op'handleEvent keys
 
 type Op'TabSelectLayer =
   [ Op'Reset ()
@@ -112,12 +121,12 @@ type Op'TabSelectLayer =
 
 type TabSelectLayer = (Widget Op'Layer, Widget Op'Layer, Widget Op'TabSelector)
 
-wTabSelectLayer :: SDL.Texture -> SDL.Texture -> V2 Int -> Int -> GameM (Widget Op'TabSelectLayer)
-wTabSelectLayer = \win cur v num -> go <$> new win cur v num where
+wTabSelectLayer :: Int -> SDL.Texture -> SDL.Texture -> V2 Int -> Int -> GameM (Widget Op'TabSelectLayer)
+wTabSelectLayer tabWidth = \win cur v num -> go <$> new win cur v num where
   new win cur v num =
     liftM3 (,,)
     (wLayer win v)
-    (wLayer cur (V2 (v^._x - 20) 30))
+    (wLayer cur (V2 tabWidth 30))
     (return $ wTabSelector num)
 
   go :: TabSelectLayer -> Widget Op'TabSelectLayer
@@ -139,13 +148,19 @@ wTabSelectLayer = \win cur v num -> go <$> new win cur v num where
     model^._1^.op'render v
     (model^._3^.) $ op'renderTabSelector $ \tcfg scfg -> do
       when (_CfgIsTabSelected tcfg) $ do
-        model^._2^.op'render (v + V2 (30*_CfgTabIndex tcfg) 0)
+        model^._2^.op'render (v + V2 (tabWidth*_CfgTabIndex tcfg) 0)
       
-      when (_CfgIsFocused scfg) $ do
+      let color = if _CfgIsTabSelected tcfg then red else white
+      renders color $
+        [ translate (v + V2 (tabWidth*_CfgTabIndex tcfg) 0) $ shaded black $ text $ _CfgTabName tcfg
+        ]
+
+      when (_CfgIsTabSelected tcfg && _CfgIsFocused scfg) $ do
         model^._2^.op'render (v + V2 10 (30+20+30*_CfgIndex scfg))
 
-      let color = if _CfgIsSelected scfg then red else white
-      renders color $
-        [ translate (v + V2 (20+5) (20+30*_CfgIndex scfg)) $ shaded black $ text $ _CfgText scfg
-        ]
+      when (_CfgIsTabSelected tcfg) $ do
+        let color = if _CfgIsSelected scfg then red else white
+        renders color $
+          [ translate (v + V2 (20+5) (30+20+30*_CfgIndex scfg)) $ shaded black $ text $ _CfgText scfg
+          ]
 

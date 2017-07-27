@@ -136,7 +136,7 @@ parseWithWild :: Name -> Type -> Operator
 parseWithWild n = getArgs getOpTypes
   where
     getArgs :: (Type -> Operator) -> Type -> Operator
-    getArgs k (AppT (AppT ArrowT a) b) = k b & args %~ (a :)
+    getArgs k (AppT (AppT ArrowT a) b) = getArgs k b & args %~ (a :)
     getArgs k u = k u
 
     getOpTypes :: Type -> Operator
