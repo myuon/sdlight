@@ -2,9 +2,10 @@ module SDLight.Util where
 
 import qualified SDL as SDL
 import Control.Monad
-import Control.Lens
+import Control.Lens hiding ((...))
 import Linear.V2
 import Linear.V4
+import Numeric.Interval
 
 -- color
 
@@ -51,22 +52,31 @@ _size = lens (\(SDL.Rectangle _ b) -> b) (\(SDL.Rectangle a _) b' -> SDL.Rectang
 
 -- closed interval [0,n]
 
-data Interval
-  = Interval
-  { _maxI :: Int
-  , _valueI :: Int
+data NumBounded a
+  = NumBounded
+  { _valueI :: a
+  , _intervalI :: Interval a
   }
 
-makeLenses ''Interval
+makeLenses ''NumBounded
 
-(+.) :: Interval -> Int -> Interval
-Interval m v +. v' = Interval m ((v + v') `min` m)
+(+.) :: (Num a, Ord a) => NumBounded a -> a -> NumBounded a
+nb +. v' = nb & valueI .~ ((nb^.valueI + v') `min` sup (nb^.intervalI))
 
-(-.) :: Interval -> Int -> Interval
-Interval m v -. v' = Interval m ((v - v') `max` 0)
+(-.) :: (Num a, Ord a) => NumBounded a -> a -> NumBounded a
+nb -. v' = nb & valueI .~ ((nb^.valueI - v') `max` inf (nb^.intervalI))
 
-toInterval :: Int -> Interval
-toInterval n = Interval n n
+numBounded :: (Num a, Ord a) => a -> (a,a) -> NumBounded a
+numBounded x (a,b) = NumBounded x (a ... b)
+
+max0Bounded :: (Num a, Ord a) => a -> NumBounded a
+max0Bounded x = numBounded x (0,x)
+
+maxNumBound :: NumBounded a -> a
+maxNumBound b = sup $ b^.intervalI
+
+minNumBound :: NumBounded a -> a
+minNumBound b = inf $ b^.intervalI
 
 -- lens
 
@@ -75,4 +85,21 @@ functorial l = to $ fmap (^.l)
 
 monadic :: Monad m => Lens' a b -> Lens' (m a) (m b)
 monadic l = lens (^. functorial l) (liftM2 (\a b -> a & l .~ b))
+
+{-
+-- scoped interval [x .. [a,b] .. y]
+
+data ScopedPager = PSwitch | PSticky
+
+data Scoped
+  = Scoped
+  { _pointer :: Int
+  , _global :: Int
+  , _local :: Int
+  , _pager :: ScopedPager
+  }
+
+next :: Scoped -> Scoped
+next sc = _
+-}
 
