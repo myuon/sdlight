@@ -17,7 +17,6 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans
 import qualified Data.Map as M
-import Data.Default
 import Linear.V2
 import SDLight.Util
 import SDLight.Types
