@@ -57,7 +57,7 @@ makeOp "RenderSelector" [t| (SelectorRenderConfig -> GameM ()) -> _ Value GameM 
 makeOp "GetSelecting" [t| _ Value Identity [Int] |]
 makeOp "GetPointer" [t| _ Value Identity (Maybe Int) |]
 makeOp "GetLabels" [t| _ Value Identity [String] |]
-makeOp "SetLabels" [t| [String] -> _ Self Identity () |]
+makeOp "SetLabels" [t| [String] -> Maybe Int -> _ Self Identity () |]
 
 type Op'Selector =
   [ Op'Reset ()
@@ -97,7 +97,7 @@ wSelector = \labels selnum pager -> go $ new labels selnum pager where
     @> (\Op'GetSelecting -> finish $ sel^.selecting)
     @> (\Op'GetPointer -> finish $ sel^.pointer <&> (^.scoped))
     @> (\Op'GetLabels -> finish $ fmap snd $ sel^.labels)
-    @> (\(Op'SetLabels ls) -> continue $ go $ sel & labels .~ zip [0..] ls & pointer .~ pointerFromPagerStyle ls (sel^.pagerStyle))
+    @> (\(Op'SetLabels ls pager) -> continue $ go $ sel & labels .~ zip [0..] ls & pointer .~ pointerFromPagerStyle ls pager & pagerStyle .~ pager)
     @> emptyUnion
 
   reset :: Selector -> Selector
@@ -105,7 +105,7 @@ wSelector = \labels selnum pager -> go $ new labels selnum pager where
 
   render :: Selector -> (SelectorRenderConfig -> GameM ()) -> GameM ()
   render sel rendItem = do
-    forM_ (zip [0..] $ fmap ((sel^.labels) !!) $ range $ maybe (0,length (sel^.labels)-1) (^.locally) (sel^.pointer)) $ \(i,label) ->
+    forM_ (zip [0..] $ fmap ((sel^.labels) !!) $ maybe [0..length (sel^.labels)-1] rangeOf (sel^.pointer)) $ \(i,label) ->
       rendItem $ SelectorRenderConfig (snd label) i (i `elem` (sel^.selecting)) (Just (fst label) == ((sel^.pointer) <&> (^.scoped)))
 
   renderDropdown :: Selector -> V2 Int -> GameM ()
@@ -125,7 +125,7 @@ wSelector = \labels selnum pager -> go $ new labels selnum pager where
   handler keys sel
     | keys M.! SDL.ScancodeUp == 1 = return $ sel & pointer._Just %~ back
     | keys M.! SDL.ScancodeDown == 1 = return $ sel & pointer._Just %~ forward
-    | keys M.! SDL.ScancodeZ == 1 && not (sel^.isFinished) && (not $ isNothing $ sel^.pointer) = do
+    | keys M.! SDL.ScancodeZ == 1 && not (sel^.isFinished) && (isJust $ sel^.pointer) = do
         let p = fst $ (sel^.labels) !! (sel^.pointer^?!_Just^.scoped)
         if p `elem` sel^.selecting
           then return $ sel & selecting %~ delete p
@@ -163,7 +163,7 @@ wSelectLayer = \win cur v labels num page -> go <$> new win cur v labels num pag
     @> (\Op'GetSelecting -> finish $ w^._3^.op'getSelecting)
     @> (\Op'GetPointer -> finish $ w^._3^.op'getPointer)
     @> (\Op'GetLabels -> finish $ w^._3^.op'getLabels)
-    @> (\(Op'SetLabels t) -> continue $ go $ w & _3 ^%~ op'setLabels t)
+    @> (\(Op'SetLabels t pager) -> continue $ go $ w & _3 ^%~ op'setLabels t pager)
     @> emptyUnion
 
   render :: SelectLayer -> V2 Int -> GameM ()

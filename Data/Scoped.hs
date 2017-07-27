@@ -1,6 +1,7 @@
 module Data.Scoped where
 
 import Control.Lens
+import Data.List
 import Data.Ix
 
 data Scoped a
@@ -15,6 +16,9 @@ makeLenses ''Scoped
 rangeScope :: [a] -> Int -> Maybe (Scoped Int)
 rangeScope [] _ = Nothing
 rangeScope xs n = Just $ scopedTo n (length xs - 1)
+
+rangeOf :: Ix a => Scoped a -> [a]
+rangeOf sc = range (sc^.locally) `intersect` range (sc^.globally)
 
 scopedTo :: (Num a, Ord a, Show a) => a -> a -> Scoped a
 scopedTo local global | 0 <= local && 0 <= global = Scoped 0 (0,local) (0,global)
