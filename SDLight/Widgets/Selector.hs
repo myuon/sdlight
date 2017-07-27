@@ -28,6 +28,7 @@ import SDLight.Util
 import SDLight.Types
 import SDLight.Components
 import SDLight.Widgets.Core
+import SDLight.Widgets.TH
 import SDLight.Widgets.Layer
 
 data Selector
@@ -49,35 +50,11 @@ data SelectorRenderConfig
   , _CfgIsFocused :: Bool
   }
 
-data Op'RenderSelector br m r where
-  Op'RenderSelector :: (SelectorRenderConfig -> GameM ()) -> Op'RenderSelector Value GameM ()
-
-data Op'GetSelecting br m r where
-  Op'GetSelecting :: Op'GetSelecting Value Identity [Int]
-
-data Op'GetPointer br m r where
-  Op'GetPointer :: Op'GetPointer Value Identity (Maybe Int)
-
-data Op'GetLabels br m r where
-  Op'GetLabels :: Op'GetLabels Value Identity [String]
-
-data Op'SetLabels br m r where
-  Op'SetLabels :: [String] -> Op'SetLabels Self Identity a
-
-op'renderSelector :: Op'RenderSelector ∈ xs => (SelectorRenderConfig -> GameM ()) -> Getter (Widget xs) (GameM ())
-op'renderSelector = _value . Op'RenderSelector
-
-op'getSelecting :: Op'GetSelecting ∈ xs => Getter (Widget xs) [Int]
-op'getSelecting = _value' Op'GetSelecting
-
-op'getPointer :: Op'GetPointer ∈ xs => Getter (Widget xs) (Maybe Int)
-op'getPointer = _value' Op'GetPointer
-
-op'getLabels :: Op'GetLabels ∈ xs => Getter (Widget xs) [String]
-op'getLabels = _value' Op'GetLabels
-
-op'setLabels :: Op'SetLabels ∈ xs => [String] -> Getter (Widget xs) (Widget xs)
-op'setLabels = _self' . Op'SetLabels
+makeOp "RenderSelector" [t| (SelectorRenderConfig -> GameM ()) -> _ Value GameM () |]
+makeOp "GetSelecting" [t| _ Value Identity [Int] |]
+makeOp "GetPointer" [t| _ Value Identity (Maybe Int) |]
+makeOp "GetLabels" [t| _ Value Identity [String] |]
+makeOp "SetLabels" [t| [String] -> _ Self Identity () |]
 
 type Op'Selector =
   [ Op'Reset ()
