@@ -60,8 +60,8 @@ type Op'TabSelector =
   , Op'SetTabs
   ]
 
-wTabSelector :: Int -> Widget Op'TabSelector
-wTabSelector selnum = go new where
+wTabSelector :: Int -> Maybe Int -> Widget Op'TabSelector
+wTabSelector selnum pager = go new where
   new = TabSelector [] Nothing
 
   go :: TabSelector -> Widget Op'TabSelector
@@ -76,7 +76,7 @@ wTabSelector selnum = go new where
     @> (\Op'GetPointer -> finish $ maybe Nothing (^.op'getPointer) (go model^.op'getCurrentSelector))
     @> (\Op'GetCurrentSelector -> finish $ maybe Nothing (\p -> model^.wtabs^?ix p._2) (model^.pointer))
     @> (\Op'GetTabName -> finish $ maybe Nothing (\p -> model^.wtabs^?ix p._1) $ model^.pointer)
-    @> (\(Op'SetTabs ts) -> continue $ go $ model & wtabs .~ fmap (second (\s -> wSelector s selnum)) ts & pointer .~ (if ts /= [] then Just 0 else Nothing))
+    @> (\(Op'SetTabs ts) -> continue $ go $ model & wtabs .~ fmap (second (\s -> wSelector s selnum pager)) ts & pointer .~ (if ts /= [] then Just 0 else Nothing))
     @> emptyUnion
 
   reset model = model &~ do
@@ -121,13 +121,13 @@ type Op'TabSelectLayer =
 
 type TabSelectLayer = (Widget Op'Layer, Widget Op'Layer, Widget Op'TabSelector)
 
-wTabSelectLayer :: Int -> SDL.Texture -> SDL.Texture -> V2 Int -> Int -> GameM (Widget Op'TabSelectLayer)
-wTabSelectLayer tabWidth = \win cur v num -> go <$> new win cur v num where
+wTabSelectLayer :: Int -> Maybe Int -> SDL.Texture -> SDL.Texture -> V2 Int -> Int -> GameM (Widget Op'TabSelectLayer)
+wTabSelectLayer tabWidth pager = \win cur v num -> go <$> new win cur v num where
   new win cur v num =
     liftM3 (,,)
     (wLayer win v)
     (wLayer cur (V2 tabWidth 30))
-    (return $ wTabSelector num)
+    (return $ wTabSelector num pager)
 
   go :: TabSelectLayer -> Widget Op'TabSelectLayer
   go model = Widget $

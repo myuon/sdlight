@@ -33,8 +33,10 @@ import SDLight.Widgets.Layer
 
 data Selector
   = Selector
-  { _labels :: [String]
+  { _labels :: [(Int,String)]
   , _pointer :: Maybe Int
+  , _pager :: Int
+  , _pageLineNum :: Maybe Int
   , _selectNum :: Int
   , _selecting :: [Int]
   , _isFinished :: Bool
@@ -72,10 +74,9 @@ type Op'Selector =
 -- とりあえずrenderDropDownの実装
 -- 必要があればoverrideする
 
-wSelector :: [String] -> Int -> Widget Op'Selector
-wSelector = \labels selnum -> go $ new labels selnum where
-  new :: [String] -> Int -> Selector
-  new labels selectNum = Selector labels Nothing selectNum [] False
+wSelector :: [String] -> Int -> Maybe Int -> Widget Op'Selector
+wSelector = \labels selnum page -> go $ new labels selnum page where
+  new labels selectNum page = Selector (zip [0..] labels) Nothing 0 page selectNum [] False
 
   go :: Selector -> Widget Op'Selector
   go sel = Widget $
@@ -87,8 +88,8 @@ wSelector = \labels selnum -> go $ new labels selnum where
     @> (\Op'Switch -> (if sel^.isFinished then freeze' else continue) $ go sel)
     @> (\Op'GetSelecting -> finish $ sel^.selecting)
     @> (\Op'GetPointer -> finish $ sel^.pointer)
-    @> (\Op'GetLabels -> finish $ sel^.labels)
-    @> (\(Op'SetLabels ls) -> continue $ go $ sel & labels .~ ls)
+    @> (\Op'GetLabels -> finish $ fmap snd $ sel^.labels)
+    @> (\(Op'SetLabels ls) -> continue $ go $ sel & labels .~ zip [0..] ls)
     @> emptyUnion
 
   reset :: Selector -> Selector
@@ -96,8 +97,9 @@ wSelector = \labels selnum -> go $ new labels selnum where
 
   render :: Selector -> (SelectorRenderConfig -> GameM ()) -> GameM ()
   render sel rendItem = do
-    forM_ (zip [0..] (sel^.labels)) $ \(i,label) ->
-      rendItem $ SelectorRenderConfig label i (i `elem` (sel^.selecting)) (Just i == sel^.pointer)
+    let itemNum = maybe (length $ sel^.labels) id $ sel^.pageLineNum
+    forM_ (zip [0..] $ drop (sel^.pager) $ take (itemNum + sel^.pager) (sel^.labels)) $ \(i,label) ->
+      rendItem $ SelectorRenderConfig (snd label) i (i `elem` (sel^.selecting)) (Just i == sel^.pointer)
 
   renderDropdown :: Selector -> V2 Int -> GameM ()
   renderDropdown sel p = do
@@ -117,17 +119,25 @@ wSelector = \labels selnum -> go $ new labels selnum where
     | keys M.! SDL.ScancodeUp == 1 =
       case sel^.pointer of
         Nothing -> return $ sel & pointer .~ Just 0
-        Just 0 -> return $ sel & pointer .~ Just (length (sel^.labels) - 1)
+        Just 0 ->
+          if sel^.pager == 0
+          then return $ sel
+               & pointer .~ Just (maybe (length $ sel^.labels) id (sel^.pageLineNum) `min` (length $ sel^.labels) - 1)
+               & pager .~ (length (sel^.labels) - maybe (length $ (sel^.labels)) id (sel^.pageLineNum)) `max` 0
+          else return $ sel & pager -~ 1
         Just p -> return $ sel & pointer .~ Just (p-1)
     | keys M.! SDL.ScancodeDown == 1 =
       case sel^.pointer of
         Nothing -> return $ sel & pointer .~ Just 0
-        Just p | p == length (sel^.labels) - 1 -> return $ sel & pointer .~ Just 0
+        Just p | p >= (maybe (length (sel^.labels)) id (sel^.pageLineNum) `min` (length $ sel^.labels)) - 1 ->
+          if sel^.pager >= length (sel^.labels) - maybe (length $ (sel^.labels)) id (sel^.pageLineNum)
+          then return $ sel & pointer .~ Just 0 & pager .~ 0
+          else return $ sel & pager +~ 1
         Just p -> return $ sel & pointer .~ Just (p+1)
     | keys M.! SDL.ScancodeZ == 1 =
       case sel^.isFinished of
         False | isJust (sel^.pointer) -> do
-          let p = fromJust $ sel^.pointer
+          let p = fst $ ((sel^.labels) !!) $ fromJust $ sel^.pointer
           if p `elem` sel^.selecting
             then return $ sel & selecting %~ delete p
             else return $ sel
@@ -151,10 +161,9 @@ type Op'SelectLayer =
 
 type SelectLayer = (Widget Op'Layer, Widget Op'Layer, Widget Op'Selector)
 
-wSelectLayer :: SDL.Texture -> SDL.Texture -> V2 Int -> [String] -> Int -> GameM (Widget Op'SelectLayer)
-wSelectLayer = \win cur v labels num -> go <$> new win cur v labels num where
-  new :: SDL.Texture -> SDL.Texture -> V2 Int -> [String] -> Int -> GameM SelectLayer
-  new win cur v labels num = liftM3 (,,) (wLayer win v) (wLayer cur (V2 (v^._x - 20) 30)) (return $ wSelector labels num)
+wSelectLayer :: SDL.Texture -> SDL.Texture -> V2 Int -> [String] -> Int -> Maybe Int -> GameM (Widget Op'SelectLayer)
+wSelectLayer = \win cur v labels num page -> go <$> new win cur v labels num page where
+  new win cur v labels num page = liftM3 (,,) (wLayer win v) (wLayer cur (V2 (v^._x - 20) 30)) (return $ wSelector labels num page)
   
   go :: SelectLayer -> Widget Op'SelectLayer
   go w = Widget $
