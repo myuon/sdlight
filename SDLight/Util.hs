@@ -50,34 +50,6 @@ _position = lens (\(SDL.Rectangle a _) -> a) (\(SDL.Rectangle _ b) a' -> SDL.Rec
 _size :: Lens' (SDL.Rectangle a) (V2 a)
 _size = lens (\(SDL.Rectangle _ b) -> b) (\(SDL.Rectangle a _) b' -> SDL.Rectangle a b')
 
--- closed interval [0,n]
-
-data NumBounded a
-  = NumBounded
-  { _valueI :: a
-  , _intervalI :: Interval a
-  }
-
-makeLenses ''NumBounded
-
-(+.) :: (Num a, Ord a) => NumBounded a -> a -> NumBounded a
-nb +. v' = nb & valueI .~ ((nb^.valueI + v') `min` sup (nb^.intervalI))
-
-(-.) :: (Num a, Ord a) => NumBounded a -> a -> NumBounded a
-nb -. v' = nb & valueI .~ ((nb^.valueI - v') `max` inf (nb^.intervalI))
-
-numBounded :: (Num a, Ord a) => a -> (a,a) -> NumBounded a
-numBounded x (a,b) = NumBounded x (a ... b)
-
-max0Bounded :: (Num a, Ord a) => a -> NumBounded a
-max0Bounded x = numBounded x (0,x)
-
-maxNumBound :: NumBounded a -> a
-maxNumBound b = sup $ b^.intervalI
-
-minNumBound :: NumBounded a -> a
-minNumBound b = inf $ b^.intervalI
-
 -- lens
 
 functorial :: Functor f => Getter a b -> Getter (f a) (f b)
@@ -85,21 +57,3 @@ functorial l = to $ fmap (^.l)
 
 monadic :: Monad m => Lens' a b -> Lens' (m a) (m b)
 monadic l = lens (^. functorial l) (liftM2 (\a b -> a & l .~ b))
-
-{-
--- scoped interval [x .. [a,b] .. y]
-
-data ScopedPager = PSwitch | PSticky
-
-data Scoped
-  = Scoped
-  { _pointer :: Int
-  , _global :: Int
-  , _local :: Int
-  , _pager :: ScopedPager
-  }
-
-next :: Scoped -> Scoped
-next sc = _
--}
-
