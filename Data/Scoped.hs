@@ -4,11 +4,16 @@ import Control.Lens
 import Data.List
 import Data.Ix
 
+newtype Interval a = Interval { getInterval :: (a,a) }
+  deriving (Eq)
+
+makePrisms ''Interval
+
 data Scoped a
   = Scoped
   { _scoped :: a
-  , _locally :: (a,a)
-  , _globally :: (a,a)
+  , _locally :: Interval a
+  , _globally :: Interval a
   }
 
 makeLenses ''Scoped
@@ -18,33 +23,36 @@ rangeScope [] _ = Nothing
 rangeScope xs n = Just $ scopedTo n (length xs - 1)
 
 rangeOf :: Ix a => Scoped a -> [a]
-rangeOf sc = range (sc^.locally) `intersect` range (sc^.globally)
+rangeOf sc = range (getInterval $ sc^.locally) `intersect` range (getInterval $ sc^.globally)
 
 scopedTo :: (Num a, Ord a, Show a) => a -> a -> Scoped a
-scopedTo local global | 0 <= local && 0 <= global = Scoped 0 (0,local) (0,global)
+scopedTo local global | 0 <= local && 0 <= global = Scoped 0 (Interval (0,local)) (Interval (0,global))
 scopedTo local global = error $ show (local,global)
 
 adjustTo0 :: Num a => Scoped a -> Scoped a
-adjustTo0 sc = sc & scoped .~ 0 & locally %~ (\(a,b) -> (0,b-a)) & globally %~ (\(a,b) -> (0,b-a))
+adjustTo0 sc = sc & scoped .~ 0 & locally . _Interval %~ (\(a,b) -> (0,b-a)) & globally . _Interval %~ (\(a,b) -> (0,b-a))
 
 localIx :: Num a => Getter (Scoped a) a
-localIx = to $ \sc -> sc^.scoped - sc^.locally^._1
+localIx = to $ \sc -> sc^.scoped - sc^.locally^.to getInterval^._1
+
+instance Ord a => Ord (Interval a) where
+  Interval (a,b) <= Interval (c,d) = c <= a && b <= d
 
 -- sticky forward/back
 
 forward :: (Num a, Ix a) => Scoped a -> Scoped a
 forward sc
-  | inRange (sc'^.locally) (sc'^.scoped) = sc'
-  | inRange (sc'^.globally) (sc'^.scoped) = sc' & locally %~ (\(a,b) -> (a+1,b+1))
-  | otherwise = sc' & scoped .~ 0 & locally %~ (\(a,b) -> (0,b-a)) & globally %~ (\(a,b) -> (0,b-a))
+  | inRange (getInterval $ (sc'^.locally) `min` (sc'^.globally)) (sc'^.scoped) = sc'
+  | inRange (getInterval $ sc'^.globally) (sc'^.scoped) = sc' & locally . _Interval %~ (\(a,b) -> (a+1,b+1))
+  | otherwise = sc' & scoped .~ 0 & locally . _Interval %~ (\(a,b) -> (0,b-a)) & globally . _Interval %~ (\(a,b) -> (0,b-a))
   where
     sc' = sc & scoped +~ 1
 
 back :: (Num a, Ix a) => Scoped a -> Scoped a
 back sc
-  | inRange (sc'^.locally) (sc'^.scoped) = sc'
-  | inRange (sc'^.globally) (sc'^.scoped) = sc' & locally %~ (\(a,b) -> (a-1,b-1))
-  | otherwise = let end = sc'^.globally^._2 in sc' & scoped .~ end & locally %~ (\(a,b) -> (end-(b-a),end)) & globally %~ (\(a,b) -> (end-(b-a),end))
+  | inRange (getInterval $ (sc'^.locally) `min` (sc'^.globally)) (sc'^.scoped) = sc'
+  | inRange (getInterval $ sc'^.globally) (sc'^.scoped) = sc' & locally . _Interval %~ (\(a,b) -> (a-1,b-1))
+  | otherwise = let end = sc'^.globally^.to getInterval^._2 in sc' & scoped .~ end & locally . _Interval %~ (\(a,b) -> (end-(b-a),end)) & globally . _Interval %~ (\(a,b) -> (end-(b-a),end))
   where
     sc' = sc & scoped -~ 1
 

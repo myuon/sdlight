@@ -18,7 +18,6 @@ module SDLight.Widgets.Selector
 
 import qualified SDL as SDL
 import qualified Data.Map as M
-import Data.Ix
 import Data.Maybe
 import Data.List
 import Control.Lens
