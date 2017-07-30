@@ -8,7 +8,6 @@ import qualified SDL as SDL
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans (lift)
-import Data.Reflection
 import Linear.V2
 import SDLight.Util
 import SDLight.Types
@@ -47,8 +46,8 @@ data Balloon
 
 makeLenses ''Balloon
 
-wBalloon :: Given WidgetId => SDL.Texture -> String -> Int -> GameM (Widget Op'Balloon)
-wBalloon = \texture t stay -> give (WClass "balloon") $ go <$> new texture t stay where
+wBalloon :: HasWidgetId => SDL.Texture -> String -> Int -> GameM (Widget Op'Balloon)
+wBalloon = \texture t stay -> giveWId (WClass "balloon") $ go <$> new texture t stay where
   new :: SDL.Texture -> String -> Int -> GameM Balloon
   new texture t stay =
     Balloon

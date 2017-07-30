@@ -13,8 +13,6 @@ import Control.Lens
 import Control.Monad.State.Strict
 import qualified Data.Map as M
 import Data.Functor.Sum
-import Data.Reflection
-import Data.Proxy
 import SDLight.Types
 import SDLight.Util
 import SDLight.Components
@@ -160,12 +158,12 @@ data Op'HandleEvent br m r where
 data Op'Switch br m r where
   Op'Switch :: Op'Switch FreezeT Identity ()
 
-op'renderAlpha :: (Given (ProxyID s), Op'Render ∈ xs) => Double -> SDL.V2 Int -> Getter (Widget xs) (GameM ())
+op'renderAlpha :: (HasWidgetId, Op'Render ∈ xs) => Double -> SDL.V2 Int -> Getter (Widget xs) (GameM ())
 op'renderAlpha d v = to $ \w -> do
   w ^. _value (Op'Render d v)
-  renders black [ translate v $ text (show $ getWidgetId (given :: ProxyID s)) ]
+  renders black [ translate v $ text (show ?wid) ]
 
-op'render :: (Given (ProxyID s), Op'Render ∈ xs) => SDL.V2 Int -> Getter (Widget xs) (GameM ())
+op'render :: (HasWidgetId, Op'Render ∈ xs) => SDL.V2 Int -> Getter (Widget xs) (GameM ())
 op'render = op'renderAlpha 1.0
 
 op'run :: (Op'Run ∈ xs) => Getter (Widget xs) (GameM (Widget xs))

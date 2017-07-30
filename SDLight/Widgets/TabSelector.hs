@@ -17,7 +17,6 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans
 import qualified Data.Map as M
-import Data.Reflection
 import Linear.V2
 import SDLight.Util
 import SDLight.Types
@@ -62,8 +61,8 @@ type Op'TabSelector =
   , Op'SetTabs
   ]
 
-wTabSelector :: Given WidgetId => Int -> Maybe Int -> Widget Op'TabSelector
-wTabSelector selnum pager = give (WClass "tab-selector") $ go new where
+wTabSelector :: HasWidgetId => Int -> Maybe Int -> Widget Op'TabSelector
+wTabSelector selnum pager = giveWId (WClass "tab-selector") $ go new where
   new = TabSelector [] Nothing
 
   go :: TabSelector -> Widget Op'TabSelector
@@ -123,8 +122,8 @@ type Op'TabSelectLayer =
 
 type TabSelectLayer = (Widget Op'Layer, Widget Op'Layer, Widget Op'TabSelector)
 
-wTabSelectLayer :: Given WidgetId => Int -> Maybe Int -> SDL.Texture -> SDL.Texture -> V2 Int -> Int -> GameM (Widget Op'TabSelectLayer)
-wTabSelectLayer tabWidth pager = \win cur v num -> give (WClass "tab-select-layer") $ go <$> new win cur v num where
+wTabSelectLayer :: HasWidgetId => Int -> Maybe Int -> SDL.Texture -> SDL.Texture -> V2 Int -> Int -> GameM (Widget Op'TabSelectLayer)
+wTabSelectLayer tabWidth pager = \win cur v num -> giveWId (WClass "tab-select-layer") $ go <$> new win cur v num where
   new win cur v num =
     liftM3 (,,)
     (wLayer win v)
