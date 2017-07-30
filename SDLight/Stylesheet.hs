@@ -1,23 +1,43 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveFoldable #-}
 module SDLight.Stylesheet where
 
 import Control.Applicative
 import qualified Data.Map as M
 import Data.Reflection
+import Data.Proxy
+import GHC.TypeLits
 import Text.Trifecta
 
-data WidgetId
-  = WClass String
-  | WId String
-  | Wapp WidgetId WidgetId
+data WidgetId a
+  = WClass a
+  | WId a
+  | Wapp (WidgetId a) (WidgetId a)
   deriving (Eq, Show)
 
-infixl 4 </>
-(</>) :: WidgetId -> WidgetId -> WidgetId
-(</>) = Wapp
+class KnownWidgetId (w :: WidgetId Symbol) where
+  symbolWID :: Proxy w -> WidgetId String
 
-applyId :: Given WidgetId => (WidgetId -> WidgetId) -> a -> (Given WidgetId => a)
-applyId f a = let w = given :: WidgetId in give (f w) $ a
+instance KnownSymbol t => KnownWidgetId (WClass t) where
+  symbolWID (Proxy :: Proxy (WClass t)) = WClass $ symbolVal (Proxy :: Proxy t)
+
+instance KnownSymbol t => KnownWidgetId (WId t) where
+  symbolWID (Proxy :: Proxy (WId t)) = WId $ symbolVal (Proxy :: Proxy t)
+
+instance (KnownWidgetId t1, KnownWidgetId t2) => KnownWidgetId (Wapp t1 t2) where
+  symbolWID (Proxy :: Proxy (Wapp t1 t2)) = Wapp (symbolWID (Proxy :: Proxy t1)) (symbolWID (Proxy :: Proxy t2))
+
+data ProxyID (s :: WidgetId Symbol) = KnownWidgetId s => ProxyID { unwrapProxyID :: Proxy s }
+
+(</>) :: ProxyID q -> ProxyID q' -> ProxyID (Wapp q q')
+(</>) (ProxyID Proxy) (ProxyID Proxy) = ProxyID Proxy
+
+applyId :: (ProxyID q -> ProxyID q') -> (Given (ProxyID q') => a) -> (Given (ProxyID q) => a)
+applyId f a = give (f given) a
+
+getWidgetId :: ProxyID s -> WidgetId String
+getWidgetId (ProxyID p) = symbolWID p
+
 
 data StyleAttr = Padding | Margin | Width | Height
   deriving (Eq, Ord, Show)
