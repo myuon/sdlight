@@ -3,6 +3,7 @@ module SDLight.Stylesheet where
 
 import Control.Applicative
 import qualified Data.Map as M
+import GHC.TypeLits
 import Text.Trifecta
 
 data StyleAttr = Padding | Margin | Width | Height
@@ -33,6 +34,12 @@ instance Monoid StyleQuery where
   mappend (StyleId s) y = s :>>: y
   mappend (s :>: sx) y = s :>: mappend sx y
   mappend (s :>>: sx) y = s :>>: mappend sx y
+
+data SymbolIds
+  = SymbolClass Symbol
+  | SymbolId Symbol
+  | SymbolIds :>#: Symbol
+  | Symbol :#>: SymbolIds
 
 newtype StyleSyntax = StyleSyntax { getStyleSyntax :: Tree StyleQuery [(StyleAttr,Int)] }
   deriving (Eq, Show)
