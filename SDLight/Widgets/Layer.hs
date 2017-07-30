@@ -17,8 +17,10 @@ import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Data.Functor.Sum
+import Data.Reflection
 import Linear.V2
 import SDLight.Types
+import SDLight.Stylesheet
 import SDLight.Widgets.Core
 
 data Layer
@@ -83,14 +85,14 @@ type Op'Layer =
   '[ Op'Render
   ]
 
-wLayer :: SDL.Texture -> V2 Int -> GameM (Widget Op'Layer)
-wLayer = \texture v -> go <$> newLayer texture v where
+wLayer :: Given WidgetId => SDL.Texture -> V2 Int -> GameM (Widget Op'Layer)
+wLayer = \texture v -> give (WClass "layer") $ go <$> newLayer texture v where
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
     (\(Op'Render alpha v) -> lift $ renderLayer layer v alpha)
     @> emptyUnion
 
-wLayerFilePath :: FilePath -> V2 Int -> GameM (Widget Op'Layer)
+wLayerFilePath :: Given WidgetId => FilePath -> V2 Int -> GameM (Widget Op'Layer)
 wLayerFilePath path v = do
   rend <- use renderer
   texture <- SDL.loadTexture rend path
@@ -100,14 +102,14 @@ wLayerFilePath path v = do
 
 type Op'Layered xs = Op'Layer ++ xs
 
-wLayered :: Op'Render ∈ xs => SDL.Texture -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
-wLayered = \texture v w -> liftM2 go (wLayer texture v) (return w) where
-  go :: Op'Render ∈ xs => Widget Op'Layer -> Widget xs -> Widget (Op'Layered xs)
+wLayered :: (Given WidgetId, Op'Render ∈ xs) => SDL.Texture -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
+wLayered = \texture v w -> applyId (WClass "layered" </>) $ liftM2 go (wLayer texture v) (return w) where
+  go :: (Given WidgetId, Op'Render ∈ xs) => Widget Op'Layer -> Widget xs -> Widget (Op'Layered xs)
   go wlayer wx = override (go wlayer) wx $ 
     (\(Op'Render alpha v) -> InL $ lift $ renderAlpha alpha v wlayer wx)
     @> InR
 
-  renderAlpha :: Op'Render ∈ xs => Double -> V2 Int -> Widget Op'Layer -> Widget xs -> GameM ()
+  renderAlpha :: (Given WidgetId, Op'Render ∈ xs) => Double -> V2 Int -> Widget Op'Layer -> Widget xs -> GameM ()
   renderAlpha alpha v wlayer wx = do
     wlayer ^. op'renderAlpha alpha v
     wx ^. op'render v

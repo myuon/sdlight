@@ -18,6 +18,7 @@ module SDLight.Widgets.Effector
 import Control.Lens
 import SDLight.Types
 import SDLight.Widgets.Core
+import SDLight.Widgets.TH
 
 data EffectorState
   = NotReady
@@ -48,17 +49,8 @@ data Effector
 
 makeLenses ''Effector
 
-data Op'Start br m r where
-  Op'Start :: Op'Start Self Identity a
-
-data Op'GetValue br m r where
-  Op'GetValue :: Op'GetValue Value Identity Double
-
-op'start :: Op'Start ∈ xs => Getter (Widget xs) (Widget xs)
-op'start = _self' Op'Start
-
-op'getValue :: Op'GetValue ∈ xs => Getter (Widget xs) Double
-op'getValue = _value' Op'GetValue
+makeOp "Start" [t| _ Self Identity () |]
+makeOp "GetValue" [t| _ Value Identity Double |]
 
 type Op'Effector =
   [ Op'Reset ()

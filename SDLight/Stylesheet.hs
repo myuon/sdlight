@@ -3,8 +3,21 @@ module SDLight.Stylesheet where
 
 import Control.Applicative
 import qualified Data.Map as M
-import GHC.TypeLits
+import Data.Reflection
 import Text.Trifecta
+
+data WidgetId
+  = WClass String
+  | WId String
+  | Wapp WidgetId WidgetId
+  deriving (Eq, Show)
+
+infixl 4 </>
+(</>) :: WidgetId -> WidgetId -> WidgetId
+(</>) = Wapp
+
+applyId :: Given WidgetId => (WidgetId -> WidgetId) -> a -> (Given WidgetId => a)
+applyId f a = let w = given :: WidgetId in give (f w) $ a
 
 data StyleAttr = Padding | Margin | Width | Height
   deriving (Eq, Ord, Show)
@@ -34,12 +47,6 @@ instance Monoid StyleQuery where
   mappend (StyleId s) y = s :>>: y
   mappend (s :>: sx) y = s :>: mappend sx y
   mappend (s :>>: sx) y = s :>>: mappend sx y
-
-data SymbolIds
-  = SymbolClass Symbol
-  | SymbolId Symbol
-  | SymbolIds :>#: Symbol
-  | Symbol :#>: SymbolIds
 
 newtype StyleSyntax = StyleSyntax { getStyleSyntax :: Tree StyleQuery [(StyleAttr,Int)] }
   deriving (Eq, Show)

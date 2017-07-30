@@ -12,7 +12,11 @@ import Control.Lens
 import Control.Monad.State.Strict
 import qualified Data.Map as M
 import Data.Functor.Sum
+import Data.Reflection
 import SDLight.Types
+import SDLight.Util
+import SDLight.Components
+import SDLight.Stylesheet
 
 type (~>) f g = forall x. f x -> g x
 
@@ -154,19 +158,21 @@ data Op'HandleEvent br m r where
 data Op'Switch br m r where
   Op'Switch :: Op'Switch FreezeT Identity ()
 
-op'renderAlpha :: Op'Render ∈ xs => Double -> SDL.V2 Int -> Getter (Widget xs) (GameM ())
-op'renderAlpha d v = to $ \w -> w ^. _value (Op'Render d v)
+op'renderAlpha :: (Given WidgetId, Op'Render ∈ xs) => Double -> SDL.V2 Int -> Getter (Widget xs) (GameM ())
+op'renderAlpha d v = to $ \w -> do
+  w ^. _value (Op'Render d v)
+  renders black [ translate v $ text (show $ (given :: WidgetId)) ]
 
-op'render :: Op'Render ∈ xs => SDL.V2 Int -> Getter (Widget xs) (GameM ())
+op'render :: (Given WidgetId, Op'Render ∈ xs) => SDL.V2 Int -> Getter (Widget xs) (GameM ())
 op'render = op'renderAlpha 1.0
 
-op'run :: Op'Run ∈ xs => Getter (Widget xs) (GameM (Widget xs))
+op'run :: (Op'Run ∈ xs) => Getter (Widget xs) (GameM (Widget xs))
 op'run = _self Op'Run
 
-op'reset :: Op'Reset arg ∈ xs => arg -> Getter (Widget xs) (Widget xs)
+op'reset :: (Op'Reset arg ∈ xs) => arg -> Getter (Widget xs) (Widget xs)
 op'reset = _self' . Op'Reset
 
-op'handleEvent :: Op'HandleEvent ∈ xs => M.Map SDL.Scancode Int -> Getter (Widget xs) (GameM (Widget xs))
+op'handleEvent :: (Given WidgetId, Op'HandleEvent ∈ xs) => M.Map SDL.Scancode Int -> Getter (Widget xs) (GameM (Widget xs))
 op'handleEvent = _self . Op'HandleEvent
 
 newtype FreezeT w m a = FreezeT { runFreezeT :: m (Freeze w a) }
@@ -234,7 +240,7 @@ onFinishM lens op s cb = do
 runSwitch :: Widget xs -> Getter (Widget xs) (FreezeT (Widget xs) Identity a) -> (Freeze (Widget xs) a -> r) -> r
 runSwitch w op k = k $ runIdentity $ runFreezeT (w ^. op)
 
-runSwitchM :: (k ∈ xs, Monad m) => Widget xs -> k FreezeT m a -> (Freeze (Widget xs) a -> m r) -> m r
+runSwitchM :: (Given WidgetId, k ∈ xs, Monad m) => Widget xs -> k FreezeT m a -> (Freeze (Widget xs) a -> m r) -> m r
 runSwitchM w op k = runFreezeT (w `call` op) >>= k
 
 op'isFreeze :: Widget xs -> Getter (Widget xs) (FreezeT (Widget xs) Identity a) -> Bool 

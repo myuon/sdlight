@@ -8,19 +8,18 @@ import qualified SDL as SDL
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans (lift)
+import Data.Reflection
 import Linear.V2
 import SDLight.Util
 import SDLight.Types
 import SDLight.Components
+import SDLight.Stylesheet
 import SDLight.Widgets.Core
+import SDLight.Widgets.TH
 import SDLight.Widgets.Layer
 import SDLight.Widgets.Effector
 
-data Op'Fly br m r where
-  Op'Fly :: Op'Fly Self Identity a
-
-op'fly :: Op'Fly ∈ xs => Getter (Widget xs) (Widget xs)
-op'fly = _self' Op'Fly
+makeOp "Fly" [t| _ Self Identity () |]
 
 type Op'Balloon =
   [ Op'Reset String
@@ -48,8 +47,8 @@ data Balloon
 
 makeLenses ''Balloon
 
-wBalloon :: SDL.Texture -> String -> Int -> GameM (Widget Op'Balloon)
-wBalloon = \texture t stay -> go <$> new texture t stay where
+wBalloon :: Given WidgetId => SDL.Texture -> String -> Int -> GameM (Widget Op'Balloon)
+wBalloon = \texture t stay -> give (WClass "balloon") $ go <$> new texture t stay where
   new :: SDL.Texture -> String -> Int -> GameM Balloon
   new texture t stay =
     Balloon
