@@ -16,14 +16,6 @@ infixl 1 </>
 (</>) :: WidgetId -> WidgetId -> WidgetId
 (</>) = Wapp
 
-type HasWidgetId = ?wid :: WidgetId
-
-applyWId :: (WidgetId -> WidgetId) -> (HasWidgetId => a) -> (HasWidgetId => a)
-applyWId f a = let ?wid = (f ?wid) in a
-
-giveWId :: WidgetId -> a -> (HasWidgetId => a)
-giveWId w a = let ?wid = w in a
-
 data StyleAttr = Padding | Margin | Width | Height
   deriving (Eq, Ord, Show)
 

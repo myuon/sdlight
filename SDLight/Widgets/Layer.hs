@@ -20,7 +20,6 @@ import Control.Monad.State.Strict
 import Data.Functor.Sum
 import Linear.V2
 import SDLight.Types
-import SDLight.Stylesheet
 import SDLight.Widgets.Core
 
 data Layer
@@ -85,14 +84,14 @@ type Op'Layer =
   '[ Op'Render
   ]
 
-wLayer :: HasWidgetId => SDL.Texture -> V2 Int -> GameM (Widget Op'Layer)
-wLayer = \texture v -> giveWId (WClass "layer") $ go <$> newLayer texture v where
+wLayer :: SDL.Texture -> V2 Int -> GameM (Widget Op'Layer)
+wLayer = \texture v -> go <$> newLayer texture v where
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
     (\(Op'Render alpha v) -> lift $ renderLayer layer v alpha)
     @> emptyUnion
 
-wLayerFilePath :: HasWidgetId => FilePath -> V2 Int -> GameM (Widget Op'Layer)
+wLayerFilePath :: FilePath -> V2 Int -> GameM (Widget Op'Layer)
 wLayerFilePath path v = do
   rend <- use renderer
   texture <- SDL.loadTexture rend path
@@ -102,8 +101,8 @@ wLayerFilePath path v = do
 
 type Op'Layered xs = Op'Layer ++ xs
 
-wLayered :: (HasWidgetId, Op'Render ∈ xs) => SDL.Texture -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
-wLayered = \texture v w -> applyWId (WClass "layered" </>) $ liftM2 go (wLayer texture v) (return w) where
+wLayered :: Op'Render ∈ xs => SDL.Texture -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
+wLayered = \texture v w -> liftM2 go (wLayer texture v) (return w) where
   go :: Op'Render ∈ xs => Widget Op'Layer -> Widget xs -> Widget (Op'Layered xs)
   go wlayer wx = override (go wlayer) wx $ 
     (\(Op'Render alpha v) -> InL $ lift $ renderAlpha alpha v wlayer wx)

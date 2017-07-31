@@ -28,7 +28,6 @@ import Data.Scoped
 import SDLight.Util
 import SDLight.Types
 import SDLight.Components
-import SDLight.Stylesheet
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 
@@ -74,8 +73,8 @@ type Op'Selector =
 -- とりあえずrenderDropDownの実装
 -- 必要があればoverrideする
 
-wSelector :: HasWidgetId => [String] -> Int -> Maybe Int -> Widget Op'Selector
-wSelector = \labels selnum pager -> applyWId (</> WClass "selector") $ go $ new labels selnum pager where
+wSelector :: [String] -> Int -> Maybe Int -> Widget Op'Selector
+wSelector = \labels selnum pager -> go $ new labels selnum pager where
   pointerFromPagerStyle labels pager = maybe (rangeScope labels (length labels - 1)) (rangeScope labels) pager
 
   new labels selectNum pager =
@@ -148,8 +147,8 @@ type Op'SelectLayer =
 
 type SelectLayer = (Widget Op'Layer, Widget Op'Layer, Widget Op'Selector)
 
-wSelectLayer :: HasWidgetId => SDL.Texture -> SDL.Texture -> V2 Int -> [String] -> Int -> Maybe Int -> GameM (Widget Op'SelectLayer)
-wSelectLayer = \win cur v labels num page -> giveWId (WClass "select-layer") $ go <$> new win cur v labels num page where
+wSelectLayer :: SDL.Texture -> SDL.Texture -> V2 Int -> [String] -> Int -> Maybe Int -> GameM (Widget Op'SelectLayer)
+wSelectLayer = \win cur v labels num page -> go <$> new win cur v labels num page where
   new win cur v labels num page = liftM3 (,,) (wLayer win v) (wLayer cur (V2 (v^._x - 20) 30)) (return $ wSelector labels num page)
   
   go :: SelectLayer -> Widget Op'SelectLayer
