@@ -100,13 +100,13 @@ wMessageWriter = \mes -> go <$> (new mes) where
 type Op'MessageLayer = Op'MessageWriter
 
 wMessageLayer :: SDL.Texture -> V2 Int -> [String] -> GameM (Widget Op'MessageLayer)
-wMessageLayer = \texture v mes -> go <$> (wDelayed 2 <$> (wLayered texture v =<< wMessageWriter mes)) where
-  go :: Widget (Op'Delayed (Op'Layered Op'MessageWriter)) -> Widget Op'MessageLayer
-  go wm = Widget $
-    (\(Op'Reset args) -> continue $ go $ wm ^. op'reset args)
-    @> (\(Op'Render _ v) -> lift $ wm ^. op'render v)
-    @> (\Op'Run -> continueM $ fmap go $ wm ^. op'run)
-    @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ wm ^. op'handleEvent keys)
-    @> (\Op'Switch -> bimapT go id $ wm `call` Op'Switch)
+wMessageLayer = \texture v mes -> liftM2 go (wLayer texture v) (wDelayed 2 <$> wMessageWriter mes) where
+  go :: Widget Op'Layer -> Widget (Op'Delayed Op'MessageWriter) -> Widget Op'MessageLayer
+  go wlayer wm = Widget $
+    (\(Op'Reset args) -> continue $ go wlayer $ wm ^. op'reset args)
+    @> (\(Op'Render _ v) -> lift $ wlayer^.op'render v >> wm ^. op'render v)
+    @> (\Op'Run -> continueM $ fmap (go wlayer) $ wm ^. op'run)
+    @> (\(Op'HandleEvent keys) -> continueM $ fmap (go wlayer) $ wm ^. op'handleEvent keys)
+    @> (\Op'Switch -> bimapT (go wlayer) id $ wm `call` Op'Switch)
     @> emptyUnion
 

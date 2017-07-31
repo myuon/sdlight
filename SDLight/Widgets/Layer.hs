@@ -3,9 +3,6 @@ module SDLight.Widgets.Layer
   ( wLayer
   , Op'Layer
 
-  , wLayered
-  , Op'Layered
-
   , wDelayed
   , Op'Delayed
   ) where
@@ -96,22 +93,6 @@ wLayerFilePath path v = do
   rend <- use renderer
   texture <- SDL.loadTexture rend path
   wLayer texture v
-
--- Layered
-
-type Op'Layered xs = Op'Layer ++ xs
-
-wLayered :: Op'Render ∈ xs => SDL.Texture -> V2 Int -> Widget xs -> GameM (Widget (Op'Layered xs))
-wLayered = \texture v w -> liftM2 go (wLayer texture v) (return w) where
-  go :: Op'Render ∈ xs => Widget Op'Layer -> Widget xs -> Widget (Op'Layered xs)
-  go wlayer wx = override (go wlayer) wx $ 
-    (\(Op'Render alpha v) -> InL $ lift $ renderAlpha alpha v wlayer wx)
-    @> InR
-
-  renderAlpha :: Op'Render ∈ xs => Double -> V2 Int -> Widget Op'Layer -> Widget xs -> GameM ()
-  renderAlpha alpha v wlayer wx = do
-    wlayer ^. op'renderAlpha alpha v
---    wx ^. op'render v
 
 -- Delayed
 
