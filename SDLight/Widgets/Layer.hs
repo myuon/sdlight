@@ -1,3 +1,4 @@
+{-# LANGUAGE IncoherentInstances #-}
 module SDLight.Widgets.Layer
   ( wLayer
   , Op'Layer
@@ -111,7 +112,7 @@ wLayered = \texture v w -> applyWId (WClass "layered" </>) $ liftM2 go (wLayer t
   renderAlpha :: Op'Render ∈ xs => Double -> V2 Int -> Widget Op'Layer -> Widget xs -> GameM ()
   renderAlpha alpha v wlayer wx = do
     wlayer ^. op'renderAlpha alpha v
-    wx ^. op'render v
+--    wx ^. op'render v
 
 -- Delayed
 

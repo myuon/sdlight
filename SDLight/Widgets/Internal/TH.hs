@@ -1,4 +1,4 @@
-module SDLight.Widgets.TH
+module SDLight.Widgets.Internal.TH
   ( makeOp
   ) where
 
@@ -6,7 +6,7 @@ import Control.Lens
 import Control.Monad
 import Data.Char
 import Language.Haskell.TH
-import SDLight.Widgets.Core
+import SDLight.Widgets.Internal.Widget
 
 data Operator
   = Operator

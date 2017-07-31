@@ -18,7 +18,6 @@ module SDLight.Widgets.Effector
 import Control.Lens
 import SDLight.Types
 import SDLight.Widgets.Core
-import SDLight.Widgets.TH
 
 data EffectorState
   = NotReady

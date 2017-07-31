@@ -14,7 +14,6 @@ import SDLight.Types
 import SDLight.Components
 import SDLight.Stylesheet
 import SDLight.Widgets.Core
-import SDLight.Widgets.TH
 import SDLight.Widgets.Layer
 import SDLight.Widgets.Effector
 

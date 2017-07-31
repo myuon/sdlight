@@ -30,7 +30,6 @@ import SDLight.Types
 import SDLight.Components
 import SDLight.Stylesheet
 import SDLight.Widgets.Core
-import SDLight.Widgets.TH
 import SDLight.Widgets.Layer
 
 data Selector
@@ -76,7 +75,7 @@ type Op'Selector =
 -- 必要があればoverrideする
 
 wSelector :: HasWidgetId => [String] -> Int -> Maybe Int -> Widget Op'Selector
-wSelector = \labels selnum pager -> giveWId (WClass "selector") $ go $ new labels selnum pager where
+wSelector = \labels selnum pager -> applyWId (</> WClass "selector") $ go $ new labels selnum pager where
   pointerFromPagerStyle labels pager = maybe (rangeScope labels (length labels - 1)) (rangeScope labels) pager
 
   new labels selectNum pager =
