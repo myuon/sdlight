@@ -28,6 +28,7 @@ import Data.Scoped
 import SDLight.Util
 import SDLight.Types
 import SDLight.Components
+import SDLight.Stylesheet
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 
@@ -145,11 +146,11 @@ type Op'SelectLayer =
   , Op'SetLabels
   ]
 
-type SelectLayer = (Widget Op'Layer, Widget Op'Layer, Widget Op'Selector)
+type SelectLayer = (NamedWidget Op'Layer, NamedWidget Op'Layer, Widget Op'Selector)
 
-wSelectLayer :: SDL.Texture -> SDL.Texture -> V2 Int -> [String] -> Int -> Maybe Int -> GameM (Widget Op'SelectLayer)
-wSelectLayer = \win cur v labels num page -> go <$> new win cur v labels num page where
-  new win cur v labels num page = liftM3 (,,) (wLayer win v) (wLayer cur (V2 (v^._x - 20) 30)) (return $ wSelector labels num page)
+wSelectLayer :: WidgetId -> SDL.Texture -> SDL.Texture -> V2 Int -> [String] -> Int -> Maybe Int -> GameM (Widget Op'SelectLayer)
+wSelectLayer = \w win cur v labels num page -> go <$> new (w </> WClass "select-layer") win cur v labels num page where
+  new w win cur v labels num page = liftM3 (,,) (wLayer w win v) (wLayer w cur (V2 (v^._x - 20) 30)) (return $ wSelector labels num page)
   
   go :: SelectLayer -> Widget Op'SelectLayer
   go w = Widget $

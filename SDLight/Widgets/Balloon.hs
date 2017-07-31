@@ -12,6 +12,7 @@ import Linear.V2
 import SDLight.Util
 import SDLight.Types
 import SDLight.Components
+import SDLight.Stylesheet
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 import SDLight.Widgets.Effector
@@ -34,7 +35,7 @@ data BalloonState
 
 data Balloon
   = Balloon
-  { _balloonLayer :: Widget Op'Layer
+  { _balloonLayer :: NamedWidget Op'Layer
   , _balloonText :: String
   , _eff :: Widget Eff'Display
   , __state :: BalloonState
@@ -44,12 +45,12 @@ data Balloon
 
 makeLenses ''Balloon
 
-wBalloon :: SDL.Texture -> String -> Int -> GameM (Widget Op'Balloon)
-wBalloon = \texture t stay -> go <$> new texture t stay where
-  new :: SDL.Texture -> String -> Int -> GameM Balloon
-  new texture t stay =
+wBalloon :: WidgetId -> SDL.Texture -> String -> Int -> GameM (Widget Op'Balloon)
+wBalloon = \w texture t stay -> go <$> new (w </> WClass "balloon") texture t stay where
+  new :: WidgetId -> SDL.Texture -> String -> Int -> GameM Balloon
+  new w texture t stay =
     Balloon
-    <$> wLayer texture (V2 100 60)
+    <$> wLayer w texture (V2 100 60)
     <*> return t
     <*> return (effDisplay EaseOut 40 40)
     <*> return NotReady

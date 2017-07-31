@@ -21,6 +21,7 @@ import Linear.V2
 import SDLight.Util
 import SDLight.Types
 import SDLight.Components
+import SDLight.Stylesheet
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 import SDLight.Widgets.Selector
@@ -118,14 +119,14 @@ type Op'TabSelectLayer =
   , Op'SetTabs
   ]
 
-type TabSelectLayer = (Widget Op'Layer, Widget Op'Layer, Widget Op'TabSelector)
+type TabSelectLayer = (NamedWidget Op'Layer, NamedWidget Op'Layer, Widget Op'TabSelector)
 
-wTabSelectLayer :: Int -> Maybe Int -> SDL.Texture -> SDL.Texture -> V2 Int -> Int -> GameM (Widget Op'TabSelectLayer)
-wTabSelectLayer tabWidth pager = \win cur v num -> go <$> new win cur v num where
-  new win cur v num =
+wTabSelectLayer :: WidgetId -> Int -> Maybe Int -> SDL.Texture -> SDL.Texture -> V2 Int -> Int -> GameM (Widget Op'TabSelectLayer)
+wTabSelectLayer w tabWidth pager = \win cur v num -> go <$> new (w </> WClass "tab-select-layer") win cur v num where
+  new w win cur v num =
     liftM3 (,,)
-    (wLayer win v)
-    (wLayer cur (V2 tabWidth 30))
+    (wLayer w win v)
+    (wLayer w cur (V2 tabWidth 30))
     (return $ wTabSelector num pager)
 
   go :: TabSelectLayer -> Widget Op'TabSelectLayer

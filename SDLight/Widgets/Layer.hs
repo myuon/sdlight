@@ -17,6 +17,7 @@ import Control.Monad.State.Strict
 import Data.Functor.Sum
 import Linear.V2
 import SDLight.Types
+import SDLight.Stylesheet
 import SDLight.Widgets.Core
 
 data Layer
@@ -81,18 +82,18 @@ type Op'Layer =
   '[ Op'Render
   ]
 
-wLayer :: SDL.Texture -> V2 Int -> GameM (Widget Op'Layer)
-wLayer = \texture v -> go <$> newLayer texture v where
+wLayer :: WidgetId -> SDL.Texture -> V2 Int -> GameM (NamedWidget Op'Layer)
+wLayer = \w texture v -> wNamed (w </> WClass "layer") . go <$> newLayer texture v where
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
     (\(Op'Render alpha v) -> lift $ renderLayer layer v alpha)
     @> emptyUnion
 
-wLayerFilePath :: FilePath -> V2 Int -> GameM (Widget Op'Layer)
-wLayerFilePath path v = do
+wLayerFilePath :: WidgetId -> FilePath -> V2 Int -> GameM (NamedWidget Op'Layer)
+wLayerFilePath w path v = do
   rend <- use renderer
   texture <- SDL.loadTexture rend path
-  wLayer texture v
+  wLayer w texture v
 
 -- Delayed
 

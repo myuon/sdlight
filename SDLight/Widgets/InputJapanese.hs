@@ -13,6 +13,7 @@ import Linear.V2
 import SDLight.Util
 import SDLight.Types
 import SDLight.Components
+import SDLight.Stylesheet
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 
@@ -36,25 +37,25 @@ data IJState = Selecting | Finished deriving (Eq, Show)
 data InputJapanese
   = InputJapanese
   { _currentText :: String
-  , _textLayer :: Widget Op'Layer
-  , _letterLayer :: Widget Op'Layer
+  , _textLayer :: NamedWidget Op'Layer
+  , _letterLayer :: NamedWidget Op'Layer
   , _pointer :: V2 Int
   , __state :: IJState
   }
 
 makeLenses ''InputJapanese
 
-wInputJapanese :: SDL.Texture -> GameM (Widget Op'InputJapanese)
-wInputJapanese = \texture -> go <$> new texture where
+wInputJapanese :: WidgetId -> SDL.Texture -> GameM (Widget Op'InputJapanese)
+wInputJapanese = \w texture -> go <$> new (w </> WClass "input-japanese") texture where
   textLayerArea = V2 800 50
   letterLayerArea = V2 800 550
   
-  new :: SDL.Texture -> GameM InputJapanese
-  new texture =
+  new :: WidgetId -> SDL.Texture -> GameM InputJapanese
+  new w texture =
     InputJapanese
     <$> return ""
-    <*> wLayer texture textLayerArea
-    <*> wLayer texture letterLayerArea
+    <*> wLayer w texture textLayerArea
+    <*> wLayer w texture letterLayerArea
     <*> return (V2 0 0)
     <*> return Selecting
 
