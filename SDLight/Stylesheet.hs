@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFoldable #-}
 module SDLight.Stylesheet where
 
+import Control.Lens
 import Control.Applicative
 import qualified Data.Map as M
 import Text.Trifecta
@@ -95,4 +96,13 @@ fromSyntax (StyleSyntax syntax) = StyleSheet $ go Wild syntax where
   go :: StyleQuery -> Tree StyleQuery a -> M.Map StyleQuery a
   go k (Leaf a) = M.singleton k a
   go k (Node k' xs) = foldr (M.union . go (k `mappend` k')) M.empty xs
+
+{-
+wix :: WidgetId -> Getter StyleSheet [(StyleAttr, Int)]
+wix w = to $ \sty -> concat $ M.elems $ M.filterWithKey (\q _ -> match q w) $ getStyleSheet sty where
+  match :: StyleQuery -> WidgetId -> Bool
+  match Wild w = True
+  match (StyleId s) (WId s') = s == s'
+  match (StyleId s) (WClass s') = s == s'
+-}
 
