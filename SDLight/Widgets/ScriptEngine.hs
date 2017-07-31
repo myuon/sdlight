@@ -227,14 +227,14 @@ makeLenses ''ScriptEngine
 wMiniScriptEngine :: SDL.Texture -> V2 Int -> GameM (Widget Op'MiniScriptEngine)
 wMiniScriptEngine = \texture v -> go <$> new texture v where
   new :: SDL.Texture -> V2 Int -> GameM ScriptEngine
-  new texture v = give (WId "mini-script-engine") $ 
+  new texture v = reify (WId "mini-script-engine") $ \p ->
     ScriptEngine
     <$> return NotReady
     <*> return IM.empty
     <*> return []
     <*> return (return ())
     <*> return 0
-    <*> wMessageLayer texture v []
+    <*> wMessageLayer p texture v []
 
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $
