@@ -13,7 +13,13 @@ data WidgetId
   | WId String
   | Wapp WidgetId WidgetId
   | WEmpty
-  deriving (Eq, Show)
+  deriving Eq
+
+instance Show WidgetId where
+  show (WClass n) = "." ++ n
+  show (WId n) = "#" ++ n
+  show (Wapp x y) = show x ++ " </> " ++ show y
+  show WEmpty = "<>"
 
 newtype WPath = WPath { unwrapWPath :: forall r. (forall s. Reifies s WidgetId => Proxy s -> r) -> r }
 

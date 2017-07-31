@@ -58,7 +58,7 @@ wMessageWriter = \mes -> go <$> (new mes) where
     & messages .~ drop 1 xs
     & currentMessages .~ (if xs /= [] then (take 1 xs) else ["initの引数がemptyです"])
     & _state .~ Typing
-
+    & counter .~ V2 0 1
 
   render :: MessageWriter -> V2 Int -> GameM ()
   render mes pos =
