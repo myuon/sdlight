@@ -223,9 +223,9 @@ data ScriptEngine
 
 makeLenses ''ScriptEngine
 
-wMiniScriptEngine :: WPath -> SDL.Texture -> V2 Int -> GameM (Widget Op'MiniScriptEngine)
-wMiniScriptEngine = \w texture v -> go <$> new (w </> giveWClass "script-engine") texture v where
-  new :: WPath -> SDL.Texture -> V2 Int -> GameM ScriptEngine
+wMiniScriptEngine :: WidgetId -> SDL.Texture -> V2 Int -> GameM (Widget Op'MiniScriptEngine)
+wMiniScriptEngine = \w texture v -> go <$> new (w </> WClass "script-engine") texture v where
+  new :: WidgetId -> SDL.Texture -> V2 Int -> GameM ScriptEngine
   new w texture v =
     ScriptEngine
     <$> return NotReady

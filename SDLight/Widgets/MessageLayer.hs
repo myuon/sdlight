@@ -100,8 +100,8 @@ wMessageWriter = \mes -> go <$> (new mes) where
 
 type Op'MessageLayer = Op'MessageWriter
 
-wMessageLayer :: WPath -> SDL.Texture -> V2 Int -> [String] -> GameM (NamedWidget Op'MessageLayer)
-wMessageLayer = \p texture v mes -> wPath (p </> giveWClass "message-layer") <$> liftM2 go (wLayer texture v) (wDelayed 2 <$> wMessageWriter mes) where
+wMessageLayer :: WidgetId -> SDL.Texture -> V2 Int -> [String] -> GameM (NamedWidget Op'MessageLayer)
+wMessageLayer = \p texture v mes -> wNamed (p </> WClass "message-layer") <$> liftM2 go (wLayer texture v) (wDelayed 2 <$> wMessageWriter mes) where
   go :: Widget Op'Layer -> Widget (Op'Delayed Op'MessageWriter) -> Widget Op'MessageLayer
   go wlayer wm = Widget $
     (\(Op'Reset args) -> continue $ go wlayer $ wm ^. op'reset args)
