@@ -217,7 +217,7 @@ data ScriptEngine
   , _displaying :: [RefImage]
   , _script :: MiniScript ()
   , _counter :: Int
-  , _message :: Widget Op'MessageLayer
+  , _message :: NamedWidget Op'MessageLayer
   }
 
 makeLenses ''ScriptEngine
