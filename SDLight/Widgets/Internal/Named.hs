@@ -14,6 +14,9 @@ type NamedWidget xs = Widget (Named xs)
 wNamed :: WidgetId -> Widget xs -> Widget (Named xs)
 wNamed w xs = Widget $ either (bimapT (wNamed w) id . runWidget xs) (\Op'GetName -> finish w) . caseOf
 
+wPath :: WPath -> Widget xs -> Widget (Named xs)
+wPath w xs = Widget $ either (bimapT (wPath w) id . runWidget xs) (\Op'GetName -> finish $ getWPath w) . caseOf
+
 class KnownName xs where
   symbolName :: Widget xs -> Maybe WidgetId
 

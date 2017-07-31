@@ -26,7 +26,6 @@ import Control.Monad.Skeleton
 import Data.List
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
-import Data.Reflection
 import Linear.V2
 import SDLight.Types
 import SDLight.Stylesheet
@@ -224,17 +223,17 @@ data ScriptEngine
 
 makeLenses ''ScriptEngine
 
-wMiniScriptEngine :: SDL.Texture -> V2 Int -> GameM (Widget Op'MiniScriptEngine)
-wMiniScriptEngine = \texture v -> go <$> new texture v where
-  new :: SDL.Texture -> V2 Int -> GameM ScriptEngine
-  new texture v = reify (WId "mini-script-engine") $ \p ->
+wMiniScriptEngine :: WPath -> SDL.Texture -> V2 Int -> GameM (Widget Op'MiniScriptEngine)
+wMiniScriptEngine = \w texture v -> go <$> new (w </> giveWClass "script-engine") texture v where
+  new :: WPath -> SDL.Texture -> V2 Int -> GameM ScriptEngine
+  new w texture v =
     ScriptEngine
     <$> return NotReady
     <*> return IM.empty
     <*> return []
     <*> return (return ())
     <*> return 0
-    <*> wMessageLayer p texture v []
+    <*> wMessageLayer w texture v []
 
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $

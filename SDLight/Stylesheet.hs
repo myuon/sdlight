@@ -4,17 +4,35 @@ module SDLight.Stylesheet where
 
 import Control.Applicative
 import qualified Data.Map as M
+import Data.Reflection
+import Data.Proxy
 import Text.Trifecta
 
 data WidgetId
   = WClass String
   | WId String
   | Wapp WidgetId WidgetId
+  | WEmpty
   deriving (Eq, Show)
 
+newtype WPath = WPath { unwrapWPath :: forall r. (forall s. Reifies s WidgetId => Proxy s -> r) -> r }
+
+instance Monoid WPath where
+  mempty = WPath $ reify WEmpty
+  mappend (WPath px) (WPath py) = WPath $ \k -> reify (Wapp (px reflect) (py reflect)) k
+
 infixl 1 </>
-(</>) :: WidgetId -> WidgetId -> WidgetId
-(</>) = Wapp
+(</>) :: WPath -> WPath -> WPath
+(</>) = mappend
+
+getWPath :: WPath -> WidgetId
+getWPath (WPath p) = p reflect
+
+giveWId :: String -> WPath
+giveWId s = WPath $ reify (WId s)
+
+giveWClass :: String -> WPath
+giveWClass s = WPath $ reify (WClass s)
 
 data StyleAttr = Padding | Margin | Width | Height
   deriving (Eq, Ord, Show)
