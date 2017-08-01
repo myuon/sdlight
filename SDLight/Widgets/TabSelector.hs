@@ -17,6 +17,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans
 import Data.Reflection
+import Data.Extensible
 import qualified Data.Map as M
 import Linear.V2
 import SDLight.Util

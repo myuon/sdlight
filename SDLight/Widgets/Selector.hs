@@ -23,7 +23,7 @@ import Data.List
 import Data.Reflection
 import Data.Default
 import Data.Extensible
-import Control.Lens
+import Control.Lens hiding ((:>))
 import Control.Monad
 import Control.Monad.Trans
 import Linear.V2
@@ -77,24 +77,25 @@ type Op'Selector =
 -- とりあえずrenderDropDownの実装
 -- 必要があればoverrideする
 
---newtype SelectorConfig
---  = SelectorConfig { getSelectorConfig :: Record '[ "labels" >: [String] ] }
-
-data SelectorConfig
+{-
+newtype SelectorConfig
   = SelectorConfig
-  { _labelsCfg :: [String]
-  , _selectorNumCfg :: Int
-  , _pagerCfg :: Maybe Int
-  }
+  { getSelectorConfig
+    :: Record
+    [ "labels" >: [String]
+    , "selectorNum" >: Int
+    , "pager" >: Maybe Int
+    ] }
+-}
 
 --instance Default SelectorConfig where
 --  def = SelectorConfig 
 
-wSelector :: SelectorConfig -> Widget Op'Selector
-wSelector = \cfg -> go $ new cfg where
+wSelector :: [String] -> Int -> Maybe Int -> Widget Op'Selector
+wSelector = \l s p -> go $ new l s p where
   pointerFromPagerStyle labels pager = maybe (rangeScope labels (length labels - 1)) (rangeScope labels) pager
 
-  new (SelectorConfig labels selectNum pager) =
+  new labels selectNum pager =
     Selector
     (zip [0..] labels)
     (pointerFromPagerStyle labels pager)
