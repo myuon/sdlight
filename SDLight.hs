@@ -3,7 +3,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
-module SDLight where
+module SDLight
+  ( runGame
+  , module M
+  ) where
 
 import qualified SDL as SDL
 import qualified SDL.TTF as TTF
@@ -12,7 +15,11 @@ import Control.Monad.State.Strict
 import qualified Data.Map as M
 import Data.IORef
 import Linear.V4
-import SDLight.Types
+import SDLight.Types as M
+import SDLight.Util as M
+import SDLight.Components as M
+import SDLight.Stylesheet as M
+import SDLight.Widgets as M
 
 runGame
   :: GameM s -- initial state
