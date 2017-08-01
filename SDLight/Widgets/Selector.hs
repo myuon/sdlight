@@ -1,3 +1,6 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 module SDLight.Widgets.Selector
   ( wSelector
   , Op'Selector
@@ -14,6 +17,9 @@ module SDLight.Widgets.Selector
   , Op'GetSelecting(..)
   , Op'GetPointer(..)
   , Op'GetLabels(..)
+
+  , SelectorConfig
+  , SelectLayerConfig
   ) where
 
 import qualified SDL as SDL
@@ -77,30 +83,36 @@ type Op'Selector =
 -- とりあえずrenderDropDownの実装
 -- 必要があればoverrideする
 
-{-
 newtype SelectorConfig
   = SelectorConfig
   { getSelectorConfig
     :: Record
     [ "labels" >: [String]
-    , "selectorNum" >: Int
+    , "selectNum" >: Int
     , "pager" >: Maybe Int
     ] }
--}
 
---instance Default SelectorConfig where
---  def = SelectorConfig 
+makeWrapped ''SelectorConfig
 
-wSelector :: [String] -> Int -> Maybe Int -> Widget Op'Selector
-wSelector = \l s p -> go $ new l s p where
+instance Default SelectorConfig where
+  def = SelectorConfig
+    $ #labels @= []
+    <: #selectNum @= 1
+    <: #pager @= Nothing
+    <: emptyRecord
+    
+wSelector :: SelectorConfig -> Widget Op'Selector
+wSelector = \cfg -> go $ new cfg where
   pointerFromPagerStyle labels pager = maybe (rangeScope labels (length labels - 1)) (rangeScope labels) pager
 
-  new labels selectNum pager =
-    Selector
-    (zip [0..] labels)
-    (pointerFromPagerStyle labels pager)
-    pager
-    selectNum [] False
+  new :: SelectorConfig -> Selector
+  new (SelectorConfig cfg) = Selector
+    (zip [0..] $ cfg ^. #labels)
+    (pointerFromPagerStyle (cfg ^. #labels) (cfg ^. #pager))
+    (cfg ^. #pager)
+    (cfg ^. #selectNum)
+    []
+    False
 
   go :: Selector -> Widget Op'Selector
   go sel = Widget $
@@ -167,9 +179,32 @@ type Op'SelectLayer =
 
 type SelectLayer = (NamedWidget Op'Layer, NamedWidget Op'Layer, Widget Op'Selector)
 
-wSelectLayer :: Given StyleSheet => WidgetId -> SDL.Texture -> SDL.Texture -> V2 Int -> [String] -> Int -> Maybe Int -> GameM (Widget Op'SelectLayer)
-wSelectLayer = \w win cur v labels num page -> go <$> new (w </> WId "select-layer") win cur v labels num page where
-  new w win cur v labels num page = liftM3 (,,) (wLayer w win v) (wLayer w cur (V2 (v^._x - 20) 30)) (return $ wSelector labels num page)
+newtype SelectLayerConfig
+  = SelectLayerConfig
+  { getSelectLayerConfig
+    :: Record
+    [ "windowTexture" >: SDL.Texture
+    , "cursorTexture" >: SDL.Texture
+    , "size" >: V2 Int
+    , "selectorConfig" >: SelectorConfig
+    ] }
+
+makeWrapped ''SelectLayerConfig
+
+instance Default SelectLayerConfig where
+  def = SelectLayerConfig
+    $ #windowTexture @= error "not initialized"
+    <: #cursorTexture @= error "not initialized"
+    <: #size @= V2 200 100
+    <: #selectorConfig @= def
+    <: emptyRecord
+    
+wSelectLayer :: Given StyleSheet => WidgetId -> SelectLayerConfig -> GameM (Widget Op'SelectLayer)
+wSelectLayer = \w cfg -> go <$> new (w </> WId "select-layer") cfg where
+  new w (SelectLayerConfig cfg) = liftM3 (,,)
+    (wLayer w (cfg ^. #windowTexture) (cfg ^. #size))
+    (wLayer w (cfg ^. #cursorTexture) (V2 (cfg ^. #size ^. _x - 20) 30))
+    (return $ wSelector $ cfg ^. #selectorConfig)
   
   go :: SelectLayer -> Widget Op'SelectLayer
   go w = Widget $

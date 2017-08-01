@@ -16,6 +16,7 @@ import Control.Arrow
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans
+import Data.Default
 import Data.Reflection
 import Data.Extensible
 import qualified Data.Map as M
@@ -78,7 +79,7 @@ wTabSelector selnum pager = go new where
     @> (\Op'GetPointer -> finish $ go model^.op'getCurrentSelector^?!_Just^.op'getPointer)
     @> (\Op'GetCurrentSelector -> finish $ maybe Nothing (\p -> model^.wtabs^?ix p._2) (model^.pointer))
     @> (\Op'GetTabName -> finish $ maybe Nothing (\p -> model^.wtabs^?ix p._1) $ model^.pointer)
-    @> (\(Op'SetTabs ts) -> continue $ go $ model & wtabs .~ fmap (second (\s -> wSelector s selnum pager)) ts & pointer .~ (if ts /= [] then Just 0 else Nothing))
+    @> (\(Op'SetTabs ts) -> continue $ go $ model & wtabs .~ fmap (second (\s -> wSelector $ def & _Wrapped %~ (\cfg -> cfg & 訊 #labels .~ ["hoge"] & 訊 #selectNum .~ selnum & 訊 #pager .~ pager))) ts & pointer .~ (if ts /= [] then Just 0 else Nothing))
     @> emptyUnion
 
   reset model = model &~ do
