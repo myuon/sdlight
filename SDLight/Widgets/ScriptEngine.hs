@@ -1,7 +1,7 @@
 module SDLight.Widgets.ScriptEngine
   ( wMiniScriptEngine
   , Op'MiniScriptEngine
-  , Op'LoadMiniScript(..)
+  , op'loadMiniScript
   , parseMiniScript
   , isReturn
 
@@ -182,8 +182,7 @@ parseMiniScript path = fmap interpret <$> Tf.parseFromFile pminisyntax path
     
 --
 
-data Op'LoadMiniScript br m r where
-  Op'LoadMiniScript :: MiniScript () -> Op'LoadMiniScript Self Identity a
+makeOp "LoadMiniScript" [t| MiniScript () -> _ Self Identity () |]
 
 type Op'MiniScriptEngine =
   [ Op'Reset ()

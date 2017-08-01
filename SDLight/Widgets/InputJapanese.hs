@@ -18,11 +18,7 @@ import SDLight.Stylesheet
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 
-data Op'GetText br m r where
-  Op'GetText :: Op'GetText Value Identity String
-
-op'getText :: Op'GetText ∈ xs => Getter (Widget xs) String
-op'getText = _value' Op'GetText
+makeOp "GetText" [t| _ Value Identity String |]
 
 type Op'InputJapanese =
   [ Op'Reset ()

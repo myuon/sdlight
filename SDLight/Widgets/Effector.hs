@@ -85,35 +85,11 @@ effector = \tr n -> go (new tr n) where
       & value .~ transit (eff^.function) (eff^.counter) (eff^.interval) 
     _ -> return eff
 
-data Op'Appear br m r where
-  Op'Appear :: Op'Appear Self Identity a
-
-data Op'Disappear br m r where
-  Op'Disappear :: Op'Disappear Self Identity a
-
-data Op'GetAlpha br m r where
-  Op'GetAlpha :: Op'GetAlpha Value Identity Double
-
-data Op'IsAppeared br m r where
-  Op'IsAppeared :: Op'IsAppeared Value Identity Bool
-
-data Op'IsDisappeared br m r where
-  Op'IsDisappeared :: Op'IsDisappeared Value Identity Bool
-
-op'appear :: Op'Appear ∈ xs => Getter (Widget xs) (Widget xs)
-op'appear = _self' Op'Appear
-
-op'disappear :: Op'Disappear ∈ xs => Getter (Widget xs) (Widget xs)
-op'disappear = _self' Op'Disappear
-
-op'getAlpha :: Op'GetAlpha ∈ xs => Getter (Widget xs) Double
-op'getAlpha = _value' Op'GetAlpha
-
-op'isAppeared :: Op'IsAppeared ∈ xs => Getter (Widget xs) Bool
-op'isAppeared = _value' Op'IsAppeared
-
-op'isDisappeared :: Op'IsDisappeared ∈ xs => Getter (Widget xs) Bool
-op'isDisappeared = _value' Op'IsDisappeared
+makeOp "Appear" [t| _ Self Identity () |]
+makeOp "Disappear" [t| _ Self Identity () |]
+makeOp "GetAlpha" [t| _ Value Identity Double |]
+makeOp "IsAppeared" [t| _ Value Identity Bool |]
+makeOp "IsDisappeared" [t| _ Value Identity Bool |]
 
 type Eff'Display =
   [ Op'Reset ()
