@@ -123,8 +123,8 @@ wSelector = \labels selnum pager -> go $ new labels selnum pager where
 
   handler :: M.Map SDL.Scancode Int -> Selector -> GameM Selector
   handler keys sel
-    | keys M.! SDL.ScancodeUp == 1 = return $ sel & pointer._Just %~ back
-    | keys M.! SDL.ScancodeDown == 1 = return $ sel & pointer._Just %~ forward
+    | keyjudge (keys M.! SDL.ScancodeUp) = return $ sel & pointer._Just %~ back
+    | keyjudge (keys M.! SDL.ScancodeDown) = return $ sel & pointer._Just %~ forward
     | keys M.! SDL.ScancodeZ == 1 && not (sel^.isFinished) && (isJust $ sel^.pointer) = do
         let p = fst $ (sel^.labels) !! (sel^.pointer^?!_Just^.scoped)
         if p `elem` sel^.selecting
@@ -133,7 +133,9 @@ wSelector = \labels selnum pager -> go $ new labels selnum pager where
                & selecting %~ (p :)
                & isFinished .~ (length (sel^.selecting) + 1 == sel^.selectNum)
     | otherwise = return sel
-
+    where
+      keyjudge n | n < 100 = n `mod` 20 == 1
+      keyjudge n = n `mod` 7 == 1
 
 type Op'SelectLayer =
   [ Op'Reset ()
