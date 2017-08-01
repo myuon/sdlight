@@ -23,6 +23,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans (lift)
 import Control.Monad.Skeleton
+import Data.Reflection
 import Data.List
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
@@ -223,8 +224,8 @@ data ScriptEngine
 
 makeLenses ''ScriptEngine
 
-wMiniScriptEngine :: WidgetId -> SDL.Texture -> V2 Int -> GameM (Widget Op'MiniScriptEngine)
-wMiniScriptEngine = \w texture v -> go <$> new (w </> WClass "script-engine") texture v where
+wMiniScriptEngine :: Given StyleSheet => WidgetId -> SDL.Texture -> V2 Int -> GameM (Widget Op'MiniScriptEngine)
+wMiniScriptEngine = \w texture v -> go <$> new (w </> WId "script-engine") texture v where
   new :: WidgetId -> SDL.Texture -> V2 Int -> GameM ScriptEngine
   new w texture v =
     ScriptEngine

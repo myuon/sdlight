@@ -20,6 +20,7 @@ import qualified SDL as SDL
 import qualified Data.Map as M
 import Data.Maybe
 import Data.List
+import Data.Reflection
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans
@@ -148,8 +149,8 @@ type Op'SelectLayer =
 
 type SelectLayer = (NamedWidget Op'Layer, NamedWidget Op'Layer, Widget Op'Selector)
 
-wSelectLayer :: WidgetId -> SDL.Texture -> SDL.Texture -> V2 Int -> [String] -> Int -> Maybe Int -> GameM (Widget Op'SelectLayer)
-wSelectLayer = \w win cur v labels num page -> go <$> new (w </> WClass "select-layer") win cur v labels num page where
+wSelectLayer :: Given StyleSheet => WidgetId -> SDL.Texture -> SDL.Texture -> V2 Int -> [String] -> Int -> Maybe Int -> GameM (Widget Op'SelectLayer)
+wSelectLayer = \w win cur v labels num page -> go <$> new (w </> WId "select-layer") win cur v labels num page where
   new w win cur v labels num page = liftM3 (,,) (wLayer w win v) (wLayer w cur (V2 (v^._x - 20) 30)) (return $ wSelector labels num page)
   
   go :: SelectLayer -> Widget Op'SelectLayer

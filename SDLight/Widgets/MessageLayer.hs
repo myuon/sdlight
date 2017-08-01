@@ -10,6 +10,7 @@ import qualified Data.Map as M
 import Control.Lens
 import Control.Monad
 import Control.Monad.State.Strict
+import Data.Reflection
 import Linear.V2
 import SDLight.Util
 import SDLight.Types
@@ -100,8 +101,8 @@ wMessageWriter = \mes -> go <$> (new mes) where
 
 type Op'MessageLayer = Op'MessageWriter
 
-wMessageLayer :: WidgetId -> SDL.Texture -> V2 Int -> [String] -> GameM (NamedWidget Op'MessageLayer)
-wMessageLayer = \w texture v mes -> wNamed (w </> WClass "message-layer") <$> liftM2 go (wLayer w texture v) (wDelayed 2 <$> wMessageWriter mes) where
+wMessageLayer :: Given StyleSheet => WidgetId -> SDL.Texture -> V2 Int -> [String] -> GameM (NamedWidget Op'MessageLayer)
+wMessageLayer = \w texture v mes -> wNamed (w </> WId "message-layer") <$> liftM2 go (wLayer w texture v) (wDelayed 2 <$> wMessageWriter mes) where
   go :: NamedWidget Op'Layer -> Widget (Op'Delayed Op'MessageWriter) -> Widget Op'MessageLayer
   go wlayer wm = Widget $
     (\(Op'Reset args) -> continue $ go wlayer $ wm ^. op'reset args)

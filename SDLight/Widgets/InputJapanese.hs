@@ -8,6 +8,7 @@ import qualified SDL as SDL
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans (lift)
+import Data.Reflection
 import qualified Data.Map as M
 import Linear.V2
 import SDLight.Util
@@ -45,8 +46,8 @@ data InputJapanese
 
 makeLenses ''InputJapanese
 
-wInputJapanese :: WidgetId -> SDL.Texture -> GameM (Widget Op'InputJapanese)
-wInputJapanese = \w texture -> go <$> new (w </> WClass "input-japanese") texture where
+wInputJapanese :: Given StyleSheet => WidgetId -> SDL.Texture -> GameM (Widget Op'InputJapanese)
+wInputJapanese = \w texture -> go <$> new (w </> WId "input-japanese") texture where
   textLayerArea = V2 800 50
   letterLayerArea = V2 800 550
   

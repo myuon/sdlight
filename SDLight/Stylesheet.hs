@@ -8,15 +8,13 @@ import qualified Data.Map as M
 import Text.Trifecta
 
 data WidgetId
-  = WClass String
-  | WId String
+  = WId String
   | Wapp WidgetId WidgetId
   | WEmpty
   deriving Eq
 
 instance Show WidgetId where
-  show (WClass n) = "." ++ n
-  show (WId n) = "#" ++ n
+  show (WId n) = n
   show (Wapp x y) = show x ++ " </> " ++ show y
   show WEmpty = "<>"
 
@@ -27,6 +25,11 @@ instance Monoid WidgetId where
 infixl 1 </>
 (</>) :: WidgetId -> WidgetId -> WidgetId
 (</>) = mappend
+
+toIdListL :: WidgetId -> [String]
+toIdListL (WId a) = [a]
+toIdListL (Wapp x y) = toIdListL x ++ toIdListL y
+toIdListL WEmpty = []
 
 data StyleAttr = Padding | Margin | Width | Height
   deriving (Eq, Ord, Show)
@@ -97,12 +100,18 @@ fromSyntax (StyleSyntax syntax) = StyleSheet $ go Wild syntax where
   go k (Leaf a) = M.singleton k a
   go k (Node k' xs) = foldr (M.union . go (k `mappend` k')) M.empty xs
 
-{-
-wix :: WidgetId -> Getter StyleSheet [(StyleAttr, Int)]
-wix w = to $ \sty -> concat $ M.elems $ M.filterWithKey (\q _ -> match q w) $ getStyleSheet sty where
-  match :: StyleQuery -> WidgetId -> Bool
-  match Wild w = True
-  match (StyleId s) (WId s') = s == s'
-  match (StyleId s) (WClass s') = s == s'
--}
+wix :: WidgetId -> Getter StyleSheet [(StyleQuery, [(StyleAttr, Int)])]
+wix w = to $ \sty -> M.assocs $ M.filterWithKey (\q _ -> match q (toIdListL w)) $ getStyleSheet sty where
+  match :: StyleQuery -> [String] -> Bool
+  match q w | matchHere q w = True
+  match (StyleId s) (x:ys) = match (StyleId s) ys
+  match (q :>: ps) (x:ys) = match (q :>: ps) ys
+  match (q :>>: ps) (x:ys) = match (q :>: ps) ys
+  match _ _ = False
+
+  matchHere Wild w = True
+  matchHere (StyleId q) (x:_) = q == x
+  matchHere (q :>: ps) (x:ys) | q == x = matchHere ps ys
+  matchHere (q :>>: ps) (x:ys) | q == x = match ps ys
+  matchHere _ _ = False
 

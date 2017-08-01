@@ -30,9 +30,11 @@ import qualified SDL as SDL
 import Control.Lens
 import qualified Data.Map as M
 import Data.Functor.Sum
+import Data.Reflection
 import SDLight.Types
 import SDLight.Util
 import SDLight.Components
+import SDLight.Stylesheet
 import SDLight.Widgets.Internal.Widget as M
 import SDLight.Widgets.Internal.TH as M
 import SDLight.Widgets.Internal.Named as M
@@ -64,12 +66,15 @@ data Op'HandleEvent br m r where
 data Op'Switch br m r where
   Op'Switch :: Op'Switch FreezeT Identity ()
 
-op'renderAlpha :: (KnownName xs, Op'Render ∈ xs) => Double -> SDL.V2 Int -> Getter (Widget xs) (GameM ())
+op'renderAlpha :: (Given StyleSheet, KnownName xs, Op'Render ∈ xs) => Double -> SDL.V2 Int -> Getter (Widget xs) (GameM ())
 op'renderAlpha d v = to $ \w -> do
   w ^. _value (Op'Render d v)
-  renders black [ translate v $ text (show $ symbolName w) ]
 
-op'render :: (KnownName xs, Op'Render ∈ xs) => SDL.V2 Int -> Getter (Widget xs) (GameM ())
+  case symbolName w of
+    Just j -> renders black [ translate v $ text $ show (given ^. wix j) ]
+    _ -> return ()
+
+op'render :: (Given StyleSheet, KnownName xs, Op'Render ∈ xs) => SDL.V2 Int -> Getter (Widget xs) (GameM ())
 op'render = op'renderAlpha 1.0
 
 op'run :: (Op'Run ∈ xs) => Getter (Widget xs) (GameM (Widget xs))

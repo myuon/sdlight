@@ -83,7 +83,7 @@ type Op'Layer =
   ]
 
 wLayer :: WidgetId -> SDL.Texture -> V2 Int -> GameM (NamedWidget Op'Layer)
-wLayer = \w texture v -> wNamed (w </> WClass "layer") . go <$> newLayer texture v where
+wLayer = \w texture v -> wNamed (w </> WId "layer") . go <$> newLayer texture v where
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
     (\(Op'Render alpha v) -> lift $ renderLayer layer v alpha)
