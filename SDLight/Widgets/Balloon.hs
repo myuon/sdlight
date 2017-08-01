@@ -9,6 +9,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans (lift)
 import Data.Reflection
+import Data.Extensible
 import Linear.V2
 import SDLight.Util
 import SDLight.Types

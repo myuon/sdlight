@@ -3,8 +3,9 @@ module SDLight.Widgets.Layer
   ( wLayer
   , Op'Layer
 
-  , wDelayed
-  , Op'Delayed
+  , wDelay
+  , Op'Delay
+  , op'getCounter
   ) where
 
 import qualified SDL as SDL
@@ -13,8 +14,7 @@ import qualified Data.Map as M
 import Control.Lens hiding ((:>))
 import Control.Monad
 import Control.Monad.Reader
-import Control.Monad.State.Strict
-import Data.Functor.Sum
+import Data.Extensible
 import Linear.V2
 import SDLight.Types
 import SDLight.Stylesheet
@@ -106,23 +106,23 @@ data Delay
 
 makeLenses ''Delay
 
-type Op'Delayed xs = Op'Run : xs
+makeOp "GetCounter" [t| _ Value Identity Int |]
 
-wDelayed :: Op'Run ∈ xs => Int -> Widget xs -> Widget (Op'Delayed xs)
-wDelayed = \n w -> go (Delay 0 n) w where
-  go :: Op'Run ∈ xs => Delay -> Widget xs -> Widget (Op'Delayed xs)
-  go delay widget = override (go delay) widget $
-    (\Op'Run -> InL $ continueM $ fmap (uncurry go) $ execStateT run (delay,widget))
-    @> InR
+type Op'Delay =
+  [ Op'Reset ()
+  , Op'Run
+  , Op'GetCounter
+  ]
 
-  run :: Op'Run ∈ xs => StateT (Delay, Widget xs) GameM ()
-  run = do
-    c <- use $ _1.counter
-    when (c == 0) $ do
-      w <- use _2
-      _2 <~ lift (w ^. op'run)
+wDelay :: Int -> Widget Op'Delay
+wDelay = \n -> go (Delay 0 n) where
+  go :: Delay -> Widget Op'Delay
+  go delay = Widget $
+    (\(Op'Reset _) -> continue $ go $ delay & counter .~ 0)
+    @> (\Op'Run -> continueM $ fmap go $ run delay)
+    @> (\Op'GetCounter -> finish $ delay^.counter)
+    @> emptyUnion
 
-    d <- use $ _1.delayCount
-    _1.counter %= (`mod` d) . (+1)
+  run delay = return $ delay & counter %~ (`mod` delay^.delayCount) . (+1)
   
 

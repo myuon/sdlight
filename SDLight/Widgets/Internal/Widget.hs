@@ -7,39 +7,13 @@ module SDLight.Widgets.Internal.Widget where
 
 import Control.Lens
 import Control.Monad.Trans
+import Data.Extensible
 
 type (~>) f g = forall x. f x -> g x
 
-data Union (r :: [(* -> (* -> *) -> * -> *) -> (* -> *) -> * -> *]) br m v where
-  UNow  :: t br m v -> Union (t : r) br m v
-  UNext :: Union r br m v -> Union (any : r) br m v
-
-class Member ts x where
-  inj :: x br m ~> Union ts br m
-
-instance {-# OVERLAPPING #-} Member (t : ts) t where
-  inj = UNow
-  
-instance {-# OVERLAPPABLE #-} Member ts t => Member (any : ts) t where
-  inj xv = UNext (inj xv)
-
-type (∈) x xs = Member xs x
-
-class CaseOf r t rs | r -> rs, r -> t where
-  caseOf :: Union r br m v -> Either (Union rs br m v) (t br m v)
-
-instance CaseOf (r : rs) r rs where
-  caseOf (UNow tv) = Right tv
-  caseOf (UNext n) = Left n
-
-infixr 2 @>
-(@>) :: (t br m ~> r) -> (Union ts br m ~> r) -> Union (t : ts) br m ~> r
-(@>) f g u = either g f $ caseOf u
-
-emptyUnion :: Union '[] br m v -> a
-emptyUnion = \case
-
---
+newtype Op br m r (op :: (* -> (* -> *) -> * -> *) -> (* -> *) -> * -> *) = Op { runOp :: op br m r }
+newtype Union ops br m v = Union { getUnion :: Op br m v :| ops }
+newtype Widget ops = Widget { runWidget :: forall br m. (Functor m, TransBifunctor br m) => Union ops br m ~> br (Widget ops) m }
 
 class TransBifunctor f (m :: * -> *) where
   bimapT :: (a -> b) -> (c -> d) -> f a m c -> f b m d
@@ -50,14 +24,18 @@ class TransBifunctor f (m :: * -> *) where
   secondT :: (c -> d) -> f a m c -> f a m d
   secondT g = bimapT id g
 
-newtype Op m r (op :: (* -> *) -> * -> *) = Op { runOp :: op m r }
-newtype Widget ops = Widget { runWidget :: forall br m. (Functor m, TransBifunctor br m) => Union ops br m ~> br (Widget ops) m }
-
 call :: (k ∈ xs, TransBifunctor br m, Functor m) => Widget xs -> (k br m ~> br (Widget xs) m)
-call w = runWidget w . inj
+call w = runWidget w . Union . embed . Op
 
 _Op :: (k ∈ xs, TransBifunctor br m, Functor m) => k br m a -> Getter (Widget xs) (br (Widget xs) m a)
 _Op opr = to (\w -> call w opr)
+
+infixr 2 @>
+(@>) :: (t br m ~> r) -> (Union ts br m ~> r) -> (Union (t : ts) br m ~> r)
+(@>) f g = ((f . runOp) <:| (g . Union)) . getUnion
+
+emptyUnion :: Union '[] br m v -> a
+emptyUnion = \case
 
 --
 

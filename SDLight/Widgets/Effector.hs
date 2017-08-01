@@ -16,6 +16,7 @@ module SDLight.Widgets.Effector
   ) where
 
 import Control.Lens
+import Data.Extensible
 import SDLight.Types
 import SDLight.Widgets.Core
 

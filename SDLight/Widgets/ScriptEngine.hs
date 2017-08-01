@@ -23,6 +23,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans (lift)
 import Control.Monad.Skeleton
+import Data.Extensible
 import Data.Reflection
 import Data.List
 import qualified Data.Map as M

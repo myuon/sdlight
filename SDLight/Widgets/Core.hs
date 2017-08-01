@@ -31,6 +31,7 @@ import Control.Lens
 import qualified Data.Map as M
 import Data.Functor.Sum
 import Data.Reflection
+import Data.Extensible
 import SDLight.Types
 import SDLight.Util
 import SDLight.Components
