@@ -6,6 +6,7 @@ import Control.Lens
 import Control.Applicative
 import qualified Data.Map as M
 import Text.Trifecta
+import Linear.V2
 
 data WidgetId
   = WId String
@@ -31,14 +32,8 @@ toIdListL (WId a) = [a]
 toIdListL (Wapp x y) = toIdListL x ++ toIdListL y
 toIdListL WEmpty = []
 
-data StyleAttr = Padding | Margin | Width | Height
+data StyleAttr = Padding (V2 Int) | Margin (V2 Int) | Width Int | Height Int
   deriving (Eq, Ord, Show)
-
-instance Read StyleAttr where
-  readsPrec _ "padding" = [(Padding, "")]
-  readsPrec _ "margin" = [(Margin, "")]
-  readsPrec _ "width" = [(Width, "")]
-  readsPrec _ "height" = [(Height, "")]
 
 data Tree k a
   = Leaf a
@@ -60,38 +55,44 @@ instance Monoid StyleQuery where
   mappend (s :>: sx) y = s :>: mappend sx y
   mappend (s :>>: sx) y = s :>>: mappend sx y
 
-newtype StyleSyntax = StyleSyntax { getStyleSyntax :: Tree StyleQuery [(StyleAttr,Int)] }
+newtype StyleSyntax = StyleSyntax { getStyleSyntax :: Tree StyleQuery [StyleAttr] }
   deriving (Eq, Show)
 
 pstylesheet :: Parser StyleSyntax
 pstylesheet = StyleSyntax . Node Wild <$> expr where
-  expr :: Parser [Tree StyleQuery [(StyleAttr,Int)]]
+  expr :: Parser [Tree StyleQuery [StyleAttr]]
   expr = many $ do
     sid <- spaces *> pselector <* spaces
-    ats <- between (symbol "{") (symbol "}") $ try expr <|> (return . Leaf <$> pattrs)
+    ats <- between (symbol "{") (symbol "}") $ try expr <|> (return . Leaf <$> fmap (map toStyleAttr) pattrs)
     return $ Node sid ats
   
   pselector :: Parser StyleQuery
   pselector = try wild <|> deps where
     wild = symbol "_" *> return Wild
     deps = do
-      a <- some letter <* spaces
+      a <- (some (letter <|> oneOf "-")) <* spaces
       try (fmap (a :>:) $ symbol ">" *> deps)
         <|> try (fmap (a :>>:) $ symbol ">>" *> deps)
         <|> return (StyleId a)
 
-  pattrs :: Parser [(StyleAttr,Int)]
+  pattrs :: Parser [(String, [Int])]
   pattrs = many $ do
     attr <- some letter
     spaces *> symbol ":"
-    value <- natural
+    value <- natural `sepBy` symbol ","
 
-    return $ (read attr, fromInteger value)
+    return $ (attr, fmap fromInteger value)
+
+  toStyleAttr :: (String, [Int]) -> StyleAttr
+  toStyleAttr ("padding", [x,y]) = Padding (V2 x y)
+  toStyleAttr ("margin", [x,y]) = Margin (V2 x y)
+  toStyleAttr ("width", [x]) = Width x
+  toStyleAttr ("height", [x]) = Height x
 
 loadStyleFile :: FilePath -> IO (Maybe StyleSheet)
 loadStyleFile = fmap (fmap fromSyntax) <$> parseFromFile pstylesheet
 
-newtype StyleSheet = StyleSheet { getStyleSheet :: M.Map StyleQuery [(StyleAttr, Int)] }
+newtype StyleSheet = StyleSheet { getStyleSheet :: M.Map StyleQuery [StyleAttr] }
   deriving (Eq, Show)
 
 fromSyntax :: StyleSyntax -> StyleSheet
@@ -100,7 +101,7 @@ fromSyntax (StyleSyntax syntax) = StyleSheet $ go Wild syntax where
   go k (Leaf a) = M.singleton k a
   go k (Node k' xs) = foldr (M.union . go (k `mappend` k')) M.empty xs
 
-wix :: WidgetId -> Getter StyleSheet [(StyleQuery, [(StyleAttr, Int)])]
+wix :: WidgetId -> Getter StyleSheet [(StyleQuery, [StyleAttr])]
 wix w = to $ \sty -> M.assocs $ M.filterWithKey (\q _ -> match q (toIdListL w)) $ getStyleSheet sty where
   match :: StyleQuery -> [String] -> Bool
   match q w | matchHere q w = True
