@@ -104,13 +104,15 @@ type Op'MessageLayer = Op'MessageWriter
 type MessageLayer = (NamedWidget Op'Layer, Widget Op'Delay, NamedWidget Op'MessageWriter)
 
 wMessageLayer :: Given StyleSheet => WidgetId -> SDL.Texture -> V2 Int -> [String] -> GameM (Widget Op'MessageLayer)
-wMessageLayer = \w texture v mes -> go <$> new (w </> WId "message-layer") texture v mes where
+wMessageLayer w = \texture v mes -> go <$> new wid texture v mes where
+  wid = w </> WId "message-layer"
+  
   new w texture v mes = liftM3 (,,) (wLayer w texture v) (return $ wDelay 2) (wMessageWriter w mes)
   
   go :: MessageLayer -> Widget Op'MessageLayer
   go wm = Widget $
     (\(Op'Reset args) -> continue $ go $ wm & _2 ^%~ op'reset () & _3 ^%~ op'reset args)
-    @> (\(Op'Render _ v) -> lift $ wm^._1^.op'render v >> wm^._3^.op'render v)
+    @> (\(Op'Render _ v) -> lift $ wm^._1^.op'render (v + maybe 0 id (given^.wix wid Position)) >> wm^._3^.op'render (v + maybe 0 id (given^.wix wid Position) + maybe 0 id (given^.wix wid Margin)))
     @> (\Op'Run -> continueM $ fmap go $ (wm & _2 ^%%~ op'run) >>= run)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ wm & _3 ^%%~ op'handleEvent keys)
     @> (\Op'Switch -> bimapT (go . (\z -> wm & _3 .~ z)) id $ wm^._3^.op'switch)

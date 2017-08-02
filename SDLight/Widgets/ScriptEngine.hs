@@ -272,7 +272,7 @@ wMiniScriptEngine = \w texture v -> go <$> new (w </> WId "script-engine") textu
       renderImage (v + either toPos id (layer^.position)) (layer^.texture) (layer^.opacity)
 
     case model^._state of
-      Message -> model^.message^.op'render (V2 0 450)
+      Message -> model^.message^.op'render (V2 0 0)
       _ -> return ()
 
   findInsert :: a -> IM.IntMap a -> (Int, IM.IntMap a)

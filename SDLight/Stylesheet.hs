@@ -38,6 +38,7 @@ data StyleAttr r where
   Margin :: StyleAttr (V2 Int)
   Width :: StyleAttr Int
   Height :: StyleAttr Int
+  Position :: StyleAttr (V2 Int)
 
 data StyleAttrValue = forall r. StyleAttrValue { getStyleAttrValue :: (StyleAttr r, r) }
 
@@ -93,6 +94,7 @@ pstylesheet = StyleSyntax . Node Wild <$> expr where
   toStyleAttr ("margin", [x,y]) = StyleAttrValue $ (,) Margin (V2 x y)
   toStyleAttr ("width", [x]) = StyleAttrValue $ (,) Width x
   toStyleAttr ("height", [x]) = StyleAttrValue $ (,) Height x
+  toStyleAttr ("position", [x,y]) = StyleAttrValue $ (,) Position (V2 x y)
 
 loadStyleFile :: FilePath -> IO (Maybe StyleSheet)
 loadStyleFile = fmap (fmap fromSyntax) <$> parseFromFile pstylesheet
@@ -126,5 +128,6 @@ wix w attr = to $ \sty -> (\xs -> if null xs then Nothing else Just $ last xs) $
     (Margin, StyleAttrValue (Margin,v)) -> Just v
     (Width, StyleAttrValue (Width,v)) -> Just v
     (Height, StyleAttrValue (Height,v)) -> Just v
+    (Position, StyleAttrValue (Position,v)) -> Just v
     _ -> Nothing
 
