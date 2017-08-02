@@ -5,6 +5,7 @@ module SDLight.Stylesheet where
 import Control.Lens
 import Control.Applicative
 import qualified Data.Map as M
+import Data.Maybe
 import Text.Trifecta
 import Linear.V2
 
@@ -32,8 +33,13 @@ toIdListL (WId a) = [a]
 toIdListL (Wapp x y) = toIdListL x ++ toIdListL y
 toIdListL WEmpty = []
 
-data StyleAttr = Padding (V2 Int) | Margin (V2 Int) | Width Int | Height Int
-  deriving (Eq, Ord, Show)
+data StyleAttr r where
+  Padding :: StyleAttr (V2 Int)
+  Margin :: StyleAttr (V2 Int)
+  Width :: StyleAttr Int
+  Height :: StyleAttr Int
+
+data StyleAttrValue = forall r. StyleAttrValue { getStyleAttrValue :: (StyleAttr r, r) }
 
 data Tree k a
   = Leaf a
@@ -55,15 +61,14 @@ instance Monoid StyleQuery where
   mappend (s :>: sx) y = s :>: mappend sx y
   mappend (s :>>: sx) y = s :>>: mappend sx y
 
-newtype StyleSyntax = StyleSyntax { getStyleSyntax :: Tree StyleQuery [StyleAttr] }
-  deriving (Eq, Show)
+newtype StyleSyntax = StyleSyntax { getStyleSyntax :: Tree StyleQuery [StyleAttrValue] }
 
 pstylesheet :: Parser StyleSyntax
 pstylesheet = StyleSyntax . Node Wild <$> expr where
-  expr :: Parser [Tree StyleQuery [StyleAttr]]
+  expr :: Parser [Tree StyleQuery [StyleAttrValue]]
   expr = many $ do
     sid <- spaces *> pselector <* spaces
-    ats <- between (symbol "{") (symbol "}") $ try expr <|> (return . Leaf <$> fmap (map toStyleAttr) pattrs)
+    ats <- between (symbol "{") (symbol "}") $ try expr <|> (return . Leaf <$> pattrs)
     return $ Node sid ats
   
   pselector :: Parser StyleQuery
@@ -75,25 +80,24 @@ pstylesheet = StyleSyntax . Node Wild <$> expr where
         <|> try (fmap (a :>>:) $ symbol ">>" *> deps)
         <|> return (StyleId a)
 
-  pattrs :: Parser [(String, [Int])]
+  pattrs :: Parser [StyleAttrValue]
   pattrs = many $ do
     attr <- some letter
     spaces *> symbol ":"
     value <- natural `sepBy` symbol ","
 
-    return $ (attr, fmap fromInteger value)
+    return $ toStyleAttr (attr, fmap fromInteger value)
 
-  toStyleAttr :: (String, [Int]) -> StyleAttr
-  toStyleAttr ("padding", [x,y]) = Padding (V2 x y)
-  toStyleAttr ("margin", [x,y]) = Margin (V2 x y)
-  toStyleAttr ("width", [x]) = Width x
-  toStyleAttr ("height", [x]) = Height x
+  toStyleAttr :: (String, [Int]) -> StyleAttrValue
+  toStyleAttr ("padding", [x,y]) = StyleAttrValue $ (,) Padding (V2 x y)
+  toStyleAttr ("margin", [x,y]) = StyleAttrValue $ (,) Margin (V2 x y)
+  toStyleAttr ("width", [x]) = StyleAttrValue $ (,) Width x
+  toStyleAttr ("height", [x]) = StyleAttrValue $ (,) Height x
 
 loadStyleFile :: FilePath -> IO (Maybe StyleSheet)
 loadStyleFile = fmap (fmap fromSyntax) <$> parseFromFile pstylesheet
 
-newtype StyleSheet = StyleSheet { getStyleSheet :: M.Map StyleQuery [StyleAttr] }
-  deriving (Eq, Show)
+newtype StyleSheet = StyleSheet { getStyleSheet :: M.Map StyleQuery [StyleAttrValue] }
 
 fromSyntax :: StyleSyntax -> StyleSheet
 fromSyntax (StyleSyntax syntax) = StyleSheet $ go Wild syntax where
@@ -101,8 +105,8 @@ fromSyntax (StyleSyntax syntax) = StyleSheet $ go Wild syntax where
   go k (Leaf a) = M.singleton k a
   go k (Node k' xs) = foldr (M.union . go (k `mappend` k')) M.empty xs
 
-wix :: WidgetId -> Getter StyleSheet [(StyleQuery, [StyleAttr])]
-wix w = to $ \sty -> M.assocs $ M.filterWithKey (\q _ -> match q (toIdListL w)) $ getStyleSheet sty where
+wix :: WidgetId -> StyleAttr r -> Getter StyleSheet (Maybe r)
+wix w attr = to $ \sty -> (\xs -> if null xs then Nothing else Just $ last xs) $ catMaybes $ fmap (matchAttr attr) $ concat $ M.elems $ M.filterWithKey (\q _ -> match q (toIdListL w)) $ getStyleSheet sty where
   match :: StyleQuery -> [String] -> Bool
   match q w | matchHere q w = True
   match (StyleId s) (x:ys) = match (StyleId s) ys
@@ -115,4 +119,12 @@ wix w = to $ \sty -> M.assocs $ M.filterWithKey (\q _ -> match q (toIdListL w)) 
   matchHere (q :>: ps) (x:ys) | q == x = matchHere ps ys
   matchHere (q :>>: ps) (x:ys) | q == x = match ps ys
   matchHere _ _ = False
+
+  matchAttr :: StyleAttr r -> StyleAttrValue -> Maybe r
+  matchAttr attr v = case (attr, v) of
+    (Padding, StyleAttrValue (Padding,v)) -> Just v
+    (Margin, StyleAttrValue (Margin,v)) -> Just v
+    (Width, StyleAttrValue (Width,v)) -> Just v
+    (Height, StyleAttrValue (Height,v)) -> Just v
+    _ -> Nothing
 

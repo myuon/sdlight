@@ -41,8 +41,8 @@ type Op'MessageWriter =
   , Op'Switch
   ]
 
-wMessageWriter :: [String] -> GameM (Widget Op'MessageWriter)
-wMessageWriter = \mes -> go <$> (new mes) where
+wMessageWriter :: WidgetId -> [String] -> GameM (NamedWidget Op'MessageWriter)
+wMessageWriter w = \mes -> wNamed (w </> WId "message-writer") . go <$> (new mes) where
   new mes = return $ reset mes $ MessageWriter [] 0 [] Typing 1
 
   go :: MessageWriter -> Widget Op'MessageWriter
@@ -101,10 +101,12 @@ wMessageWriter = \mes -> go <$> (new mes) where
 
 type Op'MessageLayer = Op'MessageWriter
 
-type MessageLayer = (NamedWidget Op'Layer, Widget Op'Delay, Widget Op'MessageWriter)
+type MessageLayer = (NamedWidget Op'Layer, Widget Op'Delay, NamedWidget Op'MessageWriter)
 
-wMessageLayer :: Given StyleSheet => WidgetId -> SDL.Texture -> V2 Int -> [String] -> GameM (NamedWidget Op'MessageLayer)
-wMessageLayer = \w texture v mes -> wNamed (w </> WId "message-layer") <$> (go <$> liftM3 (,,) (wLayer w texture v) (return $ wDelay 2) (wMessageWriter mes)) where
+wMessageLayer :: Given StyleSheet => WidgetId -> SDL.Texture -> V2 Int -> [String] -> GameM (Widget Op'MessageLayer)
+wMessageLayer = \w texture v mes -> go <$> new (w </> WId "message-layer") texture v mes where
+  new w texture v mes = liftM3 (,,) (wLayer w texture v) (return $ wDelay 2) (wMessageWriter w mes)
+  
   go :: MessageLayer -> Widget Op'MessageLayer
   go wm = Widget $
     (\(Op'Reset args) -> continue $ go $ wm & _2 ^%~ op'reset () & _3 ^%~ op'reset args)

@@ -33,8 +33,6 @@ import Data.Functor.Sum
 import Data.Reflection
 import Data.Extensible
 import SDLight.Types
-import SDLight.Util
-import SDLight.Components
 import SDLight.Stylesheet
 import SDLight.Widgets.Internal.Widget as M
 import SDLight.Widgets.Internal.TH as M
@@ -69,11 +67,8 @@ data Op'Switch br m r where
 
 op'renderAlpha :: (Given StyleSheet, KnownName xs, Op'Render ∈ xs) => Double -> SDL.V2 Int -> Getter (Widget xs) (GameM ())
 op'renderAlpha d v = to $ \w -> do
-  w ^. _value (Op'Render d v)
-
-  case symbolName w of
-    Just j -> renders black [ translate v $ text $ show (given ^. wix j) ]
-    _ -> return ()
+  let m = maybe 0 (\j -> maybe 0 id $ given^.wix j Margin) $ symbolName w
+  w ^. _value (Op'Render d (v + m))
 
 op'render :: (Given StyleSheet, KnownName xs, Op'Render ∈ xs) => SDL.V2 Int -> Getter (Widget xs) (GameM ())
 op'render = op'renderAlpha 1.0
