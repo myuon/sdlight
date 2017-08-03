@@ -111,6 +111,7 @@ newtype MessageLayerConfig
     [ "windowTexture" >: SDL.Texture
     , "size" >: V2 Int
     , "messages" >: [String]
+    , "wix" >: WidgetId
     ]
   )
 
@@ -121,16 +122,17 @@ instance Default MessageLayerConfig where
     $ #windowTexture @= error "not initialized"
     <: #size @= V2 100 200
     <: #messages @= []
+    <: #wix @= WEmpty
     <: emptyRecord
 
-wMessageLayer :: Given StyleSheet => WidgetId -> MessageLayerConfig -> GameM (Widget Op'MessageLayer)
-wMessageLayer w = \cfg -> go <$> new wid cfg where
-  wid = w </> WId "message-layer"
+wMessageLayer :: Given StyleSheet => MessageLayerConfig -> GameM (Widget Op'MessageLayer)
+wMessageLayer cfg = go <$> new (cfg & _Wrapped . 訊 #wix .~ wid) where
+  wid = (cfg ^. _Wrapped . #wix) </> WId "message-layer"
   
-  new w cfg = liftM3 (,,)
-    (wLayer w (cfg ^. _Wrapped . #windowTexture) (cfg ^. _Wrapped . #size))
+  new cfg = liftM3 (,,)
+    (wLayer wid (cfg ^. _Wrapped . #windowTexture) (cfg ^. _Wrapped . #size))
     (return $ wDelay 2)
-    (wMessageWriter w (cfg ^. _Wrapped . #messages))
+    (wMessageWriter wid (cfg ^. _Wrapped . #messages))
   
   go :: MessageLayer -> Widget Op'MessageLayer
   go wm = Widget $

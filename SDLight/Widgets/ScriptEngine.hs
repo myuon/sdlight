@@ -235,7 +235,7 @@ wMiniScriptEngine = \w texture v -> go <$> new (w </> WId "script-engine") textu
     <*> return []
     <*> return (return ())
     <*> return 0
-    <*> wMessageLayer w (def & _Wrapped %~ (\cfg -> cfg & 訊 #windowTexture .~ texture & 訊 #size .~ v))
+    <*> wMessageLayer (def & _Wrapped %~ (\cfg -> cfg & 訊 #wix .~ w & 訊 #windowTexture .~ texture & 訊 #size .~ v))
 
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $
