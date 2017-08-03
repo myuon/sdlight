@@ -23,6 +23,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans (lift)
 import Control.Monad.Skeleton
+import Data.Default
 import Data.Extensible
 import Data.Reflection
 import Data.List
@@ -234,7 +235,7 @@ wMiniScriptEngine = \w texture v -> go <$> new (w </> WId "script-engine") textu
     <*> return []
     <*> return (return ())
     <*> return 0
-    <*> wMessageLayer w texture v []
+    <*> wMessageLayer w (def & _Wrapped %~ (\cfg -> cfg & 訊 #windowTexture .~ texture & 訊 #size .~ v))
 
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $

@@ -1,6 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
 module SDLight.Widgets.Selector
   ( wSelector
   , Op'Selector
@@ -181,13 +178,12 @@ type SelectLayer = (NamedWidget Op'Layer, NamedWidget Op'Layer, Widget Op'Select
 
 newtype SelectLayerConfig
   = SelectLayerConfig
-  { getSelectLayerConfig
-    :: Record
+  ( Record
     [ "windowTexture" >: SDL.Texture
     , "cursorTexture" >: SDL.Texture
     , "size" >: V2 Int
     , "selectorConfig" >: SelectorConfig
-    ] }
+    ] )
 
 makeWrapped ''SelectLayerConfig
 

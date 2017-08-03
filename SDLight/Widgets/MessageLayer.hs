@@ -11,6 +11,8 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Reflection
+import Data.Extensible
+import Data.Default
 import Linear.V2
 import SDLight.Util
 import SDLight.Types
@@ -103,11 +105,32 @@ type Op'MessageLayer = Op'MessageWriter
 
 type MessageLayer = (NamedWidget Op'Layer, Widget Op'Delay, NamedWidget Op'MessageWriter)
 
-wMessageLayer :: Given StyleSheet => WidgetId -> SDL.Texture -> V2 Int -> [String] -> GameM (Widget Op'MessageLayer)
-wMessageLayer w = \texture v mes -> go <$> new wid texture v mes where
+newtype MessageLayerConfig
+  = MessageLayerConfig
+  ( Record
+    [ "windowTexture" >: SDL.Texture
+    , "size" >: V2 Int
+    , "messages" >: [String]
+    ]
+  )
+
+makeWrapped ''MessageLayerConfig
+
+instance Default MessageLayerConfig where
+  def = MessageLayerConfig
+    $ #windowTexture @= error "not initialized"
+    <: #size @= V2 100 200
+    <: #messages @= []
+    <: emptyRecord
+
+wMessageLayer :: Given StyleSheet => WidgetId -> MessageLayerConfig -> GameM (Widget Op'MessageLayer)
+wMessageLayer w = \cfg -> go <$> new wid cfg where
   wid = w </> WId "message-layer"
   
-  new w texture v mes = liftM3 (,,) (wLayer w texture v) (return $ wDelay 2) (wMessageWriter w mes)
+  new w cfg = liftM3 (,,)
+    (wLayer w (cfg ^. _Wrapped . #windowTexture) (cfg ^. _Wrapped . #size))
+    (return $ wDelay 2)
+    (wMessageWriter w (cfg ^. _Wrapped . #messages))
   
   go :: MessageLayer -> Widget Op'MessageLayer
   go wm = Widget $
