@@ -3,6 +3,9 @@ module SDLight.Widgets.MessageLayer
   , Op'MessageWriter
   , wMessageLayer
   , Op'MessageLayer
+
+  , MessageLayerConfigRecord
+  , MessageLayerConfig
   ) where
 
 import qualified SDL as SDL
@@ -105,20 +108,17 @@ type Op'MessageLayer = Op'MessageWriter
 
 type MessageLayer = (NamedWidget Op'Layer, Widget Op'Delay, NamedWidget Op'MessageWriter)
 
-newtype MessageLayerConfig
-  = MessageLayerConfig
-  ( Record
-    [ "windowTexture" >: SDL.Texture
-    , "size" >: V2 Int
-    , "messages" >: [String]
-    , "wix" >: WidgetId
-    ]
-  )
+type MessageLayerConfigRecord =
+  [ "windowTexture" >: SDL.Texture
+  , "size" >: V2 Int
+  , "messages" >: [String]
+  , "wix" >: WidgetId
+  ]
 
-makeWrapped ''MessageLayerConfig
+type MessageLayerConfig = Config MessageLayerConfigRecord
 
 instance Default MessageLayerConfig where
-  def = MessageLayerConfig
+  def = Config
     $ #windowTexture @= error "not initialized"
     <: #size @= V2 100 200
     <: #messages @= []
@@ -130,9 +130,9 @@ wMessageLayer cfg = go <$> new (cfg & _Wrapped . 訊 #wix .~ wid) where
   wid = (cfg ^. _Wrapped . #wix) </> WId "message-layer"
   
   new cfg = liftM3 (,,)
-    (wLayer wid (cfg ^. _Wrapped . #windowTexture) (cfg ^. _Wrapped . #size))
+    (wLayer $ Config $ shrinkAssoc $ getConfig cfg)
     (return $ wDelay 2)
-    (wMessageWriter wid (cfg ^. _Wrapped . #messages))
+    (wMessageWriter (cfg ^. _Wrapped . #wix) (cfg ^. _Wrapped . #messages))
   
   go :: MessageLayer -> Widget Op'MessageLayer
   go wm = Widget $

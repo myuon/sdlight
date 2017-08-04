@@ -6,6 +6,9 @@ module SDLight.Widgets.Layer
   , wDelay
   , Op'Delay
   , op'getCounter
+
+  , LayerConfigRecord
+  , LayerConfig
   ) where
 
 import qualified SDL as SDL
@@ -15,6 +18,7 @@ import Control.Lens hiding ((:>))
 import Control.Monad
 import Control.Monad.Reader
 import Data.Extensible
+import Data.Default
 import Linear.V2
 import SDLight.Types
 import SDLight.Stylesheet
@@ -82,18 +86,33 @@ type Op'Layer =
   '[ Op'Render
   ]
 
-wLayer :: WidgetId -> SDL.Texture -> V2 Int -> GameM (NamedWidget Op'Layer)
-wLayer = \w texture v -> wNamed (w </> WId "layer") . go <$> newLayer texture v where
+type LayerConfigRecord =
+  [ "windowTexture" >: SDL.Texture
+  , "wix" >: WidgetId
+  , "size" >: V2 Int
+  ]
+
+type LayerConfig = Config LayerConfigRecord
+
+instance Default LayerConfig where
+  def = Config $
+    #windowTexture @= error "not initialized"
+    <: #wix @= WEmpty
+    <: #size @= V2 100 100
+    <: emptyRecord
+
+wLayer :: LayerConfig -> GameM (NamedWidget Op'Layer)
+wLayer = \cfg -> wNamed ((cfg ^. _Wrapped . #wix) </> WId "layer") . go <$> newLayer (cfg ^. _Wrapped . #windowTexture) (cfg ^. _Wrapped . #size) where
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
     (\(Op'Render alpha v) -> lift $ renderLayer layer v alpha)
     @> emptyUnion
 
-wLayerFilePath :: WidgetId -> FilePath -> V2 Int -> GameM (NamedWidget Op'Layer)
-wLayerFilePath w path v = do
+wLayerFilePath :: FilePath -> LayerConfig -> GameM (NamedWidget Op'Layer)
+wLayerFilePath path cfg = do
   rend <- use renderer
   texture <- SDL.loadTexture rend path
-  wLayer w texture v
+  wLayer cfg
 
 -- Delayed
 

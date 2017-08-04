@@ -23,6 +23,7 @@ module SDLight.Widgets.Core
   , runSwitchM
   , op'isFreeze
 
+  , Config(..)
   , module M
   ) where
 
@@ -106,4 +107,10 @@ runSwitchM w op k = runFreezeT (w `call` op) >>= k
 
 op'isFreeze :: Widget xs -> Getter (Widget xs) (FreezeT (Widget xs) Identity a) -> Bool 
 op'isFreeze w op = runSwitch w op isFreeze
+
+-- config
+
+newtype Config xs = Config { getConfig :: Record xs }
+
+makeWrapped ''Config
 

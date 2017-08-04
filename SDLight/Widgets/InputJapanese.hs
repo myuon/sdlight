@@ -10,6 +10,7 @@ import Control.Monad
 import Control.Monad.Trans (lift)
 import Data.Reflection
 import Data.Extensible
+import Data.Default
 import qualified Data.Map as M
 import Linear.V2
 import SDLight.Util
@@ -43,17 +44,30 @@ data InputJapanese
 
 makeLenses ''InputJapanese
 
-wInputJapanese :: Given StyleSheet => WidgetId -> SDL.Texture -> GameM (Widget Op'InputJapanese)
-wInputJapanese = \w texture -> go <$> new (w </> WId "input-japanese") texture where
+type InputJapaneseConfigRecord =
+  [ "wix" >: WidgetId
+  , "windowTexture" >: SDL.Texture
+  ]
+
+type InputJapaneseConfig = Config InputJapaneseConfigRecord
+
+instance Default InputJapaneseConfig where
+  def = Config $
+    #wix @= WEmpty
+    <: #windowTexture @= error "not initialized"
+    <: emptyRecord
+
+wInputJapanese :: Given StyleSheet => InputJapaneseConfig -> GameM (Widget Op'InputJapanese)
+wInputJapanese = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "input-japanese")) where
   textLayerArea = V2 800 50
   letterLayerArea = V2 800 550
   
-  new :: WidgetId -> SDL.Texture -> GameM InputJapanese
-  new w texture =
+  new :: InputJapaneseConfig -> GameM InputJapanese
+  new cfg =
     InputJapanese
     <$> return ""
-    <*> wLayer w texture textLayerArea
-    <*> wLayer w texture letterLayerArea
+    <*> wLayer (cfgs _Wrapped $ #size @= textLayerArea <: getConfig cfg)
+    <*> wLayer (cfgs _Wrapped $ #size @= letterLayerArea <: getConfig cfg)
     <*> return (V2 0 0)
     <*> return Selecting
 
