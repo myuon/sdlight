@@ -63,8 +63,19 @@ type Op'TabSelector =
   , Op'SetTabs
   ]
 
-wTabSelector :: Given StyleSheet => Int -> Maybe Int -> Widget Op'TabSelector
-wTabSelector selnum pager = go new where
+type TabSelectorConfig =
+  [ "selectNum" >: Int
+  , "pager" >: Maybe Int
+  ]
+
+instance Default (Config TabSelectorConfig) where
+  def = Config
+    $ #selectNum @= 1
+    <: #pager @= Nothing
+    <: emptyRecord
+
+wTabSelector :: Given StyleSheet => WConfig TabSelectorConfig -> Widget Op'TabSelector
+wTabSelector (Config cfg) = go new where
   new = TabSelector [] Nothing
 
   go :: TabSelector -> Widget Op'TabSelector
@@ -79,7 +90,9 @@ wTabSelector selnum pager = go new where
     @> (\Op'GetPointer -> finish $ go model^.op'getCurrentSelector^?!_Just^.op'getPointer)
     @> (\Op'GetCurrentSelector -> finish $ maybe Nothing (\p -> model^.wtabs^?ix p._2) (model^.pointer))
     @> (\Op'GetTabName -> finish $ maybe Nothing (\p -> model^.wtabs^?ix p._1) $ model^.pointer)
-    @> (\(Op'SetTabs ts) -> continue $ go $ model & wtabs .~ fmap (second (\s -> wSelector $ def & _Wrapped %~ (\cfg -> cfg & 訊 #labels .~ ["hoge"] & 訊 #selectNum .~ selnum & 訊 #pager .~ pager))) ts & pointer .~ (if ts /= [] then Just 0 else Nothing))
+    @> (\(Op'SetTabs ts) ->
+      let wcfg s = cfgs _Wrapped $ #labels @= s <: #selectNum @= (cfg ^. #selectNum) <: #pager @= (cfg ^. #pager) <: emptyRecord in
+      continue $ go $ model & wtabs .~ fmap (second (\s -> wSelector $ wcfg s)) ts & pointer .~ (if ts /= [] then Just 0 else Nothing))
     @> emptyUnion
 
   reset model = model &~ do
@@ -124,13 +137,21 @@ type Op'TabSelectLayer =
 
 type TabSelectLayer = (NamedWidget Op'Layer, NamedWidget Op'Layer, Widget Op'TabSelector)
 
-wTabSelectLayer :: Given StyleSheet => WidgetId -> Int -> Maybe Int -> SDL.Texture -> SDL.Texture -> V2 Int -> Int -> GameM (Widget Op'TabSelectLayer)
-wTabSelectLayer w tabWidth pager = \win cur v num -> go <$> new (w </> WId "tab-select-layer") win cur v num where
-  new w win cur v num =
+type TabSelectLayerConfig =
+  [ "tabWidth" >: Int
+  , "tabSelector" >: Record TabSelectorConfig
+  , "layer" >: Record LayerConfig
+  , "cursorTexture" >: SDL.Texture
+  ]
+
+wTabSelectLayer :: Given StyleSheet => WConfig TabSelectLayerConfig -> GameM (Widget Op'TabSelectLayer)
+wTabSelectLayer cfg = go <$> new (cfg & _Wrapped . #wix %~ (</> WId "tab-select-layer")) where
+  new :: WConfig TabSelectLayerConfig -> GameM TabSelectLayer
+  new (Config cfg) =
     liftM3 (,,)
-    (wLayer w win v)
-    (wLayer w cur (V2 tabWidth 30))
-    (return $ wTabSelector num pager)
+    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: cfg ^. #layer))
+    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: #windowTexture @= (cfg ^. #cursorTexture) <: #size @= V2 (cfg ^. #tabWidth) 30 <: emptyRecord))
+    (return $ wTabSelector (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: cfg ^. #tabSelector))
 
   go :: TabSelectLayer -> Widget Op'TabSelectLayer
   go model = Widget $
@@ -151,11 +172,11 @@ wTabSelectLayer w tabWidth pager = \win cur v num -> go <$> new (w </> WId "tab-
     model^._1^.op'render v
     (model^._3^.) $ op'renderTabSelector $ \tcfg scfg -> do
       when (_CfgIsTabSelected tcfg) $ do
-        model^._2^.op'render (v + V2 (tabWidth*_CfgTabIndex tcfg) 0)
+        model^._2^.op'render (v + V2 ((cfg ^. _Wrapped . #tabWidth) * _CfgTabIndex tcfg) 0)
       
       let color = if _CfgIsTabSelected tcfg then red else white
       renders color $
-        [ translate (v + V2 (tabWidth*_CfgTabIndex tcfg) 0) $ shaded black $ text $ _CfgTabName tcfg
+        [ translate (v + V2 ((cfg ^. _Wrapped . #tabWidth) * _CfgTabIndex tcfg) 0) $ shaded black $ text $ _CfgTabName tcfg
         ]
 
       when (_CfgIsTabSelected tcfg && _CfgIsFocused scfg) $ do

@@ -24,6 +24,9 @@ module SDLight.Widgets.Core
   , op'isFreeze
 
   , Config(..)
+  , Wix
+  , WConfig
+
   , module M
   ) where
 
@@ -33,6 +36,7 @@ import qualified Data.Map as M
 import Data.Functor.Sum
 import Data.Reflection
 import Data.Extensible
+import Data.Default
 import SDLight.Types
 import SDLight.Stylesheet
 import SDLight.Widgets.Internal.Widget as M
@@ -113,4 +117,11 @@ op'isFreeze w op = runSwitch w op isFreeze
 newtype Config xs = Config { getConfig :: Record xs }
 
 makeWrapped ''Config
+
+type Wix cfg = ("wix" >: WidgetId) : cfg
+
+instance Default (Config cfg) => Default (Config (Wix cfg)) where
+  def = Config $ #wix @= WEmpty <: getConfig def
+
+type WConfig xs = Config (Wix xs)
 

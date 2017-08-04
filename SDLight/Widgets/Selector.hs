@@ -80,26 +80,24 @@ type Op'Selector =
 -- とりあえずrenderDropDownの実装
 -- 必要があればoverrideする
 
-type SelectorConfigRecord =
+type SelectorConfig =
   [ "labels" >: [String]
   , "selectNum" >: Int
   , "pager" >: Maybe Int
   ]
 
-type SelectorConfig = Config SelectorConfigRecord
-
-instance Default SelectorConfig where
+instance Default (Config SelectorConfig) where
   def = Config
     $ #labels @= []
     <: #selectNum @= 1
     <: #pager @= Nothing
     <: emptyRecord
     
-wSelector :: SelectorConfig -> Widget Op'Selector
+wSelector :: WConfig SelectorConfig -> Widget Op'Selector
 wSelector = \cfg -> go $ new cfg where
   pointerFromPagerStyle labels pager = maybe (rangeScope labels (length labels - 1)) (rangeScope labels) pager
 
-  new :: SelectorConfig -> Selector
+  new :: WConfig SelectorConfig -> Selector
   new (Config cfg) = Selector
     (zip [0..] $ cfg ^. #labels)
     (pointerFromPagerStyle (cfg ^. #labels) (cfg ^. #pager))
@@ -173,32 +171,26 @@ type Op'SelectLayer =
 
 type SelectLayer = (NamedWidget Op'Layer, NamedWidget Op'Layer, Widget Op'Selector)
 
-type SelectLayerConfigRecord =
-  [ "windowTexture" >: SDL.Texture
+type SelectLayerConfig =
+  [ "layer" >: Record LayerConfig
   , "cursorTexture" >: SDL.Texture
-  , "size" >: V2 Int
-  , "selectorConfig" >: SelectorConfig
-  , "wix" >: WidgetId
+  , "selectorConfig" >: Record SelectorConfig
   ]
 
-type SelectLayerConfig = Config SelectLayerConfigRecord
-
-instance Default SelectLayerConfig where
+instance Default (Config SelectLayerConfig) where
   def = Config
-    $ #windowTexture @= error "not initialized"
+    $ #layer @= getConfig def
     <: #cursorTexture @= error "not initialized"
-    <: #size @= V2 200 100
-    <: #selectorConfig @= def
-    <: #wix @= WEmpty
+    <: #selectorConfig @= getConfig def
     <: emptyRecord
     
-wSelectLayer :: Given StyleSheet => SelectLayerConfig -> GameM (Widget Op'SelectLayer)
+wSelectLayer :: Given StyleSheet => WConfig SelectLayerConfig -> GameM (Widget Op'SelectLayer)
 wSelectLayer = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "select-layer")) where
-  new :: SelectLayerConfig -> GameM SelectLayer
+  new :: WConfig SelectLayerConfig -> GameM SelectLayer
   new (Config cfg) = liftM3 (,,)
-    (wLayer (Config $ shrinkAssoc cfg))
-    (wLayer (Config $ shrinkAssoc cfg))
-    (return $ wSelector $ cfg ^. #selectorConfig)
+    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: cfg ^. #layer))
+    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: #windowTexture @= (cfg ^. #cursorTexture) <: #size @= V2 (cfg ^. #layer ^. #size ^. _x - 20) 30 <: emptyRecord))
+    (return $ wSelector $ cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: cfg ^. #selectorConfig)
   
   go :: SelectLayer -> Widget Op'SelectLayer
   go w = Widget $

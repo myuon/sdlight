@@ -7,7 +7,6 @@ module SDLight.Widgets.Layer
   , Op'Delay
   , op'getCounter
 
-  , LayerConfigRecord
   , LayerConfig
   ) where
 
@@ -86,29 +85,27 @@ type Op'Layer =
   '[ Op'Render
   ]
 
-type LayerConfigRecord =
+type LayerConfig =
   [ "windowTexture" >: SDL.Texture
-  , "wix" >: WidgetId
   , "size" >: V2 Int
   ]
 
-type LayerConfig = Config LayerConfigRecord
-
-instance Default LayerConfig where
+instance Default (Config LayerConfig) where
   def = Config $
     #windowTexture @= error "not initialized"
-    <: #wix @= WEmpty
     <: #size @= V2 100 100
     <: emptyRecord
 
-wLayer :: LayerConfig -> GameM (NamedWidget Op'Layer)
-wLayer = \cfg -> wNamed ((cfg ^. _Wrapped . #wix) </> WId "layer") . go <$> newLayer (cfg ^. _Wrapped . #windowTexture) (cfg ^. _Wrapped . #size) where
+wLayer :: WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
+wLayer (Config cfg) = wNamed wid . go <$> newLayer (cfg ^. #windowTexture) (cfg ^. #size) where
+  wid = (cfg ^. #wix </> WId "layer")
+  
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
     (\(Op'Render alpha v) -> lift $ renderLayer layer v alpha)
     @> emptyUnion
 
-wLayerFilePath :: FilePath -> LayerConfig -> GameM (NamedWidget Op'Layer)
+wLayerFilePath :: FilePath -> WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
 wLayerFilePath path cfg = do
   rend <- use renderer
   texture <- SDL.loadTexture rend path

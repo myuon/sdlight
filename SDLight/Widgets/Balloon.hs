@@ -3,7 +3,6 @@ module SDLight.Widgets.Balloon
   , op'fly
   , wBalloon
 
-  , BalloonConfigRecord
   , BalloonConfig
   ) where
 
@@ -51,34 +50,30 @@ data Balloon
 
 makeLenses ''Balloon
 
-type BalloonConfigRecord =
-  [ "windowTexture" >: SDL.Texture
-  , "wix" >: WidgetId
+type BalloonConfig =
+  [ "layer" >: Record LayerConfig
   , "text" >: String
   , "stayTime" >: Int
   ]
 
-type BalloonConfig = Config BalloonConfigRecord
-
-instance Default BalloonConfig where
-  def = Config $
-    #windowTexture @= error "not initialized"
-    <: #wix @= WEmpty
+instance Default (Config BalloonConfig) where
+  def = Config
+    $ #layer @= getConfig def
     <: #text @= ""
     <: #stayTime @= 10
     <: emptyRecord
 
-wBalloon :: Given StyleSheet => BalloonConfig -> GameM (Widget Op'Balloon)
+wBalloon :: Given StyleSheet => WConfig BalloonConfig -> GameM (Widget Op'Balloon)
 wBalloon = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "balloon")) where
-  new :: BalloonConfig -> GameM Balloon
-  new cfg =
+  new :: WConfig BalloonConfig -> GameM Balloon
+  new (Config cfg) =
     Balloon
-    <$> wLayer (cfgs _Wrapped $ #size @= V2 100 60 <: shrinkAssoc @_ @["windowTexture" >: _, "wix" >: _] (cfg^._Wrapped))
-    <*> return (cfg ^. _Wrapped . #text)
+    <$> wLayer (Config $ #wix @= (cfg ^. #wix) <: shrinkAssoc (cfg ^. #layer))
+    <*> return (cfg ^. #text)
     <*> return (effDisplay EaseOut 40 40)
     <*> return NotReady
     <*> return 0
-    <*> return (cfg ^. _Wrapped . #stayTime)
+    <*> return (cfg ^. #stayTime)
 
   go :: Balloon -> Widget Op'Balloon
   go model = Widget $

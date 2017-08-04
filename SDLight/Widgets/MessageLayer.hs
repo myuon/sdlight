@@ -4,7 +4,6 @@ module SDLight.Widgets.MessageLayer
   , wMessageLayer
   , Op'MessageLayer
 
-  , MessageLayerConfigRecord
   , MessageLayerConfig
   ) where
 
@@ -108,31 +107,26 @@ type Op'MessageLayer = Op'MessageWriter
 
 type MessageLayer = (NamedWidget Op'Layer, Widget Op'Delay, NamedWidget Op'MessageWriter)
 
-type MessageLayerConfigRecord =
-  [ "windowTexture" >: SDL.Texture
-  , "size" >: V2 Int
+type MessageLayerConfig =
+  [ "layer" >: Record LayerConfig
   , "messages" >: [String]
-  , "wix" >: WidgetId
   ]
 
-type MessageLayerConfig = Config MessageLayerConfigRecord
-
-instance Default MessageLayerConfig where
+instance Default (Config MessageLayerConfig) where
   def = Config
-    $ #windowTexture @= error "not initialized"
-    <: #size @= V2 100 200
+    $ #layer @= (getConfig def & 訊 #size .~ V2 800 200)
     <: #messages @= []
-    <: #wix @= WEmpty
     <: emptyRecord
 
-wMessageLayer :: Given StyleSheet => MessageLayerConfig -> GameM (Widget Op'MessageLayer)
+wMessageLayer :: Given StyleSheet => WConfig MessageLayerConfig -> GameM (Widget Op'MessageLayer)
 wMessageLayer cfg = go <$> new (cfg & _Wrapped . 訊 #wix .~ wid) where
   wid = (cfg ^. _Wrapped . #wix) </> WId "message-layer"
-  
-  new cfg = liftM3 (,,)
-    (wLayer $ Config $ shrinkAssoc $ getConfig cfg)
+
+  new :: WConfig MessageLayerConfig -> GameM MessageLayer
+  new (Config cfg) = liftM3 (,,)
+    (wLayer $ Config $ #wix @= cfg ^. #wix <: cfg ^. #layer)
     (return $ wDelay 2)
-    (wMessageWriter (cfg ^. _Wrapped . #wix) (cfg ^. _Wrapped . #messages))
+    (wMessageWriter (cfg ^. #wix) (cfg ^. #messages))
   
   go :: MessageLayer -> Widget Op'MessageLayer
   go wm = Widget $

@@ -2,6 +2,8 @@ module SDLight.Widgets.InputJapanese
   ( op'getText
   , Op'InputJapanese
   , wInputJapanese
+
+  , InputJapaneseConfig
   ) where
 
 import qualified SDL as SDL
@@ -10,7 +12,6 @@ import Control.Monad
 import Control.Monad.Trans (lift)
 import Data.Reflection
 import Data.Extensible
-import Data.Default
 import qualified Data.Map as M
 import Linear.V2
 import SDLight.Util
@@ -44,25 +45,14 @@ data InputJapanese
 
 makeLenses ''InputJapanese
 
-type InputJapaneseConfigRecord =
-  [ "wix" >: WidgetId
-  , "windowTexture" >: SDL.Texture
-  ]
+type InputJapaneseConfig = LayerConfig
 
-type InputJapaneseConfig = Config InputJapaneseConfigRecord
-
-instance Default InputJapaneseConfig where
-  def = Config $
-    #wix @= WEmpty
-    <: #windowTexture @= error "not initialized"
-    <: emptyRecord
-
-wInputJapanese :: Given StyleSheet => InputJapaneseConfig -> GameM (Widget Op'InputJapanese)
+wInputJapanese :: Given StyleSheet => WConfig InputJapaneseConfig -> GameM (Widget Op'InputJapanese)
 wInputJapanese = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "input-japanese")) where
   textLayerArea = V2 800 50
   letterLayerArea = V2 800 550
   
-  new :: InputJapaneseConfig -> GameM InputJapanese
+  new :: WConfig InputJapaneseConfig -> GameM InputJapanese
   new cfg =
     InputJapanese
     <$> return ""

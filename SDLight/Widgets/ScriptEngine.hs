@@ -23,16 +23,17 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans (lift)
 import Control.Monad.Skeleton
-import Data.Default
 import Data.Extensible
 import Data.Reflection
 import Data.List
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import Linear.V2
+import SDLight.Util (cfgs)
 import SDLight.Types
 import SDLight.Stylesheet
 import SDLight.Widgets.Core
+import SDLight.Widgets.Layer
 import SDLight.Widgets.MessageLayer
 import qualified Text.Trifecta as Tf
 
@@ -225,17 +226,19 @@ data ScriptEngine
 
 makeLenses ''ScriptEngine
 
-wMiniScriptEngine :: Given StyleSheet => WidgetId -> SDL.Texture -> V2 Int -> GameM (Widget Op'MiniScriptEngine)
-wMiniScriptEngine = \w texture v -> go <$> new (w </> WId "script-engine") texture v where
-  new :: WidgetId -> SDL.Texture -> V2 Int -> GameM ScriptEngine
-  new w texture v =
+type ScriptEngineConfig = LayerConfig
+
+wMiniScriptEngine :: Given StyleSheet => WConfig ScriptEngineConfig -> GameM (Widget Op'MiniScriptEngine)
+wMiniScriptEngine = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "script-engine")) where
+  new :: WConfig ScriptEngineConfig -> GameM ScriptEngine
+  new (Config cfg) =
     ScriptEngine
     <$> return NotReady
     <*> return IM.empty
     <*> return []
     <*> return (return ())
     <*> return 0
-    <*> wMessageLayer (def & _Wrapped %~ (\cfg -> cfg & 訊 #wix .~ w & 訊 #windowTexture .~ texture & 訊 #size .~ v))
+    <*> wMessageLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: #layer @= shrinkAssoc cfg <: emptyRecord)
 
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $
