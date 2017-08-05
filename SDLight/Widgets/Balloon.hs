@@ -51,24 +51,25 @@ data Balloon
 makeLenses ''Balloon
 
 type BalloonConfig =
-  [ "layer" >: Record LayerConfig
+  [ "windowTexture" >: SDL.Texture
+  , "size" >: V2 Int
   , "text" >: String
   , "stayTime" >: Int
   ]
 
 instance Default (Config BalloonConfig) where
   def = Config
-    $ #layer @= getConfig def
-    <: #text @= ""
+    $ shrinkAssoc
+    $ #text @= ""
     <: #stayTime @= 10
-    <: emptyRecord
+    <: getConfig (def @(Config LayerConfig))
 
 wBalloon :: Given StyleSheet => WConfig BalloonConfig -> GameM (Widget Op'Balloon)
 wBalloon = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "balloon")) where
   new :: WConfig BalloonConfig -> GameM Balloon
   new (Config cfg) =
     Balloon
-    <$> wLayer (Config $ #wix @= (cfg ^. #wix) <: shrinkAssoc (cfg ^. #layer))
+    <$> wLayer (Config $ shrinkAssoc cfg)
     <*> return (cfg ^. #text)
     <*> return (effDisplay EaseOut 40 40)
     <*> return NotReady

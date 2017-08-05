@@ -238,7 +238,7 @@ wMiniScriptEngine = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "scrip
     <*> return []
     <*> return (return ())
     <*> return 0
-    <*> wMessageLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: #layer @= shrinkAssoc cfg <: emptyRecord)
+    <*> wMessageLayer (cfgs _Wrapped cfg)
 
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $

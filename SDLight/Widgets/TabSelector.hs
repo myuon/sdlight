@@ -140,16 +140,26 @@ type TabSelectLayer = (NamedWidget Op'Layer, NamedWidget Op'Layer, Widget Op'Tab
 type TabSelectLayerConfig =
   [ "tabWidth" >: Int
   , "tabSelector" >: Record TabSelectorConfig
-  , "layer" >: Record LayerConfig
+  , "windowTexture" >: SDL.Texture
   , "cursorTexture" >: SDL.Texture
+  , "size" >: V2 Int
   ]
+
+instance Default (Config TabSelectLayerConfig) where
+  def = Config
+    $ #tabWidth @= 100
+    <: #tabSelector @= getConfig def
+    <: #windowTexture @= error "not initialized"
+    <: #cursorTexture @= error "not initialized"
+    <: #size @= V2 100 200
+    <: emptyRecord
 
 wTabSelectLayer :: Given StyleSheet => WConfig TabSelectLayerConfig -> GameM (Widget Op'TabSelectLayer)
 wTabSelectLayer cfg = go <$> new (cfg & _Wrapped . #wix %~ (</> WId "tab-select-layer")) where
   new :: WConfig TabSelectLayerConfig -> GameM TabSelectLayer
   new (Config cfg) =
     liftM3 (,,)
-    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: cfg ^. #layer))
+    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: shrinkAssoc @_ @LayerConfig cfg))
     (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: #windowTexture @= (cfg ^. #cursorTexture) <: #size @= V2 (cfg ^. #tabWidth) 30 <: emptyRecord))
     (return $ wTabSelector (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: cfg ^. #tabSelector))
 

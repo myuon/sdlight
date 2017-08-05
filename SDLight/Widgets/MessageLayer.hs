@@ -108,13 +108,15 @@ type Op'MessageLayer = Op'MessageWriter
 type MessageLayer = (NamedWidget Op'Layer, Widget Op'Delay, NamedWidget Op'MessageWriter)
 
 type MessageLayerConfig =
-  [ "layer" >: Record LayerConfig
+  [ "windowTexture" >: SDL.Texture
+  , "size" >: V2 Int
   , "messages" >: [String]
   ]
 
 instance Default (Config MessageLayerConfig) where
   def = Config
-    $ #layer @= (getConfig def & 訊 #size .~ V2 800 200)
+    $ #windowTexture @= error "not initialized"
+    <: #size @= V2 800 200
     <: #messages @= []
     <: emptyRecord
 
@@ -124,7 +126,7 @@ wMessageLayer cfg = go <$> new (cfg & _Wrapped . 訊 #wix .~ wid) where
 
   new :: WConfig MessageLayerConfig -> GameM MessageLayer
   new (Config cfg) = liftM3 (,,)
-    (wLayer $ Config $ #wix @= cfg ^. #wix <: cfg ^. #layer)
+    (wLayer $ Config $ #wix @= cfg ^. #wix <: shrinkAssoc cfg)
     (return $ wDelay 2)
     (wMessageWriter (cfg ^. #wix) (cfg ^. #messages))
   

@@ -172,15 +172,17 @@ type Op'SelectLayer =
 type SelectLayer = (NamedWidget Op'Layer, NamedWidget Op'Layer, Widget Op'Selector)
 
 type SelectLayerConfig =
-  [ "layer" >: Record LayerConfig
+  [ "windowTexture" >: SDL.Texture
   , "cursorTexture" >: SDL.Texture
+  , "size" >: V2 Int
   , "selectorConfig" >: Record SelectorConfig
   ]
 
 instance Default (Config SelectLayerConfig) where
   def = Config
-    $ #layer @= getConfig def
+    $ #windowTexture @= error "not initialized"
     <: #cursorTexture @= error "not initialized"
+    <: #size @= V2 100 200
     <: #selectorConfig @= getConfig def
     <: emptyRecord
     
@@ -188,8 +190,8 @@ wSelectLayer :: Given StyleSheet => WConfig SelectLayerConfig -> GameM (Widget O
 wSelectLayer = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "select-layer")) where
   new :: WConfig SelectLayerConfig -> GameM SelectLayer
   new (Config cfg) = liftM3 (,,)
-    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: cfg ^. #layer))
-    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: #windowTexture @= (cfg ^. #cursorTexture) <: #size @= V2 (cfg ^. #layer ^. #size ^. _x - 20) 30 <: emptyRecord))
+    (wLayer (cfgs _Wrapped $ shrinkAssoc @_ @LayerConfig cfg))
+    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: #windowTexture @= (cfg ^. #cursorTexture) <: #size @= V2 (cfg ^. #size ^. _x - 20) 30 <: emptyRecord))
     (return $ wSelector $ cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: cfg ^. #selectorConfig)
   
   go :: SelectLayer -> Widget Op'SelectLayer
