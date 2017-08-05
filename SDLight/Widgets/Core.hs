@@ -7,6 +7,7 @@ module SDLight.Widgets.Core
   , Op'Render(..)
   , op'render
   , op'renderAlpha
+  , op'renderAt
   , Op'Run(..)
   , op'run
   , Op'Reset(..)
@@ -72,11 +73,16 @@ data Op'Switch br m r where
 
 op'renderAlpha :: (Given StyleSheet, KnownName xs, Op'Render ∈ xs) => Double -> SDL.V2 Int -> Getter (Widget xs) (GameM ())
 op'renderAlpha d v = to $ \w -> do
-  let m = maybe 0 (\j -> maybe 0 id $ given^.wix j Margin) $ symbolName w
-  w ^. _value (Op'Render d (v + m))
+  let margin = maybe 0 (\j -> maybe 0 id $ given^.wix j Margin) $ symbolName w
+  let position = maybe 0 (\j -> maybe 0 id $ given^.wix j Position) $ symbolName w
+  w ^. _value (Op'Render d (position + margin))
 
-op'render :: (Given StyleSheet, KnownName xs, Op'Render ∈ xs) => SDL.V2 Int -> Getter (Widget xs) (GameM ())
-op'render = op'renderAlpha 1.0
+op'render :: (Given StyleSheet, KnownName xs, Op'Render ∈ xs) => Getter (Widget xs) (GameM ())
+op'render = op'renderAlpha 1.0 0
+
+-- raw renderer (no stylesheet) with position parameter
+op'renderAt :: (KnownName xs, Op'Render ∈ xs) => SDL.V2 Int -> Getter (Widget xs) (GameM ())
+op'renderAt v = to $ \w -> w ^. _value (Op'Render 1.0 v)
 
 op'run :: (Op'Run ∈ xs) => Getter (Widget xs) (GameM (Widget xs))
 op'run = _self Op'Run

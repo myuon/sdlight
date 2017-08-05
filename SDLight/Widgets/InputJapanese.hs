@@ -56,8 +56,8 @@ wInputJapanese = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "input-ja
   new cfg =
     InputJapanese
     <$> return ""
-    <*> wLayer (cfgs _Wrapped $ #size @= textLayerArea <: getConfig cfg)
-    <*> wLayer (cfgs _Wrapped $ #size @= letterLayerArea <: getConfig cfg)
+    <*> wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped ^. #wix </> WId "textarea-layer") <: #size @= textLayerArea <: getConfig cfg)
+    <*> wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped ^. #wix </> WId "letters-layer") <: #size @= letterLayerArea <: getConfig cfg)
     <*> return (V2 0 0)
     <*> return Selecting
 
@@ -76,8 +76,8 @@ wInputJapanese = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "input-ja
 
   render :: InputJapanese -> GameM ()
   render model = do
-    model^.textLayer^.op'render 0
-    model^.letterLayer^.op'render 0
+    model^.textLayer^.op'render
+    model^.letterLayer^.op'render
 
     when (model^.currentText /= "") $
       renders white [ translate (V2 15 15) $ shaded black $ text (model^.currentText) ]

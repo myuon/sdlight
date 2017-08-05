@@ -98,7 +98,7 @@ instance Default (Config LayerConfig) where
 
 wLayer :: WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
 wLayer (Config cfg) = wNamed wid . go <$> newLayer (cfg ^. #windowTexture) (cfg ^. #size) where
-  wid = (cfg ^. #wix </> WId "layer")
+  wid = cfg ^. #wix </> WId "layer"
   
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
