@@ -75,13 +75,14 @@ op'renderAlpha :: (Given StyleSheet, KnownName xs, Op'Render ∈ xs) => Double -
 op'renderAlpha d v = to $ \w -> do
   let margin = maybe 0 (\j -> maybe 0 id $ given^.wix j Margin) $ symbolName w
   let position = maybe 0 (\j -> maybe 0 id $ given^.wix j Position) $ symbolName w
-  w ^. _value (Op'Render d (v + position + margin))
+  w ^. _value (Op'Render d (position + margin))
 
 op'render :: (Given StyleSheet, KnownName xs, Op'Render ∈ xs) => Getter (Widget xs) (GameM ())
 op'render = op'renderAlpha 1.0 0
 
-op'renderAt :: (Given StyleSheet, KnownName xs, Op'Render ∈ xs) => SDL.V2 Int -> Getter (Widget xs) (GameM ())
-op'renderAt v = op'renderAlpha 1.0 v
+-- raw renderer (no stylesheet) with position parameter
+op'renderAt :: (KnownName xs, Op'Render ∈ xs) => SDL.V2 Int -> Getter (Widget xs) (GameM ())
+op'renderAt v = to $ \w -> w ^. _value (Op'Render 1.0 v)
 
 op'run :: (Op'Run ∈ xs) => Getter (Widget xs) (GameM (Widget xs))
 op'run = _self Op'Run
