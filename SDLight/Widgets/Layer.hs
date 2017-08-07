@@ -20,7 +20,6 @@ import Data.Extensible
 import Data.Default
 import Linear.V2
 import SDLight.Types
-import SDLight.Stylesheet
 import SDLight.Widgets.Core
 
 data Layer
@@ -97,12 +96,12 @@ instance Default (Config LayerConfig) where
     <: emptyRecord
 
 wLayer :: WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
-wLayer (Config cfg) = wNamed wid . go <$> newLayer (cfg ^. #windowTexture) (cfg ^. #size) where
-  wid = cfg ^. #wix </> WId "layer"
+wLayer (giveWid "layer" -> cfg) = wNamed (cfg ^. _Wrapped . #wix) . go <$> new where
+  new = newLayer (cfg ^. _Wrapped . #windowTexture) (cfg ^. _Wrapped . #size)
   
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
-    (\(Op'Render alpha v) -> lift $ renderLayer layer v alpha)
+    (\(Op'Render alpha) -> lift $ renderLayer layer (getLocation cfg) alpha)
     @> emptyUnion
 
 wLayerFilePath :: FilePath -> WConfig LayerConfig -> GameM (NamedWidget Op'Layer)

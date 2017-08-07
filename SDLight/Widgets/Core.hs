@@ -7,7 +7,6 @@ module SDLight.Widgets.Core
   , Op'Render(..)
   , op'render
   , op'renderAlpha
-  , op'renderAt
   , Op'Run(..)
   , op'run
   , Op'Reset(..)
@@ -27,6 +26,10 @@ module SDLight.Widgets.Core
   , Config(..)
   , Wix
   , WConfig
+
+  , Location(..)
+  , giveWid
+  , getLocation
 
   , module M
   ) where
@@ -57,7 +60,7 @@ s ^%%~ f = s %%~ (^. f)
 --
 
 data Op'Render br m r where
-  Op'Render :: Double -> SDL.V2 Int -> Op'Render Value GameM ()
+  Op'Render :: Double -> Op'Render Value GameM ()
 
 data Op'Run br m r where
   Op'Run :: Op'Run Self GameM a
@@ -71,17 +74,11 @@ data Op'HandleEvent br m r where
 data Op'Switch br m r where
   Op'Switch :: Op'Switch FreezeT Identity ()
 
-op'renderAlpha :: (Given StyleSheet, KnownName xs, Op'Render ∈ xs) => Double -> SDL.V2 Int -> Getter (Widget xs) (GameM ())
-op'renderAlpha d v = to $ \w -> do
-  let margin = maybe 0 (\j -> maybe 0 id $ given^.wix j Margin) $ symbolName w
-  let position = maybe 0 (\j -> maybe 0 id $ given^.wix j Position) $ symbolName w
-  w ^. _value (Op'Render d (v + position + margin))
+op'renderAlpha :: (KnownName xs, Op'Render ∈ xs) => Double -> Getter (Widget xs) (GameM ())
+op'renderAlpha d = to $ \w -> w ^. _value (Op'Render d)
 
 op'render :: (Given StyleSheet, KnownName xs, Op'Render ∈ xs) => Getter (Widget xs) (GameM ())
-op'render = op'renderAlpha 1.0 0
-
-op'renderAt :: (Given StyleSheet, KnownName xs, Op'Render ∈ xs) => SDL.V2 Int -> Getter (Widget xs) (GameM ())
-op'renderAt v = op'renderAlpha 1.0 v
+op'render = op'renderAlpha 1.0
 
 op'run :: (Op'Run ∈ xs) => Getter (Widget xs) (GameM (Widget xs))
 op'run = _self Op'Run
@@ -120,13 +117,33 @@ op'isFreeze w op = runSwitch w op isFreeze
 -- config
 
 newtype Config xs = Config { getConfig :: Record xs }
-
 makeWrapped ''Config
 
-type Wix cfg = ("wix" >: WidgetId) : cfg
+data Location a
+  = Absolute a
+  | Relative a (Location a)
+
+_location :: Num a => Getter (Location a) a
+_location = to $ go where
+  go (Absolute v) = v
+  go (Relative m p) = m + go p
+
+type Wix cfg
+  = "wix" >: WidgetId
+  : "location" >: Location (SDL.V2 Int)
+  : cfg
 
 instance Default (Config cfg) => Default (Config (Wix cfg)) where
-  def = Config $ #wix @= WEmpty <: getConfig def
+  def = Config $
+    #wix @= WEmpty
+    <: #location @= Absolute (SDL.V2 0 0)
+    <: getConfig def
 
 type WConfig xs = Config (Wix xs)
+
+giveWid :: Associate "wix" WidgetId (Wix cfg) => String -> WConfig cfg -> WConfig cfg
+giveWid w wcfg = wcfg & _Wrapped . #wix %~ (</> WId w)
+
+getLocation :: Associate "location" (Location (SDL.V2 Int)) (Wix cfg) => WConfig cfg -> SDL.V2 Int
+getLocation (Config cfg) = cfg ^. #location ^. _location
 

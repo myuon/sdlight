@@ -65,21 +65,20 @@ instance Default (Config BalloonConfig) where
     <: getConfig (def @(Config LayerConfig))
 
 wBalloon :: Given StyleSheet => WConfig BalloonConfig -> GameM (Widget Op'Balloon)
-wBalloon = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "balloon")) where
-  new :: WConfig BalloonConfig -> GameM Balloon
-  new (Config cfg) =
-    Balloon
-    <$> wLayer (Config $ shrinkAssoc cfg)
-    <*> return (cfg ^. #text)
+wBalloon (giveWid "balloon" -> cfg) = go <$> new where
+  new :: GameM Balloon
+  new = Balloon
+    <$> wLayer (Config $ shrinkAssoc $ getConfig cfg)
+    <*> return (getConfig cfg ^. #text)
     <*> return (effDisplay EaseOut 40 40)
     <*> return NotReady
     <*> return 0
-    <*> return (cfg ^. #stayTime)
+    <*> return (getConfig cfg ^. #stayTime)
 
   go :: Balloon -> Widget Op'Balloon
   go model = Widget $
     (\(Op'Reset t) -> continue $ go $ reset t model)
-    @> (\(Op'Render _ v) -> lift $ render v model)
+    @> (\(Op'Render _) -> lift $ render (getLocation cfg) model)
     @> (\Op'Run -> continueM $ fmap go $ run model)
     @> (\Op'Fly -> continue $ go $ model & _state .~ Running & eff %~ (^.op'appear))
     @> (\Op'Switch -> (if model^._state == Finished && model^.eff^.op'isDisappeared then freeze' else continue) $ go model)
@@ -90,7 +89,7 @@ wBalloon = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "balloon")) whe
 
   render :: V2 Int -> Balloon -> GameM ()
   render v model = do
-    model^.balloonLayer^.op'renderAlpha (model^.eff^.op'getAlpha) v
+    model^.balloonLayer^.op'renderAlpha (model^.eff^.op'getAlpha)
     when (model^.balloonText /= "") $
       renders white [ translate (v + V2 15 10) $ shaded black $ text (model^.balloonText) ]
 

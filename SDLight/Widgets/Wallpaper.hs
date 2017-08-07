@@ -8,6 +8,7 @@ import qualified SDL.Image as SDL
 import Control.Lens
 import Control.Monad.Trans
 import qualified Data.Map as M
+import Data.Extensible
 import Linear.V2
 import SDLight.Widgets.Core
 import SDLight.Types
@@ -30,29 +31,32 @@ type Op'Wallpaper =
   , Op'HandleEvent
   ]
 
-wWallpaper :: FilePath -> GameM (Widget Op'Wallpaper)
-wWallpaper = \path -> go <$> new path where
-  new :: FilePath -> GameM Wallpaper
-  new path
-    = Wallpaper
-    <$> (use renderer >>= \r -> SDL.loadTexture r path)
+type WallpaperConfig =
+  '[ "bgfile" >: FilePath
+  ]
+
+wWallpaper :: WConfig WallpaperConfig -> GameM (Widget Op'Wallpaper)
+wWallpaper (giveWid "wallpaper" -> cfg) = go <$> new where
+  new :: GameM Wallpaper
+  new = Wallpaper
+    <$> (use renderer >>= \r -> SDL.loadTexture r (cfg ^. _Wrapped . #bgfile))
     <*> return Running
 
   go :: Wallpaper -> Widget Op'Wallpaper
   go model = Widget $
     (\(Op'Reset _) -> continue $ go $ reset model)
-    @> (\(Op'Render _ v) -> lift $ render v model)
+    @> (\(Op'Render _) -> lift $ render model)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys model)
     @> emptyUnion
 
   reset model = model & _state .~ Running
 
-  render :: V2 Int -> Wallpaper -> GameM ()
-  render v model = case model^._state of
+  render :: Wallpaper -> GameM ()
+  render model = case model^._state of
     Running -> do
       rend <- use renderer
       query <- SDL.queryTexture (model^.texture)
-      let loc = SDL.Rectangle (SDL.P $ fmap toEnum v) (V2 (SDL.textureWidth query) (SDL.textureHeight query))
+      let loc = SDL.Rectangle (SDL.P $ fmap toEnum (getLocation cfg)) (V2 (SDL.textureWidth query) (SDL.textureHeight query))
       lift $ SDL.copy rend (model^.texture) Nothing (Just loc)
     Finished -> return ()
 

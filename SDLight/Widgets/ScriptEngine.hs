@@ -32,7 +32,7 @@ import Linear.V2
 import SDLight.Util (cfgs)
 import SDLight.Types
 import SDLight.Stylesheet
-import SDLight.Widgets.Core
+import SDLight.Widgets.Core hiding (Position)
 import SDLight.Widgets.Layer
 import SDLight.Widgets.MessageLayer
 import qualified Text.Trifecta as Tf
@@ -229,21 +229,21 @@ makeLenses ''ScriptEngine
 type ScriptEngineConfig = LayerConfig
 
 wMiniScriptEngine :: Given StyleSheet => WConfig ScriptEngineConfig -> GameM (Widget Op'MiniScriptEngine)
-wMiniScriptEngine = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "script-engine")) where
-  new :: WConfig ScriptEngineConfig -> GameM ScriptEngine
-  new (Config cfg) =
+wMiniScriptEngine (giveWid "script-engine" -> cfg) = go <$> new where
+  new :: GameM ScriptEngine
+  new =
     ScriptEngine
     <$> return NotReady
     <*> return IM.empty
     <*> return []
     <*> return (return ())
     <*> return 0
-    <*> wMessageLayer (cfgs _Wrapped cfg)
+    <*> wMessageLayer (cfgs _Wrapped $ cfg ^. _Wrapped)
 
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $
     (\(Op'Reset _) -> continue $ go $ reset model)
-    @> (\(Op'Render _ v) -> lift $ render v model)
+    @> (\(Op'Render _) -> lift $ render (getLocation cfg) model)
     @> (\Op'Run -> continueM $ fmap go $ run model)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys model)
     @> (\Op'Switch -> (if model^._state == Finished then freeze' else continue) $ go model)
@@ -276,7 +276,7 @@ wMiniScriptEngine = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "scrip
       renderImage (v + either toPos id (layer^.position)) (layer^.texture) (layer^.opacity)
 
     case model^._state of
-      Message -> model^.message^.op'render (V2 0 0)
+      Message -> model^.message^.op'render
       _ -> return ()
 
   findInsert :: a -> IM.IntMap a -> (Int, IM.IntMap a)

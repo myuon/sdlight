@@ -75,13 +75,13 @@ instance Default (Config TabSelectorConfig) where
     <: emptyRecord
 
 wTabSelector :: Given StyleSheet => WConfig TabSelectorConfig -> Widget Op'TabSelector
-wTabSelector (Config cfg) = go new where
+wTabSelector (giveWid "tab-selector" -> cfg) = go new where
   new = TabSelector [] Nothing
 
   go :: TabSelector -> Widget Op'TabSelector
   go model = Widget $
     (\(Op'Reset _) -> continue $ go $ reset model)
-    @> (\(Op'Render _ v) -> lift $ renderDropdown v model)
+    @> (\(Op'Render _) -> lift $ renderDropdown (getLocation cfg) model)
     @> (\(Op'RenderTabSelector rend) -> lift $ render rend model)
     @> (\Op'Run -> continueM $ fmap go $ model & wtabs.each._2 %%~ (^.op'run))
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys model)
@@ -91,7 +91,7 @@ wTabSelector (Config cfg) = go new where
     @> (\Op'GetCurrentSelector -> finish $ maybe Nothing (\p -> model^.wtabs^?ix p._2) (model^.pointer))
     @> (\Op'GetTabName -> finish $ maybe Nothing (\p -> model^.wtabs^?ix p._1) $ model^.pointer)
     @> (\(Op'SetTabs ts) ->
-      let wcfg s = cfgs _Wrapped $ #labels @= s <: #selectNum @= (cfg ^. #selectNum) <: #pager @= (cfg ^. #pager) <: emptyRecord in
+      let wcfg s = cfgs _Wrapped $ #labels @= s <: #selectNum @= (cfg ^. _Wrapped . #selectNum) <: #pager @= (cfg ^. _Wrapped . #pager) <: emptyRecord in
       continue $ go $ model & wtabs .~ fmap (second (\s -> wSelector $ wcfg s)) ts & pointer .~ (if ts /= [] then Just 0 else Nothing))
     @> emptyUnion
 
@@ -107,7 +107,7 @@ wTabSelector (Config cfg) = go new where
         renders white [ translate (V2 (i*50) 0 + v) $ shaded black $ text tab ]
       renders white [ translate (V2 (here*50) 0 + v) $ shaded black $ text "▶" ]
 
-      model^.wtabs^?!ix here^._2.op'render (V2 0 40 + v)
+      model^.wtabs^?!ix here^._2.op'render
 
   render :: (TabSelectorRenderConfig -> SelectorRenderConfig -> GameM ()) -> TabSelector -> GameM ()
   render rend model = do
@@ -155,18 +155,18 @@ instance Default (Config TabSelectLayerConfig) where
     <: emptyRecord
 
 wTabSelectLayer :: Given StyleSheet => WConfig TabSelectLayerConfig -> GameM (Widget Op'TabSelectLayer)
-wTabSelectLayer cfg = go <$> new (cfg & _Wrapped . #wix %~ (</> WId "tab-select-layer")) where
-  new :: WConfig TabSelectLayerConfig -> GameM TabSelectLayer
-  new (Config cfg) =
+wTabSelectLayer (giveWid "tab-select-layer" -> cfg) = go <$> new where
+  new :: GameM TabSelectLayer
+  new =
     liftM3 (,,)
-    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: shrinkAssoc @_ @LayerConfig cfg))
-    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: #windowTexture @= (cfg ^. #cursorTexture) <: #size @= V2 (cfg ^. #tabWidth) 30 <: emptyRecord))
-    (return $ wTabSelector (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: cfg ^. #tabSelector))
+    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: shrinkAssoc @_ @LayerConfig (cfg ^. _Wrapped)))
+    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: #windowTexture @= (cfg ^. _Wrapped . #cursorTexture) <: #size @= V2 (cfg ^. _Wrapped . #tabWidth) 30 <: emptyRecord))
+    (return $ wTabSelector (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: cfg ^. _Wrapped . #tabSelector))
 
   go :: TabSelectLayer -> Widget Op'TabSelectLayer
   go model = Widget $
     (\(Op'Reset args) -> continue $ go $ model & _3 ^%~ op'reset args)
-    @> (\(Op'Render _ v) -> lift $ render v model)
+    @> (\(Op'Render _) -> lift $ render (getLocation cfg) model)
     @> (\Op'Run -> continue $ go model)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ model & _3 ^%%~ op'handleEvent keys)
     @> (\Op'Switch -> (if op'isFreeze (model^._3) op'switch then freeze' else continue) $ go model)
@@ -179,10 +179,10 @@ wTabSelectLayer cfg = go <$> new (cfg & _Wrapped . #wix %~ (</> WId "tab-select-
 
   render :: V2 Int -> TabSelectLayer -> GameM ()
   render v model = do
-    model^._1^.op'render v
+    model^._1^.op'render
     (model^._3^.) $ op'renderTabSelector $ \tcfg scfg -> do
       when (_CfgIsTabSelected tcfg) $ do
-        model^._2^.op'render (v + V2 ((cfg ^. _Wrapped . #tabWidth) * _CfgTabIndex tcfg) 0)
+        model^._2^.op'render --(v + V2 ((cfg ^. _Wrapped . #tabWidth) * _CfgTabIndex tcfg) 0)
       
       let color = if _CfgIsTabSelected tcfg then red else white
       renders color $
@@ -190,7 +190,7 @@ wTabSelectLayer cfg = go <$> new (cfg & _Wrapped . #wix %~ (</> WId "tab-select-
         ]
 
       when (_CfgIsTabSelected tcfg && _CfgIsFocused scfg) $ do
-        model^._2^.op'render (v + V2 10 (30+20+30*_CfgIndex scfg))
+        model^._2^.op'render --(v + V2 10 (30+20+30*_CfgIndex scfg))
 
       when (_CfgIsTabSelected tcfg) $ do
         let color = if _CfgIsSelected scfg then red else white

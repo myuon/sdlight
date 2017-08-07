@@ -94,22 +94,22 @@ instance Default (Config SelectorConfig) where
     <: emptyRecord
     
 wSelector :: WConfig SelectorConfig -> Widget Op'Selector
-wSelector = \cfg -> go $ new cfg where
+wSelector (giveWid "selector" -> cfg) = go $ new where
   pointerFromPagerStyle labels pager = maybe (rangeScope labels (length labels - 1)) (rangeScope labels) pager
 
-  new :: WConfig SelectorConfig -> Selector
-  new (Config cfg) = Selector
-    (zip [0..] $ cfg ^. #labels)
-    (pointerFromPagerStyle (cfg ^. #labels) (cfg ^. #pager))
-    (cfg ^. #pager)
-    (cfg ^. #selectNum)
+  new :: Selector
+  new = Selector
+    (zip [0..] $ cfg ^. _Wrapped . #labels)
+    (pointerFromPagerStyle (cfg ^. _Wrapped . #labels) (cfg ^. _Wrapped . #pager))
+    (cfg ^. _Wrapped . #pager)
+    (cfg ^. _Wrapped . #selectNum)
     []
     False
 
   go :: Selector -> Widget Op'Selector
   go sel = Widget $
     (\(Op'Reset _) -> continue $ go $ reset sel)
-    @> (\(Op'Render _ v) -> lift $ renderDropdown sel v)
+    @> (\(Op'Render _) -> lift $ renderDropdown sel (getLocation cfg))
     @> (\(Op'RenderSelector rend) -> lift $ render sel rend)
     @> (\Op'Run -> continueM $ fmap go $ return sel)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys sel)
@@ -187,17 +187,17 @@ instance Default (Config SelectLayerConfig) where
     <: emptyRecord
     
 wSelectLayer :: Given StyleSheet => WConfig SelectLayerConfig -> GameM (Widget Op'SelectLayer)
-wSelectLayer = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "select-layer")) where
-  new :: WConfig SelectLayerConfig -> GameM SelectLayer
-  new (Config cfg) = liftM3 (,,)
-    (wLayer (cfgs _Wrapped $ shrinkAssoc @_ @LayerConfig cfg))
-    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: #windowTexture @= (cfg ^. #cursorTexture) <: #size @= V2 (cfg ^. #size ^. _x - 20) 30 <: emptyRecord))
-    (return $ wSelector $ cfgs _Wrapped $ #wix @= (cfg ^. #wix) <: cfg ^. #selectorConfig)
-  
+wSelectLayer (giveWid "select-layer" -> cfg) = go <$> new where
+  new :: GameM SelectLayer
+  new = liftM3 (,,)
+    (wLayer (cfgs _Wrapped $ shrinkAssoc @_ @LayerConfig (cfg ^. _Wrapped)))
+    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: #windowTexture @= (cfg ^. _Wrapped . #cursorTexture) <: #size @= V2 (cfg ^. _Wrapped . #size ^. _x - 20) 30 <: emptyRecord))
+    (return $ wSelector $ cfgs _Wrapped $ #location @= (Relative (V2 10 20) $ cfg ^. _Wrapped . #location) <: #wix @= (cfg ^. _Wrapped . #wix) <: cfg ^. _Wrapped . #selectorConfig)
+
   go :: SelectLayer -> Widget Op'SelectLayer
   go w = Widget $
     (\(Op'Reset args) -> continue $ go $ w & _3 ^%~ op'reset args)
-    @> (\(Op'Render _ v) -> lift $ render w v)
+    @> (\(Op'Render _) -> lift $ render w (getLocation cfg))
     @> (\Op'Run -> continue $ go w)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ (\x -> w & _3 .~ x) <$> (w^._3^.op'handleEvent keys))
     @> (\Op'Switch -> (if op'isFreeze (w^._3) op'switch then freeze' else continue) $ go w)
@@ -209,10 +209,10 @@ wSelectLayer = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "select-lay
 
   render :: SelectLayer -> V2 Int -> GameM ()
   render sel v = do
-    sel^._1^.op'render v
+    sel^._1^.op'render
     (sel^._3^.) $ op'renderSelector $ \cfg -> do
       when (_CfgIsFocused cfg) $ do
-        sel^._2^.op'render (v + V2 10 (20+30*_CfgIndex cfg))
+        sel^._2^.op'render
 
       let color = if _CfgIsSelected cfg then red else white
       renders color $

@@ -48,12 +48,12 @@ makeLenses ''InputJapanese
 type InputJapaneseConfig = LayerConfig
 
 wInputJapanese :: Given StyleSheet => WConfig InputJapaneseConfig -> GameM (Widget Op'InputJapanese)
-wInputJapanese = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "input-japanese")) where
+wInputJapanese (giveWid "input-japanese" -> cfg) = go <$> new where
   textLayerArea = V2 800 50
   letterLayerArea = V2 800 550
   
-  new :: WConfig InputJapaneseConfig -> GameM InputJapanese
-  new cfg =
+  new :: GameM InputJapanese
+  new =
     InputJapanese
     <$> return ""
     <*> wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped ^. #wix </> WId "textarea-layer") <: #size @= textLayerArea <: getConfig cfg)
@@ -64,7 +64,7 @@ wInputJapanese = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "input-ja
   go :: InputJapanese -> Widget Op'InputJapanese
   go model = Widget $
     (\(Op'Reset _) -> continue $ go $ reset model)
-    @> (\(Op'Render _ v) -> lift $ render v model)
+    @> (\(Op'Render _) -> lift $ render model)
     @> (\Op'Run -> continue $ go model)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys model)
     @> (\Op'Switch -> (if model^._state == Finished then freeze' else continue) $ go model)
@@ -74,10 +74,10 @@ wInputJapanese = \cfg -> go <$> new (cfg & _Wrapped . #wix %~ (</> WId "input-ja
   reset :: InputJapanese -> InputJapanese
   reset model = model & currentText .~ "" & pointer .~ V2 0 0 & _state .~ Selecting
 
-  render :: V2 Int -> InputJapanese -> GameM ()
-  render v model = do
-    model^.textLayer^.op'renderAt v
-    model^.letterLayer^.op'renderAt v
+  render :: InputJapanese -> GameM ()
+  render model = do
+    model^.textLayer^.op'render
+    model^.letterLayer^.op'render
 
     when (model^.currentText /= "") $
       renders white [ translate (V2 15 15) $ shaded black $ text (model^.currentText) ]
