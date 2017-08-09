@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PolyKinds #-}
 module SDLight.Widgets.Core
@@ -27,13 +28,10 @@ module SDLight.Widgets.Core
   , Wix
   , WConfig
 
-  , Location(..)
   , giveWid
   , getLocation
 
   , cfgs
-  , cfgstyle
-
   , module M
   ) where
 
@@ -123,47 +121,21 @@ op'isFreeze w op = runSwitch w op isFreeze
 newtype Config xs = Config { getConfig :: Record xs }
 makeWrapped ''Config
 
-data Location a
-  = Absolute a
-  | Relative a (Location a)
-
-_location :: Num a => Getter (Location a) a
-_location = to $ go where
-  go (Absolute v) = v
-  go (Relative m p) = m + go p
-
-type Wix cfg
-  = "wix" >: WidgetId
-  : "location" >: Location (SDL.V2 Int)
-  : cfg
+type Wix cfg = "wix" >: WidgetId : cfg
 
 instance Default (Config cfg) => Default (Config (Wix cfg)) where
-  def = Config $
-    #wix @= WEmpty
-    <: #location @= Absolute (SDL.V2 0 0)
-    <: getConfig def
+  def = Config $ #wix @= WEmpty <: getConfig def
 
 type WConfig xs = Config (Wix xs)
+type HasWix xs = Associate "wix" WidgetId (Wix xs)
 
-giveWid :: Associate "wix" WidgetId (Wix cfg) => String -> WConfig cfg -> WConfig cfg
+giveWid :: HasWix cfg => String -> WConfig cfg -> WConfig cfg
 giveWid w wcfg = wcfg & _Wrapped . #wix %~ (</> WId w)
 
-getLocation :: Associate "location" (Location (SDL.V2 Int)) (Wix cfg) => WConfig cfg -> SDL.V2 Int
-getLocation (Config cfg) = cfg ^. #location ^. _location
+getLocation :: (HasWix cfg, Given StyleSheet) => WConfig cfg -> SDL.V2 Int
+getLocation (Config cfg) = given ^. wlocation (cfg ^. #wix)
 
 cfgs :: (Default d, IncludeAssoc ys xs)
      => Iso' d (Record ys) -> Record xs -> d
 cfgs wr hx = def & wr %~ hmergeAssoc hx
-
-cfgstyle ::
-  ( Default (Config new)
-  , IncludeAssoc new (Wix partial)
-  , Associate "wix" WidgetId (Wix cfg)
-  , Associate "location" (Location (SDL.V2 Int)) (Wix cfg)
-  )
-  => WConfig cfg -> Record partial -> Config new
-cfgstyle cfg hx = def & _Wrapped %~ hmergeAssoc (
-  #wix @= (cfg ^. _Wrapped . #wix)
-    <: #location @= (cfg ^. _Wrapped . #location)
-    <: hx)
 
