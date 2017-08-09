@@ -8,7 +8,7 @@ module SDLight.Widgets.TabSelector
   , Op'TabSelectLayer
   , wTabSelectLayer
 
-  , TabSelectorRenderConfig(..)
+  , TabSelectorRenderConfig
   ) where
 
 import qualified SDL as SDL
@@ -37,12 +37,11 @@ data TabSelector
 
 makeLenses ''TabSelector
 
-data TabSelectorRenderConfig
-  = TabSelectorRenderConfig
-  { _CfgTabName :: String
-  , _CfgTabIndex :: Int
-  , _CfgIsTabSelected :: Bool
-  }
+type TabSelectorRenderConfig = Record
+  [ "tabName" >: String
+  , "tabIndex" >: Int
+  , "isTabSelected" >: Bool
+  ]
 
 makeOp "GetTabName" [t| _ Value Identity (Maybe String) |]
 makeOp "RenderTabSelector" [t| (TabSelectorRenderConfig -> SelectorRenderConfig -> GameM ()) -> _ Value GameM () |]
@@ -112,7 +111,11 @@ wTabSelector (giveWid "tab-selector" -> cfg) = go new where
   render :: (TabSelectorRenderConfig -> SelectorRenderConfig -> GameM ()) -> TabSelector -> GameM ()
   render rend model = do
     forM_ (zip [0..] $ model^.wtabs) $ \(i,(name,wtab)) -> do
-      wtab^.op'renderSelector (rend (TabSelectorRenderConfig name i (model^.pointer == Just i)))
+      wtab^.op'renderSelector (rend
+        $ #tabName @= name
+        <: #tabIndex @= i
+        <: #isTabSelected @= (model^.pointer == Just i)
+        <: emptyRecord)
 
   handler keys model = case model^.pointer of
     Nothing -> return model
@@ -181,20 +184,20 @@ wTabSelectLayer (giveWid "tab-select-layer" -> cfg) = go <$> new where
   render v model = do
     model^._1^.op'renderAt v 1.0
     (model^._3^.) $ op'renderTabSelector $ \tcfg scfg -> do
-      when (_CfgIsTabSelected tcfg) $ do
-        model^._2^.op'renderAt (v + V2 ((cfg ^. _Wrapped . #tabWidth) * _CfgTabIndex tcfg) 0) 1.0
+      when (tcfg ^. #isTabSelected) $ do
+        model^._2^.op'renderAt (v + V2 ((cfg ^. _Wrapped . #tabWidth) * (tcfg ^. #tabIndex)) 0) 1.0
       
-      let color = if _CfgIsTabSelected tcfg then red else white
+      let color = if tcfg ^. #isTabSelected then red else white
       renders color $
-        [ translate (v + V2 ((cfg ^. _Wrapped . #tabWidth) * _CfgTabIndex tcfg) 0) $ shaded black $ text $ _CfgTabName tcfg
+        [ translate (v + V2 ((cfg ^. _Wrapped . #tabWidth) * (tcfg ^. #tabIndex)) 0) $ shaded black $ text $ tcfg ^. #tabName
         ]
 
-      when (_CfgIsTabSelected tcfg && _CfgIsFocused scfg) $ do
-        model^._2^.op'renderAt (v + V2 10 (30+20+30*_CfgIndex scfg)) 1.0
+      when (tcfg ^. #isTabSelected && scfg ^. #isFocused) $ do
+        model^._2^.op'renderAt (v + V2 10 (30 + 20 + 30 * (scfg ^. #index))) 1.0
 
-      when (_CfgIsTabSelected tcfg) $ do
-        let color = if _CfgIsSelected scfg then red else white
+      when (tcfg ^. #isTabSelected) $ do
+        let color = if scfg ^. #isSelected then red else white
         renders color $
-          [ translate (v + V2 (20+5) (30+20+30*_CfgIndex scfg)) $ shaded black $ text $ _CfgText scfg
+          [ translate (v + V2 (20+5) (30 + 20 + 30 * (scfg ^. #index))) $ shaded black $ text $ scfg ^. #label
           ]
 

@@ -1,7 +1,7 @@
 module SDLight.Widgets.Selector
   ( wSelector
   , Op'Selector
-  , SelectorRenderConfig(..)
+  , SelectorRenderConfig
   , op'renderSelector
   , op'getSelecting
   , op'getPointer
@@ -50,13 +50,12 @@ data Selector
 
 makeLenses ''Selector
 
-data SelectorRenderConfig
-  = SelectorRenderConfig
-  { _CfgText :: String
-  , _CfgIndex :: Int
-  , _CfgIsSelected :: Bool
-  , _CfgIsFocused :: Bool
-  }
+type SelectorRenderConfig = Record
+  [ "label" >: String
+  , "index" >: Int
+  , "isSelected" >: Bool
+  , "isFocused" >: Bool
+  ]
 
 makeOp "RenderSelector" [t| (SelectorRenderConfig -> GameM ()) -> _ Value GameM () |]
 makeOp "GetSelecting" [t| _ Value Identity [Int] |]
@@ -126,19 +125,24 @@ wSelector (giveWid "selector" -> cfg) = go $ new where
   render :: Selector -> (SelectorRenderConfig -> GameM ()) -> GameM ()
   render sel rendItem = do
     forM_ (zip [0..] $ fmap ((sel^.labels) !!) $ maybe [0..length (sel^.labels)-1] rangeOf (sel^.pointer)) $ \(i,label) ->
-      rendItem $ SelectorRenderConfig (snd label) i (i `elem` (sel^.selecting)) (Just (fst label) == ((sel^.pointer) <&> (^.scoped)))
+      rendItem
+        $ #label @= (snd label)
+        <: #index @= i
+        <: #isSelected @= (i `elem` (sel^.selecting))
+        <: #isFocused @= (Just (fst label) == ((sel^.pointer) <&> (^.scoped)))
+        <: emptyRecord
 
   renderDropdown :: Selector -> V2 Int -> GameM ()
   renderDropdown sel p = do
-    render sel $ \(SelectorRenderConfig label i selecting focused) -> do
-      when focused $ do
+    render sel $ \rcfg -> do
+      when (rcfg ^. #isFocused) $ do
         renders white $
-          [ translate (p + V2 20 (20+30*i)) $ shaded black $ text "▶"
+          [ translate (p + V2 20 (20 + 30 * (rcfg ^. #index))) $ shaded black $ text "▶"
           ]
 
-      let color = if selecting then red else white
+      let color = if rcfg ^. #isSelected then red else white
       renders color $
-        [ translate (p + V2 (20+20) (20+30*i)) $ shaded black $ text label
+        [ translate (p + V2 (20+20) (20 + 30 * (rcfg ^. #index))) $ shaded black $ text $ rcfg ^. #label
         ]
 
   handler :: M.Map SDL.Scancode Int -> Selector -> GameM Selector
@@ -210,12 +214,12 @@ wSelectLayer (giveWid "select-layer" -> cfg) = go <$> new where
   render :: V2 Int -> SelectLayer -> GameM ()
   render v sel = do
     sel^._1^.op'renderAt v 1.0
-    (sel^._3^.) $ op'renderSelector $ \cfg -> do
-      when (_CfgIsFocused cfg) $ do
-        sel^._2^.op'renderAt (v + V2 10 (20+30*_CfgIndex cfg)) 1.0
+    (sel^._3^.) $ op'renderSelector $ \rcfg -> do
+      when (rcfg ^. #isFocused) $ do
+        sel^._2^.op'renderAt (v + V2 10 (20 + 30 * (rcfg ^. #index))) 1.0
 
-      let color = if _CfgIsSelected cfg then red else white
+      let color = if rcfg ^. #isSelected then red else white
       renders color $
-        [ translate (v + V2 (20+5) (20+30*_CfgIndex cfg)) $ shaded black $ text $ _CfgText cfg
+        [ translate (v + V2 (20+5) (20 + 30 * (rcfg ^. #index))) $ shaded black $ text $ rcfg ^. #label
         ]
 
