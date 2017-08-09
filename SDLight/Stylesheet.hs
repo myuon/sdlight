@@ -99,9 +99,6 @@ pstylesheet = StyleSyntax . Node Wild <$> expr where
   toStyleAttr ("height", [x]) = StyleAttrValue $ (,) Height x
   toStyleAttr ("position", [x,y]) = StyleAttrValue $ (,) Position (V2 x y)
 
-loadStyleFile :: FilePath -> IO (Maybe StyleSheet)
-loadStyleFile = fmap (fmap fromSyntax) <$> parseFromFile pstylesheet
-
 newtype StyleSheet = StyleSheet { getStyleSheet :: M.Map StyleQuery [StyleAttrValue] }
 
 fromSyntax :: StyleSyntax -> StyleSheet
@@ -172,4 +169,9 @@ includeFileInSource "src/widgets.style" "defaultWidgetsStyle"
 instance Default StyleSheet where
   def = case parseString pstylesheet mempty (BS.unpack defaultWidgetsStyle) of
     Success sty -> fromSyntax sty
+
+loadStyleFile :: FilePath -> IO (Maybe StyleSheet)
+loadStyleFile = fmap (fmap (genStyleSheet . fromSyntax)) <$> parseFromFile pstylesheet where
+  genStyleSheet sty = StyleSheet $ getStyleSheet def `M.union` getStyleSheet sty
+
 

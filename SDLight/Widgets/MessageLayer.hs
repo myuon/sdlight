@@ -54,7 +54,7 @@ instance Default (Config MessageWriterConfig) where
     #messages @= []
     <: emptyRecord
 
-wMessageWriter :: WConfig MessageWriterConfig -> GameM (NamedWidget Op'MessageWriter)
+wMessageWriter :: Given StyleSheet => WConfig MessageWriterConfig -> GameM (NamedWidget Op'MessageWriter)
 wMessageWriter (giveWid "message-writer" -> cfg) = wNamed (cfg ^. _Wrapped . #wix) . go <$> new where
   new = return $ reset (cfg ^. _Wrapped . #messages) $ MessageWriter [] 0 [] Typing 1
 

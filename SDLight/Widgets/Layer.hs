@@ -19,10 +19,12 @@ import qualified Data.Map as M
 import Control.Lens hiding ((:>))
 import Control.Monad
 import Control.Monad.Reader
+import Data.Reflection
 import Data.Extensible
 import Data.Default
 import Linear.V2
 import SDLight.Types
+import SDLight.Stylesheet
 import SDLight.Widgets.Core
 
 data Layer
@@ -100,7 +102,7 @@ instance Default (Config LayerConfig) where
     <: #size @= V2 100 100
     <: emptyRecord
 
-wLayer :: WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
+wLayer :: Given StyleSheet => WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
 wLayer (giveWid "layer" -> cfg) = wNamed (cfg ^. _Wrapped . #wix) . go <$> new where
   new = newLayer (cfg ^. _Wrapped . #windowTexture) (cfg ^. _Wrapped . #size)
   
@@ -109,7 +111,7 @@ wLayer (giveWid "layer" -> cfg) = wNamed (cfg ^. _Wrapped . #wix) . go <$> new w
     (\(Op'RenderAt v alpha) -> lift $ renderLayer layer (v + getLocation cfg) alpha)
     @> emptyUnion
 
-wLayerFilePath :: FilePath -> WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
+wLayerFilePath :: Given StyleSheet => FilePath -> WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
 wLayerFilePath path cfg = do
   rend <- use renderer
   texture <- SDL.loadTexture rend path

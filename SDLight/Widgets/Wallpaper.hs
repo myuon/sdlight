@@ -9,9 +9,11 @@ import Control.Lens
 import Control.Monad.Trans
 import qualified Data.Map as M
 import Data.Extensible
+import Data.Reflection
 import Linear.V2
-import SDLight.Widgets.Core
 import SDLight.Types
+import SDLight.Stylesheet
+import SDLight.Widgets.Core
 
 data WallpaperState
   = Running
@@ -35,7 +37,7 @@ type WallpaperConfig =
   '[ "bgfile" >: FilePath
   ]
 
-wWallpaper :: WConfig WallpaperConfig -> GameM (Widget Op'Wallpaper)
+wWallpaper :: Given StyleSheet => WConfig WallpaperConfig -> GameM (Widget Op'Wallpaper)
 wWallpaper (giveWid "wallpaper" -> cfg) = go <$> new where
   new :: GameM Wallpaper
   new = Wallpaper

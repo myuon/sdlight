@@ -93,7 +93,7 @@ instance Default (Config SelectorConfig) where
     <: #pager @= Nothing
     <: emptyRecord
     
-wSelector :: WConfig SelectorConfig -> Widget Op'Selector
+wSelector :: Given StyleSheet => WConfig SelectorConfig -> Widget Op'Selector
 wSelector (giveWid "selector" -> cfg) = go $ new where
   pointerFromPagerStyle labels pager = maybe (rangeScope labels (length labels - 1)) (rangeScope labels) pager
 
@@ -198,7 +198,7 @@ wSelectLayer (giveWid "select-layer" -> cfg) = go <$> new where
   new = liftM3 (,,)
     (wLayer (cfgs _Wrapped $ shrinkAssoc @_ @LayerConfig (cfg ^. _Wrapped)))
     (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: #windowTexture @= (cfg ^. _Wrapped . #cursorTexture) <: #size @= V2 (cfg ^. _Wrapped . #size ^. _x - 20) 30 <: emptyRecord))
-    (return $ wSelector $ cfgstyle cfg $ cfg ^. _Wrapped . #selectorConfig)
+    (return $ wSelector $ cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: cfg ^. _Wrapped . #selectorConfig)
 
   go :: SelectLayer -> Widget Op'SelectLayer
   go w = Widget $
