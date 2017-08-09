@@ -55,6 +55,7 @@ type SelectorRenderConfig = Record
   , "index" >: Int
   , "isSelected" >: Bool
   , "isFocused" >: Bool
+  , "location" >: V2 Int
   ]
 
 makeOp "RenderSelector" [t| (SelectorRenderConfig -> GameM ()) -> _ Value GameM () |]
@@ -130,6 +131,7 @@ wSelector (giveWid "selector" -> cfg) = go $ new where
         <: #index @= i
         <: #isSelected @= (i `elem` (sel^.selecting))
         <: #isFocused @= (Just (fst label) == ((sel^.pointer) <&> (^.scoped)))
+        <: #location @= getLocation cfg
         <: emptyRecord
 
   renderDropdown :: Selector -> V2 Int -> GameM ()
@@ -196,7 +198,7 @@ wSelectLayer (giveWid "select-layer" -> cfg) = go <$> new where
   new = liftM3 (,,)
     (wLayer (cfgs _Wrapped $ shrinkAssoc @_ @LayerConfig (cfg ^. _Wrapped)))
     (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: #windowTexture @= (cfg ^. _Wrapped . #cursorTexture) <: #size @= V2 (cfg ^. _Wrapped . #size ^. _x - 20) 30 <: emptyRecord))
-    (return $ wSelector $ cfgs _Wrapped $ #location @= (Relative (V2 10 20) $ cfg ^. _Wrapped . #location) <: #wix @= (cfg ^. _Wrapped . #wix) <: cfg ^. _Wrapped . #selectorConfig)
+    (return $ wSelector $ cfgs _Wrapped $ #location @= (Relative (V2 0 20) $ cfg ^. _Wrapped . #location) <: #wix @= (cfg ^. _Wrapped . #wix) <: cfg ^. _Wrapped . #selectorConfig)
 
   go :: SelectLayer -> Widget Op'SelectLayer
   go w = Widget $
@@ -216,10 +218,10 @@ wSelectLayer (giveWid "select-layer" -> cfg) = go <$> new where
     sel^._1^.op'renderAt v 1.0
     (sel^._3^.) $ op'renderSelector $ \rcfg -> do
       when (rcfg ^. #isFocused) $ do
-        sel^._2^.op'renderAt (v + V2 10 (20 + 30 * (rcfg ^. #index))) 1.0
+        sel^._2^.op'renderAt (v + (rcfg ^. #location) + V2 0 (30 * (rcfg ^. #index))) 1.0
 
       let color = if rcfg ^. #isSelected then red else white
       renders color $
-        [ translate (v + V2 (20+5) (20 + 30 * (rcfg ^. #index))) $ shaded black $ text $ rcfg ^. #label
+        [ translate (v + (rcfg ^. #location) + V2 10 (30 * (rcfg ^. #index))) $ shaded black $ text $ rcfg ^. #label
         ]
 

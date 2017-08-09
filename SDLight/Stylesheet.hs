@@ -113,7 +113,7 @@ wix w attr = to $ \sty -> (\xs -> if null xs then Nothing else Just $ last xs) $
   match q w | matchHere q w = True
   match (StyleId s) (x:ys) = match (StyleId s) ys
   match (q :>: ps) (x:ys) = match (q :>: ps) ys
-  match (q :>>: ps) (x:ys) = match (q :>: ps) ys
+  match (q :>>: ps) (x:ys) = match (q :>>: ps) ys
   match _ _ = False
 
   matchHere Wild w = True
