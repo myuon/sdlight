@@ -140,7 +140,7 @@ wMessageLayer (giveWid "message-layer" -> cfg) = go <$> new where
   go :: MessageLayer -> Widget Op'MessageLayer
   go wm = Widget $
     (\(Op'Reset args) -> continue $ go $ wm & _2 ^%~ op'reset () & _3 ^%~ op'reset args)
-    @> (\(Op'Render _) -> lift $ wm^._1^.op'render >> wm^._3^.op'render)
+    @> (\(Op'Render _) -> lift $ wm^._1^.op'renderAt (getLocation cfg) 1.0 >> wm^._3^.op'render)
     @> (\Op'Run -> continueM $ fmap go $ (wm & _2 ^%%~ op'run) >>= run)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ wm & _3 ^%%~ op'handleEvent keys)
     @> (\Op'Switch -> bimapT (go . (\z -> wm & _3 .~ z)) id $ wm^._3^.op'switch)

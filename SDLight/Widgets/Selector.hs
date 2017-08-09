@@ -197,7 +197,7 @@ wSelectLayer (giveWid "select-layer" -> cfg) = go <$> new where
   go :: SelectLayer -> Widget Op'SelectLayer
   go w = Widget $
     (\(Op'Reset args) -> continue $ go $ w & _3 ^%~ op'reset args)
-    @> (\(Op'Render _) -> lift $ render w (getLocation cfg))
+    @> (\(Op'Render _) -> lift $ render (getLocation cfg) w)
     @> (\Op'Run -> continue $ go w)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ (\x -> w & _3 .~ x) <$> (w^._3^.op'handleEvent keys))
     @> (\Op'Switch -> (if op'isFreeze (w^._3) op'switch then freeze' else continue) $ go w)
@@ -207,12 +207,12 @@ wSelectLayer (giveWid "select-layer" -> cfg) = go <$> new where
     @> (\(Op'SetLabels t pager) -> continue $ go $ w & _3 ^%~ op'setLabels t pager)
     @> emptyUnion
 
-  render :: SelectLayer -> V2 Int -> GameM ()
-  render sel v = do
-    sel^._1^.op'render
+  render :: V2 Int -> SelectLayer -> GameM ()
+  render v sel = do
+    sel^._1^.op'renderAt v 1.0
     (sel^._3^.) $ op'renderSelector $ \cfg -> do
       when (_CfgIsFocused cfg) $ do
-        sel^._2^.op'render
+        sel^._2^.op'renderAt (v + V2 10 (20+30*_CfgIndex cfg)) 1.0
 
       let color = if _CfgIsSelected cfg then red else white
       renders color $

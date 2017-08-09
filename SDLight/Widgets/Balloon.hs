@@ -89,7 +89,7 @@ wBalloon (giveWid "balloon" -> cfg) = go <$> new where
 
   render :: V2 Int -> Balloon -> GameM ()
   render v model = do
-    model^.balloonLayer^.op'renderAlpha (model^.eff^.op'getAlpha)
+    model^.balloonLayer^.op'renderAt v (model^.eff^.op'getAlpha)
     when (model^.balloonText /= "") $
       renders white [ translate (v + V2 15 10) $ shaded black $ text (model^.balloonText) ]
 

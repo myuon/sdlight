@@ -3,6 +3,9 @@ module SDLight.Widgets.Layer
   ( wLayer
   , Op'Layer
 
+  , Op'RenderAt
+  , op'renderAt
+
   , wDelay
   , Op'Delay
   , op'getCounter
@@ -80,8 +83,10 @@ renderLayer layer pos alpha = do
   lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
   SDL.textureAlphaMod (layer^.layerTexture) SDL.$= alpha0
 
+makeOp "RenderAt" [t| V2 Int -> Double -> _ Value GameM () |]
+
 type Op'Layer =
-  '[ Op'Render
+  '[ Op'RenderAt
   ]
 
 type LayerConfig =
@@ -101,7 +106,7 @@ wLayer (giveWid "layer" -> cfg) = wNamed (cfg ^. _Wrapped . #wix) . go <$> new w
   
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
-    (\(Op'Render alpha) -> lift $ renderLayer layer (getLocation cfg) alpha)
+    (\(Op'RenderAt v alpha) -> lift $ renderLayer layer (v + getLocation cfg) alpha)
     @> emptyUnion
 
 wLayerFilePath :: FilePath -> WConfig LayerConfig -> GameM (NamedWidget Op'Layer)

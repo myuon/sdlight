@@ -179,10 +179,10 @@ wTabSelectLayer (giveWid "tab-select-layer" -> cfg) = go <$> new where
 
   render :: V2 Int -> TabSelectLayer -> GameM ()
   render v model = do
-    model^._1^.op'render
+    model^._1^.op'renderAt v 1.0
     (model^._3^.) $ op'renderTabSelector $ \tcfg scfg -> do
       when (_CfgIsTabSelected tcfg) $ do
-        model^._2^.op'render --(v + V2 ((cfg ^. _Wrapped . #tabWidth) * _CfgTabIndex tcfg) 0)
+        model^._2^.op'renderAt (v + V2 ((cfg ^. _Wrapped . #tabWidth) * _CfgTabIndex tcfg) 0) 1.0
       
       let color = if _CfgIsTabSelected tcfg then red else white
       renders color $
@@ -190,7 +190,7 @@ wTabSelectLayer (giveWid "tab-select-layer" -> cfg) = go <$> new where
         ]
 
       when (_CfgIsTabSelected tcfg && _CfgIsFocused scfg) $ do
-        model^._2^.op'render --(v + V2 10 (30+20+30*_CfgIndex scfg))
+        model^._2^.op'renderAt (v + V2 10 (30+20+30*_CfgIndex scfg)) 1.0
 
       when (_CfgIsTabSelected tcfg) $ do
         let color = if _CfgIsSelected scfg then red else white
