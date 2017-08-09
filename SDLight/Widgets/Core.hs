@@ -31,6 +31,9 @@ module SDLight.Widgets.Core
   , giveWid
   , getLocation
 
+  , cfgs
+  , cfgstyle
+
   , module M
   ) where
 
@@ -41,6 +44,7 @@ import Data.Functor.Sum
 import Data.Reflection
 import Data.Extensible
 import Data.Default
+import SDLight.Util
 import SDLight.Types
 import SDLight.Stylesheet
 import SDLight.Widgets.Internal.Widget as M
@@ -146,4 +150,20 @@ giveWid w wcfg = wcfg & _Wrapped . #wix %~ (</> WId w)
 
 getLocation :: Associate "location" (Location (SDL.V2 Int)) (Wix cfg) => WConfig cfg -> SDL.V2 Int
 getLocation (Config cfg) = cfg ^. #location ^. _location
+
+cfgs :: (Default d, IncludeAssoc ys xs)
+     => Iso' d (Record ys) -> Record xs -> d
+cfgs wr hx = def & wr %~ hmergeAssoc hx
+
+cfgstyle ::
+  ( Default (Config new)
+  , IncludeAssoc new (Wix partial)
+  , Associate "wix" WidgetId (Wix cfg)
+  , Associate "location" (Location (SDL.V2 Int)) (Wix cfg)
+  )
+  => WConfig cfg -> Record partial -> Config new
+cfgstyle cfg hx = def & _Wrapped %~ hmergeAssoc (
+  #wix @= (cfg ^. _Wrapped . #wix)
+    <: #location @= (cfg ^. _Wrapped . #location)
+    <: hx)
 

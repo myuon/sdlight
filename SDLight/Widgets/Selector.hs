@@ -198,7 +198,7 @@ wSelectLayer (giveWid "select-layer" -> cfg) = go <$> new where
   new = liftM3 (,,)
     (wLayer (cfgs _Wrapped $ shrinkAssoc @_ @LayerConfig (cfg ^. _Wrapped)))
     (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: #windowTexture @= (cfg ^. _Wrapped . #cursorTexture) <: #size @= V2 (cfg ^. _Wrapped . #size ^. _x - 20) 30 <: emptyRecord))
-    (return $ wSelector $ cfgs _Wrapped $ #location @= (Relative (V2 0 20) $ cfg ^. _Wrapped . #location) <: #wix @= (cfg ^. _Wrapped . #wix) <: cfg ^. _Wrapped . #selectorConfig)
+    (return $ wSelector $ cfgstyle cfg $ cfg ^. _Wrapped . #selectorConfig)
 
   go :: SelectLayer -> Widget Op'SelectLayer
   go w = Widget $

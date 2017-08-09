@@ -29,10 +29,9 @@ import Data.List
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import Linear.V2
-import SDLight.Util (cfgs)
 import SDLight.Types
 import SDLight.Stylesheet
-import SDLight.Widgets.Core hiding (Position)
+import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 import SDLight.Widgets.MessageLayer
 import qualified Text.Trifecta as Tf

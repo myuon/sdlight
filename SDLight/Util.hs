@@ -5,7 +5,6 @@ import qualified SDL as SDL
 import Control.Monad
 import Control.Lens
 import Data.Extensible
-import Data.Default
 import Linear.V2
 import Linear.V4
 
@@ -67,7 +66,3 @@ hmerge hx hy = hfoldrWithIndex (\xin x hy -> hy & itemAt (hlookup xin inclusion)
 
 hmergeAssoc :: (IncludeAssoc ys xs, Wrapper h) => h :* xs -> h :* ys -> h :* ys
 hmergeAssoc hx hy = hfoldrWithIndex (\xin x hy -> hy & itemAt (hlookup xin inclusionAssoc) .~ x^._Wrapper) hy hx
-
-cfgs :: (Default d, IncludeAssoc ys xs) => Iso' d (Record ys) -> Record xs -> d
-cfgs wr hx = def & wr %~ hmergeAssoc hx
-
