@@ -102,13 +102,15 @@ instance Default (Config LayerConfig) where
     <: #size @= V2 100 100
     <: emptyRecord
 
-wLayer :: Given StyleSheet => WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
+-- RenderAtはstylesheetの設定を無視する
+-- layerの位置をstylesheetで設定できるようにする必要ある？
+wLayer :: WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
 wLayer (giveWid "layer" -> cfg) = wNamed (cfg ^. _Wrapped . #wix) . go <$> new where
   new = newLayer (cfg ^. _Wrapped . #windowTexture) (cfg ^. _Wrapped . #size)
   
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
-    (\(Op'RenderAt v alpha) -> lift $ renderLayer layer (v + getLocation cfg) alpha)
+    (\(Op'RenderAt v alpha) -> lift $ renderLayer layer v alpha)
     @> emptyUnion
 
 wLayerFilePath :: Given StyleSheet => FilePath -> WConfig LayerConfig -> GameM (NamedWidget Op'Layer)

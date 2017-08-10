@@ -218,10 +218,10 @@ wSelectLayer (giveWid "select-layer" -> cfg) = go <$> new where
     sel^._1^.op'renderAt v 1.0
     (sel^._3^.) $ op'renderSelector $ \rcfg -> do
       when (rcfg ^. #isFocused) $ do
-        sel^._2^.op'renderAt (v + (rcfg ^. #location) + V2 0 (30 * (rcfg ^. #index))) 1.0
+        sel^._2^.op'renderAt ((rcfg ^. #location) + V2 0 (30 * (rcfg ^. #index))) 1.0
 
       let color = if rcfg ^. #isSelected then red else white
       renders color $
-        [ translate (v + (rcfg ^. #location) + V2 10 (30 * (rcfg ^. #index))) $ shaded black $ text $ rcfg ^. #label
+        [ translate ((rcfg ^. #location) + V2 10 (30 * (rcfg ^. #index))) $ shaded black $ text $ rcfg ^. #label
         ]
 

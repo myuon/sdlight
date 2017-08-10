@@ -4,13 +4,13 @@ module SDLight.Stylesheet where
 
 import Control.Lens
 import Control.Applicative
-import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map as M
 import Data.Maybe
 import Data.Default
 import Text.Trifecta
 import Linear.V2
-import Development.IncludeFile
+import System.IO.Unsafe
+import Paths_magiclabo
 
 data WidgetId
   = WId String
@@ -107,8 +107,8 @@ fromSyntax (StyleSyntax syntax) = StyleSheet $ go Wild syntax where
   go k (Leaf a) = M.singleton k a
   go k (Node k' xs) = foldr (M.union . go (k `mappend` k')) M.empty xs
 
-matchOf :: WidgetId -> (StyleAttrValue -> Bool) -> Getter StyleSheet [StyleAttrValue]
-matchOf w attrj = to $ \sty -> filter attrj $ concat $ M.elems $ M.filterWithKey (\q _ -> match q (toIdListL w)) $ getStyleSheet sty where
+matchOf :: WidgetId -> (StyleAttrValue -> Maybe r) -> Getter StyleSheet [r]
+matchOf w attrj = to $ \sty -> catMaybes $ fmap attrj $ concat $ M.elems $ M.filterWithKey (\q _ -> match q (toIdListL w)) $ getStyleSheet sty where
   match :: StyleQuery -> [String] -> Bool
   match q w | matchHere q w = True
   match (StyleId s) (x:ys) = match (StyleId s) ys
@@ -123,20 +123,7 @@ matchOf w attrj = to $ \sty -> filter attrj $ concat $ M.elems $ M.filterWithKey
   matchHere _ _ = False
 
 matches :: WidgetId -> StyleAttr r -> Getter StyleSheet [r]
-matches w attr = to $ \sty -> catMaybes $ fmap (matchAttr attr) $ concat $ M.elems $ M.filterWithKey (\q _ -> match q (toIdListL w)) $ getStyleSheet sty where
-  match :: StyleQuery -> [String] -> Bool
-  match q w | matchHere q w = True
-  match (StyleId s) (x:ys) = match (StyleId s) ys
-  match (q :>: ps) (x:ys) = match (q :>: ps) ys
-  match (q :>>: ps) (x:ys) = match (q :>>: ps) ys
-  match _ _ = False
-
-  matchHere Wild w = True
-  matchHere (StyleId q) (x:_) = q == x
-  matchHere (q :>: ps) (x:ys) | q == x = matchHere ps ys
-  matchHere (q :>>: ps) (x:ys) | q == x = match ps ys
-  matchHere _ _ = False
-
+matches w attr = matchOf w (matchAttr attr) where
   matchAttr :: StyleAttr r -> StyleAttrValue -> Maybe r
   matchAttr attr v = case (attr, v) of
     (Padding, StyleAttrValue (Padding,v)) -> Just v
@@ -152,23 +139,22 @@ wix w attr = to $ \sty -> (\xs -> if null xs then Nothing else Just $ last xs) $
 wlocation :: WidgetId -> Getter StyleSheet (V2 Int)
 wlocation w = styles . to (foldl loc (V2 0 0)) where
   styles = matchOf w $ \case
-    StyleAttrValue (Position,_) -> True
-    StyleAttrValue (Margin,_) -> True
-    _ -> False
+    StyleAttrValue (Position,v) -> Just $ Left v
+    StyleAttrValue (Margin,v) -> Just $ Right v
+    _ -> Nothing
 
-  loc :: V2 Int -> StyleAttrValue -> V2 Int
+  loc :: V2 Int -> Either (V2 Int) (V2 Int) -> V2 Int
   loc acc = \case
-    StyleAttrValue (Position,p) -> p
-    StyleAttrValue (Margin,m) -> m + acc
-
+    Left p -> p
+    Right m -> m + acc
 
 -- default stylesheet
 
-includeFileInSource "src/widgets.style" "defaultWidgetsStyle"
-
 instance Default StyleSheet where
-  def = case parseString pstylesheet mempty (BS.unpack defaultWidgetsStyle) of
-    Success sty -> fromSyntax sty
+  def = unsafePerformIO $ do
+    sname <- getDataFileName "src/widgets.style"
+    Just style <- parseFromFile pstylesheet sname
+    return $ fromSyntax style
 
 loadStyleFile :: FilePath -> IO (Maybe StyleSheet)
 loadStyleFile = fmap (fmap (genStyleSheet . fromSyntax)) <$> parseFromFile pstylesheet where
