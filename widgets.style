@@ -13,3 +13,13 @@ input-japanese {
   }
 }
 
+message-layer {
+  _ {
+    position: 0, 450
+  }
+
+  message-writer {
+    margin: 15, 10
+  }
+}
+
