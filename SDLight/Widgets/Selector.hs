@@ -175,7 +175,7 @@ type Op'SelectLayer =
   , Op'SetLabels
   ]
 
-type SelectLayer = (NamedWidget Op'Layer, NamedWidget Op'Layer, Widget Op'Selector)
+type SelectLayer = (NamedWidget Op'Layer, Layer, Widget Op'Selector)
 
 type SelectLayerConfig =
   [ "windowTexture" >: SDL.Texture
@@ -197,7 +197,7 @@ wSelectLayer (giveWid "select-layer" -> cfg) = go <$> new where
   new :: GameM SelectLayer
   new = liftM3 (,,)
     (wLayer (cfgs _Wrapped $ shrinkAssoc @_ @LayerConfig (cfg ^. _Wrapped)))
-    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: #windowTexture @= (cfg ^. _Wrapped . #cursorTexture) <: #size @= V2 (cfg ^. _Wrapped . #size ^. _x - 20) 30 <: emptyRecord))
+    (newLayer (cfg ^. _Wrapped . #cursorTexture) (V2 (cfg ^. _Wrapped . #size ^. _x - 20) 30))
     (return $ wSelector $ cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: cfg ^. _Wrapped . #selectorConfig)
 
   go :: SelectLayer -> Widget Op'SelectLayer
@@ -215,10 +215,10 @@ wSelectLayer (giveWid "select-layer" -> cfg) = go <$> new where
 
   render :: V2 Int -> SelectLayer -> GameM ()
   render v sel = do
-    sel^._1^.op'renderAt v 1.0
+    sel^._1^.op'render
     (sel^._3^.) $ op'renderSelector $ \rcfg -> do
       when (rcfg ^. #isFocused) $ do
-        sel^._2^.op'renderAt ((rcfg ^. #location) + V2 0 (30 * (rcfg ^. #index))) 1.0
+        sel^._2^.op'renderLayer ((rcfg ^. #location) + V2 0 (30 * (rcfg ^. #index))) 1.0
 
       let color = if rcfg ^. #isSelected then red else white
       renders color $

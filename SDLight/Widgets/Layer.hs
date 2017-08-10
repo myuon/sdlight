@@ -3,8 +3,10 @@ module SDLight.Widgets.Layer
   ( wLayer
   , Op'Layer
 
-  , Op'RenderAt
-  , op'renderAt
+  , Layer
+  , newLayer
+  , resizeLayer
+  , op'renderLayer
 
   , wDelay
   , Op'Delay
@@ -75,8 +77,8 @@ resizeLayer imgTexture width height = do
     
   return $ Layer width height emptyTexture
 
-renderLayer :: Layer -> V2 Int -> Double -> GameM ()
-renderLayer layer pos alpha = do
+op'renderLayer :: V2 Int -> Double -> Getter Layer (GameM ())
+op'renderLayer pos alpha = to $ \layer -> do
   rend <- use renderer
   let loc = SDL.Rectangle (SDL.P $ fmap toEnum pos) (SDL.V2 (layer^.layerWidth) (layer^.layerHeight))
 
@@ -85,10 +87,8 @@ renderLayer layer pos alpha = do
   lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
   SDL.textureAlphaMod (layer^.layerTexture) SDL.$= alpha0
 
-makeOp "RenderAt" [t| V2 Int -> Double -> _ Value GameM () |]
-
 type Op'Layer =
-  '[ Op'RenderAt
+  '[ Op'Render
   ]
 
 type LayerConfig =
@@ -102,15 +102,13 @@ instance Default (Config LayerConfig) where
     <: #size @= V2 100 100
     <: emptyRecord
 
--- RenderAtはstylesheetの設定を無視する
--- layerの位置をstylesheetで設定できるようにする必要ある？
-wLayer :: WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
+wLayer :: Given StyleSheet => WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
 wLayer (giveWid "layer" -> cfg) = wNamed (cfg ^. _Wrapped . #wix) . go <$> new where
   new = newLayer (cfg ^. _Wrapped . #windowTexture) (cfg ^. _Wrapped . #size)
   
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
-    (\(Op'RenderAt v alpha) -> lift $ renderLayer layer v alpha)
+    (\(Op'Render alpha) -> lift $ layer ^. op'renderLayer (getLocation cfg) alpha)
     @> emptyUnion
 
 wLayerFilePath :: Given StyleSheet => FilePath -> WConfig LayerConfig -> GameM (NamedWidget Op'Layer)

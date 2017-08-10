@@ -32,7 +32,7 @@ import Linear.V2
 import SDLight.Types
 import SDLight.Stylesheet
 import SDLight.Widgets.Core
-import SDLight.Widgets.Layer
+import SDLight.Widgets.Layer hiding (Layer)
 import SDLight.Widgets.MessageLayer
 import qualified Text.Trifecta as Tf
 

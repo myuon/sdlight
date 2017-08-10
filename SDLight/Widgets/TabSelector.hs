@@ -138,7 +138,7 @@ type Op'TabSelectLayer =
   , Op'SetTabs
   ]
 
-type TabSelectLayer = (NamedWidget Op'Layer, NamedWidget Op'Layer, Widget Op'TabSelector)
+type TabSelectLayer = (NamedWidget Op'Layer, Layer, Widget Op'TabSelector)
 
 type TabSelectLayerConfig =
   [ "tabWidth" >: Int
@@ -163,7 +163,7 @@ wTabSelectLayer (giveWid "tab-select-layer" -> cfg) = go <$> new where
   new =
     liftM3 (,,)
     (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: shrinkAssoc @_ @LayerConfig (cfg ^. _Wrapped)))
-    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: #windowTexture @= (cfg ^. _Wrapped . #cursorTexture) <: #size @= V2 (cfg ^. _Wrapped . #tabWidth) 30 <: emptyRecord))
+    (newLayer (cfg ^. _Wrapped . #cursorTexture) (V2 (cfg ^. _Wrapped . #tabWidth) 30))
     (return $ wTabSelector (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: cfg ^. _Wrapped . #tabSelector))
 
   go :: TabSelectLayer -> Widget Op'TabSelectLayer
@@ -182,10 +182,10 @@ wTabSelectLayer (giveWid "tab-select-layer" -> cfg) = go <$> new where
 
   render :: V2 Int -> TabSelectLayer -> GameM ()
   render v model = do
-    model^._1^.op'renderAt v 1.0
+    model^._1^.op'render
     (model^._3^.) $ op'renderTabSelector $ \tcfg scfg -> do
       when (tcfg ^. #isTabSelected) $ do
-        model^._2^.op'renderAt (v + V2 ((cfg ^. _Wrapped . #tabWidth) * (tcfg ^. #tabIndex)) 0) 1.0
+        model^._2^.op'renderLayer (v + V2 ((cfg ^. _Wrapped . #tabWidth) * (tcfg ^. #tabIndex)) 0) 1.0
       
       let color = if tcfg ^. #isTabSelected then red else white
       renders color $
@@ -193,7 +193,7 @@ wTabSelectLayer (giveWid "tab-select-layer" -> cfg) = go <$> new where
         ]
 
       when (tcfg ^. #isTabSelected && scfg ^. #isFocused) $ do
-        model^._2^.op'renderAt (v + V2 10 (30 + 20 + 30 * (scfg ^. #index))) 1.0
+        model^._2^.op'renderLayer (v + V2 10 (30 + 20 + 30 * (scfg ^. #index))) 1.0
 
       when (tcfg ^. #isTabSelected) $ do
         let color = if scfg ^. #isSelected then red else white

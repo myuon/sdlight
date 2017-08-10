@@ -76,8 +76,8 @@ wInputJapanese (giveWid "input-japanese" -> cfg) = go <$> new where
 
   render :: InputJapanese -> GameM ()
   render model = do
-    model^.textLayer^.op'renderAt 0 1.0
-    model^.letterLayer^.op'renderAt 0 1.0
+    model^.textLayer^.op'render
+    model^.letterLayer^.op'render
 
     when (model^.currentText /= "") $
       renders white [ translate (V2 15 15) $ shaded black $ text (model^.currentText) ]

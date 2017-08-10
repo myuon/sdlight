@@ -4,3 +4,12 @@ select-layer {
   }
 }
 
+input-japanese {
+  textarea-layer {
+  }
+
+  letters-layer {
+    margin: 0, 50
+  }
+}
+
