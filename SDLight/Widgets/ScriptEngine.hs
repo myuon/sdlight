@@ -32,7 +32,6 @@ import Linear.V2
 import SDLight.Types
 import SDLight.Stylesheet
 import SDLight.Widgets.Core
-import SDLight.Widgets.Layer hiding (Layer)
 import SDLight.Widgets.MessageLayer
 import qualified Text.Trifecta as Tf
 
@@ -225,7 +224,7 @@ data ScriptEngine
 
 makeLenses ''ScriptEngine
 
-type ScriptEngineConfig = LayerConfig
+type ScriptEngineConfig = MessageLayerConfig
 
 wMiniScriptEngine :: Given StyleSheet => WConfig ScriptEngineConfig -> GameM (Widget Op'MiniScriptEngine)
 wMiniScriptEngine (giveWid "script-engine" -> cfg) = go <$> new where
@@ -237,7 +236,7 @@ wMiniScriptEngine (giveWid "script-engine" -> cfg) = go <$> new where
     <*> return []
     <*> return (return ())
     <*> return 0
-    <*> wMessageLayer (cfgs _Wrapped $ cfg ^. _Wrapped)
+    <*> wMessageLayer (shrinkAssoc cfg)
 
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $

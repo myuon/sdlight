@@ -1,3 +1,5 @@
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 module Data.Extensible.Config where
@@ -6,9 +8,14 @@ import Control.Lens
 import Data.Extensible
 import GHC.TypeLits
 
-class Default (symbol :: Symbol) where
-  type Optional symbol :: [Assoc Symbol *]
-  def :: proxy symbol -> Record (Optional symbol)
+type family FilterAssoc (xs :: [Assoc k *]) (ys :: [k]) :: [Assoc k *] where
+  FilterAssoc ((k >: v) : kvs) (k : ks) = k >: v : FilterAssoc kvs ks
+  FilterAssoc ((_ >: v) : kvs) (k : ks) = FilterAssoc kvs (k : ks)
+  FilterAssoc kvs '[] = '[]
+
+class Default (symbol :: Symbol) xs | symbol -> xs where
+  type Optional symbol :: [Symbol]
+  def :: Record (FilterAssoc xs (Optional symbol))
 
 data WidgetId
   = WId String
@@ -42,6 +49,14 @@ type HasWix xs = Associate "wix" WidgetId (Wix xs)
 giveWid :: HasWix cfg => String -> WConfig cfg -> WConfig cfg
 giveWid w wcfg = wcfg & #wix %~ (</> WId w)
 
---cfgs :: (Default d, IncludeAssoc ys xs) => Iso' d (Record ys) -> Record xs -> d
---cfgs wr hx = def & wr %~ hmergeAssoc hx
+-- extensible
+
+hmergePlain :: (xs ⊆ ys, Wrapper h) => h :* xs -> h :* ys -> h :* ys
+hmergePlain hx hy = hfoldrWithIndex (\xin x hy -> hy & itemAt (hlookup xin inclusion) .~ x^._Wrapper) hy hx
+
+hmerge :: (IncludeAssoc ys xs, Wrapper h) => h :* xs -> h :* ys -> h :* ys
+hmerge hx hy = hfoldrWithIndex (\xin x hy -> hy & itemAt (hlookup xin inclusionAssoc) .~ x^._Wrapper) hy hx
+
+unsafeExpand :: (IncludeAssoc ys xs, Wrapper h, Generate ys) => h :* xs -> h :* ys
+unsafeExpand hx = let bottom = hrepeat undefined in hmerge hx bottom
 

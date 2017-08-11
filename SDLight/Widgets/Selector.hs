@@ -85,10 +85,10 @@ type SelectorConfig =
   , "pager" >: Maybe Int
   ]
 
-instance Default "selector" where
-  type Optional "selector" = SelectorConfig
+instance Default "selector" SelectorConfig where
+  type Optional "selector" = ["labels", "selectNum", "pager"]
   
-  def _ =
+  def =
     #labels @= []
     <: #selectNum @= 1
     <: #pager @= Nothing
@@ -185,13 +185,13 @@ type SelectLayerConfig =
   , "selectorConfig" >: Record SelectorConfig
   ]
 
-instance Default "select-layer" where
-  type Optional "select-layer" = '[ "selectorConfig" >: Record SelectorConfig ]
-  
-  def _ =
-    #selectorConfig @= (def #selector)
+instance Default "select-layer" SelectLayerConfig where
+  type Optional "select-layer" = '[ "selectorConfig" ]
+
+  def =
+    #selectorConfig @= def @"selector"
     <: emptyRecord
-    
+
 wSelectLayer :: Given StyleSheet => WConfig SelectLayerConfig -> GameM (Widget Op'SelectLayer)
 wSelectLayer (giveWid "select-layer" -> cfg) = go <$> new where
   new :: GameM SelectLayer

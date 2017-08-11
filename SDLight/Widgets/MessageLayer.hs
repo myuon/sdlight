@@ -49,10 +49,10 @@ type MessageWriterConfig =
   '[ "messages" >: [String]
   ]
 
-instance Default "message-writer" where
-  type Optional "message-writer" = '[ "messages" >: [String] ]
+instance Default "message-writer" MessageWriterConfig where
+  type Optional "message-writer" = '[ "messages" ]
   
-  def _ =
+  def =
     #messages @= []
     <: emptyRecord
 
@@ -133,13 +133,10 @@ type MessageLayerConfig =
   , "messages" >: [String]
   ]
 
-instance Default "message-layer" where
-  type Optional "message-layer" =
-    [ "size" >: V2 Int
-    , "messages" >: [String]
-    ]
+instance Default "message-layer" MessageLayerConfig where
+  type Optional "message-layer" = ["size", "messages"]
   
-  def _ =
+  def =
     #size @= V2 800 200
     <: #messages @= []
     <: emptyRecord

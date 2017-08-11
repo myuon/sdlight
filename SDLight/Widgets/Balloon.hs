@@ -56,15 +56,12 @@ type BalloonConfig =
   , "stayTime" >: Int
   ]
 
-instance Default "balloon" where
-  type Optional "balloon" =
-    [ "stayTime" >: Int
-    , "text" >: String
-    ]
+instance Default "balloon" BalloonConfig where
+  type Optional "balloon" = ["text", "stayTime"]
   
-  def _ =
-    #stayTime @= 10
-    <: #text @= ""
+  def =
+    #text @= ""
+    <: #stayTime @= 10
     <: emptyRecord
 
 wBalloon :: Given StyleSheet => WConfig BalloonConfig -> GameM (Widget Op'Balloon)
