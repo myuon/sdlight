@@ -22,6 +22,7 @@ import SDLight.Components
 import SDLight.Stylesheet
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
+import SDLight.Widgets.Animated
 
 data MessageState = Typing | Waiting | Finished
   deriving (Eq, Show)
@@ -114,10 +115,19 @@ wMessageWriter (giveWid "message-writer" -> cfg) = wNamed (cfg ^. _Wrapped . #wi
 
 type Op'MessageLayer = Op'MessageWriter
 
-type MessageLayer = (NamedWidget Op'Layer, Widget Op'Delay, NamedWidget Op'MessageWriter)
+data MessageLayer
+  = MessageLayer
+  { _windowLayer :: NamedWidget Op'Layer
+  , _delay :: Widget Op'Delay
+  , _messager :: NamedWidget Op'MessageWriter
+  , _clickwait :: Widget Op'Animated
+  }
+
+makeLenses ''MessageLayer
 
 type MessageLayerConfig =
   [ "windowTexture" >: SDL.Texture
+  , "clickwaitConfig" >: Record AnimatedConfig
   , "size" >: V2 Int
   , "messages" >: [String]
   ]
@@ -125,6 +135,7 @@ type MessageLayerConfig =
 instance Default (Config MessageLayerConfig) where
   def = Config
     $ #windowTexture @= error "not initialized"
+    <: #clickwaitConfig @= error "not initialized"
     <: #size @= V2 800 200
     <: #messages @= []
     <: emptyRecord
@@ -132,20 +143,21 @@ instance Default (Config MessageLayerConfig) where
 wMessageLayer :: Given StyleSheet => WConfig MessageLayerConfig -> GameM (Widget Op'MessageLayer)
 wMessageLayer (giveWid "message-layer" -> cfg) = go <$> new where
   new :: GameM MessageLayer
-  new = liftM3 (,,)
+  new = liftM4 MessageLayer
     (wLayer $ Config $ #wix @= (cfg ^. _Wrapped . #wix) <: shrinkAssoc (cfg ^. _Wrapped))
     (return $ wDelay 2)
     (wMessageWriter $ cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: #messages @= (cfg ^. _Wrapped . #messages) <: emptyRecord)
+    (wAnimated $ Config $ #wix @= (cfg ^. _Wrapped . #wix) <: (cfg ^. _Wrapped . #clickwaitConfig))
   
   go :: MessageLayer -> Widget Op'MessageLayer
   go wm = Widget $
-    (\(Op'Reset args) -> continue $ go $ wm & _2 ^%~ op'reset () & _3 ^%~ op'reset args)
-    @> (\(Op'Render _) -> lift $ wm^._1^.op'render >> wm^._3^.op'render)
-    @> (\Op'Run -> continueM $ fmap go $ (wm & _2 ^%%~ op'run) >>= run)
-    @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ wm & _3 ^%%~ op'handleEvent keys)
-    @> (\Op'Switch -> bimapT (go . (\z -> wm & _3 .~ z)) id $ wm^._3^.op'switch)
+    (\(Op'Reset args) -> continue $ go $ wm & delay ^%~ op'reset () & messager ^%~ op'reset args)
+    @> (\(Op'Render _) -> lift $ wm^.windowLayer^.op'render >> wm^.messager^.op'render >> wm^.clickwait^.op'render)
+    @> (\Op'Run -> continueM $ fmap go $ (wm & delay ^%%~ op'run) >>= run)
+    @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ wm & messager ^%%~ op'handleEvent keys)
+    @> (\Op'Switch -> bimapT (go . (\z -> wm & messager .~ z)) id $ wm^.messager^.op'switch)
     @> emptyUnion
 
-  run wm | wm^._2^.op'getCounter == 0 = wm & _3 ^%%~ op'run
+  run wm | wm^.delay^.op'getCounter == 0 = wm & messager ^%%~ op'run
   run wm = return wm
 
