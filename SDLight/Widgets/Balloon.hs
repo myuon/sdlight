@@ -12,7 +12,6 @@ import Control.Monad
 import Control.Monad.Trans (lift)
 import Data.Reflection
 import Data.Extensible
-import Data.Default
 import Linear.V2
 import SDLight.Util
 import SDLight.Types
@@ -57,23 +56,27 @@ type BalloonConfig =
   , "stayTime" >: Int
   ]
 
-instance Default (Config BalloonConfig) where
-  def = Config
-    $ shrinkAssoc
-    $ #text @= ""
-    <: #stayTime @= 10
-    <: getConfig (def @(Config LayerConfig))
+instance Default "balloon" where
+  type Optional "balloon" =
+    [ "stayTime" >: Int
+    , "text" >: String
+    ]
+  
+  def _ =
+    #stayTime @= 10
+    <: #text @= ""
+    <: emptyRecord
 
 wBalloon :: Given StyleSheet => WConfig BalloonConfig -> GameM (Widget Op'Balloon)
 wBalloon (giveWid "balloon" -> cfg) = go <$> new where
   new :: GameM Balloon
   new = Balloon
-    <$> wLayer (Config $ shrinkAssoc $ getConfig cfg)
-    <*> return (getConfig cfg ^. #text)
+    <$> wLayer (shrinkAssoc cfg)
+    <*> return (cfg ^. #text)
     <*> return (effDisplay EaseOut 40 40)
     <*> return NotReady
     <*> return 0
-    <*> return (getConfig cfg ^. #stayTime)
+    <*> return (cfg ^. #stayTime)
 
   go :: Balloon -> Widget Op'Balloon
   go model = Widget $

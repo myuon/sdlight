@@ -39,16 +39,16 @@ type Op'Animated =
 wAnimated :: Given StyleSheet => WConfig AnimatedConfig -> GameM (Widget Op'Animated)
 wAnimated (giveWid "animated" -> cfg) = go <$> new where
   new = do
-    query <- SDL.queryTexture (cfg ^. _Wrapped . #texture)
+    query <- SDL.queryTexture (cfg ^. #texture)
     let sx = fromEnum $ SDL.textureWidth query
     let sy = fromEnum $ SDL.textureHeight query
     let size = V2 sx sy
-    let tile = liftM2 div size (cfg ^. _Wrapped . #pictureSize)
+    let tile = liftM2 div size (cfg ^. #pictureSize)
     
     return $ Animated
-      (cfg ^. _Wrapped . #pictureSize)
+      (cfg ^. #pictureSize)
       tile
-      (cfg ^. _Wrapped . #texture)
+      (cfg ^. #texture)
       (wDelay (tile ^. _x * tile ^. _y))
 
   go :: Animated -> Widget Op'Animated

@@ -23,7 +23,6 @@ import Control.Monad
 import Control.Monad.Reader
 import Data.Reflection
 import Data.Extensible
-import Data.Default
 import Linear.V2
 import SDLight.Types
 import SDLight.Stylesheet
@@ -96,15 +95,9 @@ type LayerConfig =
   , "size" >: V2 Int
   ]
 
-instance Default (Config LayerConfig) where
-  def = Config $
-    #windowTexture @= error "not initialized"
-    <: #size @= V2 100 100
-    <: emptyRecord
-
 wLayer :: Given StyleSheet => WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
-wLayer (giveWid "layer" -> cfg) = wNamed (cfg ^. _Wrapped . #wix) . go <$> new where
-  new = newLayer (cfg ^. _Wrapped . #windowTexture) (cfg ^. _Wrapped . #size)
+wLayer (giveWid "layer" -> cfg) = wNamed (cfg ^. #wix) . go <$> new where
+  new = newLayer (cfg ^. #windowTexture) (cfg ^. #size)
   
   go :: Layer -> Widget Op'Layer
   go layer = Widget $

@@ -59,10 +59,3 @@ functorial l = to $ fmap (^.l)
 monadic :: Monad m => Lens' a b -> Lens' (m a) (m b)
 monadic l = lens (^. functorial l) (liftM2 (\a b -> a & l .~ b))
 
--- extensible
-
-hmerge :: (xs ⊆ ys, Wrapper h) => h :* xs -> h :* ys -> h :* ys
-hmerge hx hy = hfoldrWithIndex (\xin x hy -> hy & itemAt (hlookup xin inclusion) .~ x^._Wrapper) hy hx
-
-hmergeAssoc :: (IncludeAssoc ys xs, Wrapper h) => h :* xs -> h :* ys -> h :* ys
-hmergeAssoc hx hy = hfoldrWithIndex (\xin x hy -> hy & itemAt (hlookup xin inclusionAssoc) .~ x^._Wrapper) hy hx

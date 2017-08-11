@@ -24,7 +24,6 @@ import qualified Data.Map as M
 import Data.Maybe
 import Data.List
 import Data.Reflection
-import Data.Default
 import Data.Extensible
 import Control.Lens hiding ((:>))
 import Control.Monad
@@ -86,9 +85,11 @@ type SelectorConfig =
   , "pager" >: Maybe Int
   ]
 
-instance Default (Config SelectorConfig) where
-  def = Config
-    $ #labels @= []
+instance Default "selector" where
+  type Optional "selector" = SelectorConfig
+  
+  def _ =
+    #labels @= []
     <: #selectNum @= 1
     <: #pager @= Nothing
     <: emptyRecord
@@ -99,10 +100,10 @@ wSelector (giveWid "selector" -> cfg) = go $ new where
 
   new :: Selector
   new = Selector
-    (zip [0..] $ cfg ^. _Wrapped . #labels)
-    (pointerFromPagerStyle (cfg ^. _Wrapped . #labels) (cfg ^. _Wrapped . #pager))
-    (cfg ^. _Wrapped . #pager)
-    (cfg ^. _Wrapped . #selectNum)
+    (zip [0..] $ cfg ^. #labels)
+    (pointerFromPagerStyle (cfg ^. #labels) (cfg ^. #pager))
+    (cfg ^. #pager)
+    (cfg ^. #selectNum)
     []
     False
 
@@ -184,21 +185,20 @@ type SelectLayerConfig =
   , "selectorConfig" >: Record SelectorConfig
   ]
 
-instance Default (Config SelectLayerConfig) where
-  def = Config
-    $ #windowTexture @= error "not initialized"
-    <: #cursorTexture @= error "not initialized"
-    <: #size @= V2 100 200
-    <: #selectorConfig @= getConfig def
+instance Default "select-layer" where
+  type Optional "select-layer" = '[ "selectorConfig" >: Record SelectorConfig ]
+  
+  def _ =
+    #selectorConfig @= (def #selector)
     <: emptyRecord
     
 wSelectLayer :: Given StyleSheet => WConfig SelectLayerConfig -> GameM (Widget Op'SelectLayer)
 wSelectLayer (giveWid "select-layer" -> cfg) = go <$> new where
   new :: GameM SelectLayer
   new = liftM3 (,,)
-    (wLayer (cfgs _Wrapped $ shrinkAssoc @_ @LayerConfig (cfg ^. _Wrapped)))
-    (newLayer (cfg ^. _Wrapped . #cursorTexture) (V2 (cfg ^. _Wrapped . #size ^. _x - 20) 30))
-    (return $ wSelector $ cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: cfg ^. _Wrapped . #selectorConfig)
+    (wLayer (shrinkAssoc cfg))
+    (newLayer (cfg ^. #cursorTexture) (V2 (cfg ^. #size ^. _x - 20) 30))
+    (return $ wSelector $ #wix @= (cfg ^. #wix) <: cfg ^. #selectorConfig)
 
   go :: SelectLayer -> Widget Op'SelectLayer
   go w = Widget $

@@ -1,40 +1,26 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveFoldable #-}
-module SDLight.Stylesheet where
+module SDLight.Stylesheet
+  ( StyleAttr(..)
+  , StyleSheet
+  , wix
+  , wlocation
+  , defaultStyleSheet
+  , loadStyleFile
+  , getLocation
+
+  , module M
+  ) where
 
 import Control.Lens
 import Control.Applicative
 import qualified Data.Map as M
 import Data.Maybe
-import Data.Default
+import Data.Reflection
 import Text.Trifecta
 import Linear.V2
-import System.IO.Unsafe
+import Data.Extensible.Config as M
 import Paths_magiclabo
-
-data WidgetId
-  = WId String
-  | Wapp WidgetId WidgetId
-  | WEmpty
-  deriving Eq
-
-instance Show WidgetId where
-  show (WId n) = n
-  show (Wapp x y) = show x ++ " </> " ++ show y
-  show WEmpty = "<>"
-
-instance Monoid WidgetId where
-  mempty = WEmpty
-  mappend = Wapp
-
-infixl 1 </>
-(</>) :: WidgetId -> WidgetId -> WidgetId
-(</>) = mappend
-
-toIdListL :: WidgetId -> [String]
-toIdListL (WId a) = [a]
-toIdListL (Wapp x y) = toIdListL x ++ toIdListL y
-toIdListL WEmpty = []
 
 data StyleAttr r where
   Padding :: StyleAttr (V2 Int)
@@ -108,7 +94,7 @@ fromSyntax (StyleSyntax syntax) = StyleSheet $ go Wild syntax where
   go k (Node k' xs) = foldr (M.union . go (k `mappend` k')) M.empty xs
 
 matchOf :: WidgetId -> (StyleAttrValue -> Maybe r) -> Getter StyleSheet [r]
-matchOf w attrj = to $ \sty -> catMaybes $ fmap attrj $ concat $ M.elems $ M.filterWithKey (\q _ -> match q (toIdListL w)) $ getStyleSheet sty where
+matchOf w attrj = to $ \sty -> catMaybes $ fmap attrj $ concat $ M.elems $ M.filterWithKey (\q _ -> match q (idSymbols w)) $ getStyleSheet sty where
   match :: StyleQuery -> [String] -> Bool
   match q w | matchHere q w = True
   match (StyleId s) (x:ys) = match (StyleId s) ys
@@ -150,14 +136,19 @@ wlocation w = styles . to (foldl loc (V2 0 0)) where
 
 -- default stylesheet
 
-instance Default StyleSheet where
-  def = unsafePerformIO $ do
-    sname <- getDataFileName "src/widgets.style"
-    Just style <- parseFromFile pstylesheet sname
-    return $ fromSyntax style
+defaultStyleSheet :: IO StyleSheet
+defaultStyleSheet = do
+  sname <- getDataFileName "src/widgets.style"
+  Just style <- parseFromFile pstylesheet sname
+  return $ fromSyntax style
 
 loadStyleFile :: FilePath -> IO (Maybe StyleSheet)
-loadStyleFile = fmap (fmap (genStyleSheet . fromSyntax)) <$> parseFromFile pstylesheet where
-  genStyleSheet sty = StyleSheet $ getStyleSheet def `M.union` getStyleSheet sty
+loadStyleFile path = do
+  defstyle <- defaultStyleSheet
+  Just style <- fmap fromSyntax <$> parseFromFile pstylesheet path
+  return $ Just $ StyleSheet $ getStyleSheet defstyle `M.union` getStyleSheet style
+
+getLocation :: (HasWix cfg, Given StyleSheet) => WConfig cfg -> V2 Int
+getLocation cfg = given ^. wlocation (cfg ^. #wix)
 
 

@@ -14,7 +14,6 @@ import Control.Monad
 import Control.Monad.State.Strict
 import Data.Reflection
 import Data.Extensible
-import Data.Default
 import Linear.V2
 import SDLight.Util
 import SDLight.Types
@@ -50,14 +49,16 @@ type MessageWriterConfig =
   '[ "messages" >: [String]
   ]
 
-instance Default (Config MessageWriterConfig) where
-  def = Config $
+instance Default "message-writer" where
+  type Optional "message-writer" = '[ "messages" >: [String] ]
+  
+  def _ =
     #messages @= []
     <: emptyRecord
 
 wMessageWriter :: Given StyleSheet => WConfig MessageWriterConfig -> GameM (NamedWidget Op'MessageWriter)
-wMessageWriter (giveWid "message-writer" -> cfg) = wNamed (cfg ^. _Wrapped . #wix) . go <$> new where
-  new = return $ reset (cfg ^. _Wrapped . #messages) $ MessageWriter [] 0 [] Typing 1
+wMessageWriter (giveWid "message-writer" -> cfg) = wNamed (cfg ^. #wix) . go <$> new where
+  new = return $ reset (cfg ^. #messages) $ MessageWriter [] 0 [] Typing 1
 
   go :: MessageWriter -> Widget Op'MessageWriter
   go mw = Widget $
@@ -132,11 +133,14 @@ type MessageLayerConfig =
   , "messages" >: [String]
   ]
 
-instance Default (Config MessageLayerConfig) where
-  def = Config
-    $ #windowTexture @= error "not initialized"
-    <: #clickwaitConfig @= error "not initialized"
-    <: #size @= V2 800 200
+instance Default "message-layer" where
+  type Optional "message-layer" =
+    [ "size" >: V2 Int
+    , "messages" >: [String]
+    ]
+  
+  def _ =
+    #size @= V2 800 200
     <: #messages @= []
     <: emptyRecord
 
@@ -144,10 +148,10 @@ wMessageLayer :: Given StyleSheet => WConfig MessageLayerConfig -> GameM (Widget
 wMessageLayer (giveWid "message-layer" -> cfg) = go <$> new where
   new :: GameM MessageLayer
   new = liftM4 MessageLayer
-    (wLayer $ Config $ #wix @= (cfg ^. _Wrapped . #wix) <: shrinkAssoc (cfg ^. _Wrapped))
+    (wLayer $ #wix @= (cfg ^. #wix) <: shrinkAssoc cfg)
     (return $ wDelay 2)
-    (wMessageWriter $ cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: #messages @= (cfg ^. _Wrapped . #messages) <: emptyRecord)
-    (wAnimated $ Config $ #wix @= (cfg ^. _Wrapped . #wix) <: (cfg ^. _Wrapped . #clickwaitConfig))
+    (wMessageWriter $ #wix @= (cfg ^. #wix) <: #messages @= (cfg ^. #messages) <: emptyRecord)
+    (wAnimated $ #wix @= (cfg ^. #wix) <: (cfg ^. #clickwaitConfig))
   
   go :: MessageLayer -> Widget Op'MessageLayer
   go wm = Widget $
