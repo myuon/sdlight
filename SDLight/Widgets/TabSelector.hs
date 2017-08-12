@@ -16,6 +16,7 @@ import Control.Arrow
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans
+import Data.Default
 import Data.Reflection
 import Data.Extensible
 import qualified Data.Map as M
@@ -66,11 +67,9 @@ type TabSelectorConfig =
   , "pager" >: Maybe Int
   ]
 
-instance Default "tab-selector" TabSelectorConfig where
-  type Optional "tab-selector" = ["selectNum", "pager"]
-  
-  def =
-    #selectNum @= 1
+instance Default (Config TabSelectorConfig) where
+  def = Config
+    $ #selectNum @= 1
     <: #pager @= Nothing
     <: emptyRecord
 
@@ -91,8 +90,8 @@ wTabSelector (giveWid "tab-selector" -> cfg) = go new where
     @> (\Op'GetCurrentSelector -> finish $ maybe Nothing (\p -> model^.wtabs^?ix p._2) (model^.pointer))
     @> (\Op'GetTabName -> finish $ maybe Nothing (\p -> model^.wtabs^?ix p._1) $ model^.pointer)
     @> (\(Op'SetTabs ts) ->
-      let wcfg s = shrinkAssoc $ #labels @= s <: cfg in
-      continue $ go $ model & wtabs .~ fmap (second (wSelector . wcfg)) ts & pointer .~ (if ts /= [] then Just 0 else Nothing))
+      let wcfg s = cfgs _Wrapped $ #labels @= s <: #selectNum @= (cfg ^. _Wrapped . #selectNum) <: #pager @= (cfg ^. _Wrapped . #pager) <: emptyRecord in
+      continue $ go $ model & wtabs .~ fmap (second (\s -> wSelector $ wcfg s)) ts & pointer .~ (if ts /= [] then Just 0 else Nothing))
     @> emptyUnion
 
   reset model = model &~ do
@@ -149,11 +148,13 @@ type TabSelectLayerConfig =
   , "size" >: V2 Int
   ]
 
-instance Default "tab-select-layer" TabSelectLayerConfig where
-  type Optional "tab-select-layer" = '["tabSelector"]
-  
-  def =
-    #tabSelector @= def @"tab-selector"
+instance Default (Config TabSelectLayerConfig) where
+  def = Config
+    $ #tabWidth @= 100
+    <: #tabSelector @= getConfig def
+    <: #windowTexture @= error "not initialized"
+    <: #cursorTexture @= error "not initialized"
+    <: #size @= V2 100 200
     <: emptyRecord
 
 wTabSelectLayer :: Given StyleSheet => WConfig TabSelectLayerConfig -> GameM (Widget Op'TabSelectLayer)
@@ -161,9 +162,9 @@ wTabSelectLayer (giveWid "tab-select-layer" -> cfg) = go <$> new where
   new :: GameM TabSelectLayer
   new =
     liftM3 (,,)
-    (wLayer (shrinkAssoc cfg))
-    (newLayer (cfg ^. #cursorTexture) (V2 (cfg ^. #tabWidth) 30))
-    (return $ wTabSelector (#wix @= (cfg ^. #wix) <: cfg ^. #tabSelector))
+    (wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: shrinkAssoc @_ @LayerConfig (cfg ^. _Wrapped)))
+    (newLayer (cfg ^. _Wrapped . #cursorTexture) (V2 (cfg ^. _Wrapped . #tabWidth) 30))
+    (return $ wTabSelector (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: cfg ^. _Wrapped . #tabSelector))
 
   go :: TabSelectLayer -> Widget Op'TabSelectLayer
   go model = Widget $
@@ -184,11 +185,11 @@ wTabSelectLayer (giveWid "tab-select-layer" -> cfg) = go <$> new where
     model^._1^.op'render
     (model^._3^.) $ op'renderTabSelector $ \tcfg scfg -> do
       when (tcfg ^. #isTabSelected) $ do
-        model^._2^.op'renderLayer (v + V2 ((cfg ^. #tabWidth) * (tcfg ^. #tabIndex)) 0) 1.0
+        model^._2^.op'renderLayer (v + V2 ((cfg ^. _Wrapped . #tabWidth) * (tcfg ^. #tabIndex)) 0) 1.0
       
       let color = if tcfg ^. #isTabSelected then red else white
       renders color $
-        [ translate (v + V2 ((cfg ^. #tabWidth) * (tcfg ^. #tabIndex)) 0) $ shaded black $ text $ tcfg ^. #tabName
+        [ translate (v + V2 ((cfg ^. _Wrapped . #tabWidth) * (tcfg ^. #tabIndex)) 0) $ shaded black $ text $ tcfg ^. #tabName
         ]
 
       when (tcfg ^. #isTabSelected && scfg ^. #isFocused) $ do

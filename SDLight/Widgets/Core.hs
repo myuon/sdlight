@@ -24,6 +24,14 @@ module SDLight.Widgets.Core
   , runSwitchM
   , op'isFreeze
 
+  , Config(..)
+  , Wix
+  , WConfig
+
+  , giveWid
+  , getLocation
+
+  , cfgs
   , module M
   ) where
 
@@ -33,6 +41,8 @@ import qualified Data.Map as M
 import Data.Functor.Sum
 import Data.Reflection
 import Data.Extensible
+import Data.Default
+import SDLight.Util
 import SDLight.Types
 import SDLight.Stylesheet
 import SDLight.Widgets.Internal.Widget as M
@@ -105,4 +115,27 @@ runSwitchM w op k = runFreezeT (w `call` op) >>= k
 
 op'isFreeze :: Widget xs -> Getter (Widget xs) (FreezeT (Widget xs) Identity a) -> Bool 
 op'isFreeze w op = runSwitch w op isFreeze
+
+-- config
+
+newtype Config xs = Config { getConfig :: Record xs }
+makeWrapped ''Config
+
+type Wix cfg = "wix" >: WidgetId : cfg
+
+instance Default (Config cfg) => Default (Config (Wix cfg)) where
+  def = Config $ #wix @= WEmpty <: getConfig def
+
+type WConfig xs = Config (Wix xs)
+type HasWix xs = Associate "wix" WidgetId (Wix xs)
+
+giveWid :: HasWix cfg => String -> WConfig cfg -> WConfig cfg
+giveWid w wcfg = wcfg & _Wrapped . #wix %~ (</> WId w)
+
+getLocation :: (HasWix cfg, Given StyleSheet) => WConfig cfg -> SDL.V2 Int
+getLocation (Config cfg) = given ^. wlocation (cfg ^. #wix)
+
+cfgs :: (Default d, IncludeAssoc ys xs)
+     => Iso' d (Record ys) -> Record xs -> d
+cfgs wr hx = def & wr %~ hmergeAssoc hx
 

@@ -41,7 +41,7 @@ wWallpaper :: Given StyleSheet => WConfig WallpaperConfig -> GameM (Widget Op'Wa
 wWallpaper (giveWid "wallpaper" -> cfg) = go <$> new where
   new :: GameM Wallpaper
   new = Wallpaper
-    <$> (use renderer >>= \r -> SDL.loadTexture r (cfg ^. #bgfile))
+    <$> (use renderer >>= \r -> SDL.loadTexture r (cfg ^. _Wrapped . #bgfile))
     <*> return Running
 
   go :: Wallpaper -> Widget Op'Wallpaper

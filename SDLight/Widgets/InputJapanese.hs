@@ -49,18 +49,15 @@ type InputJapaneseConfig = LayerConfig
 
 wInputJapanese :: Given StyleSheet => WConfig InputJapaneseConfig -> GameM (Widget Op'InputJapanese)
 wInputJapanese (giveWid "input-japanese" -> cfg) = go <$> new where
-  textLayerArea :: V2 Int
   textLayerArea = V2 800 50
-
-  letterLayerArea :: V2 Int
   letterLayerArea = V2 800 550
   
   new :: GameM InputJapanese
   new =
     InputJapanese
     <$> return ""
-    <*> wLayer (#wix @= (cfg ^. #wix </> WId "textarea-layer") <: shrinkAssoc (cfg & 訊 #size .~ textLayerArea))
-    <*> wLayer (#wix @= (cfg ^. #wix </> WId "letters-layer") <: shrinkAssoc (cfg & 訊 #size .~ letterLayerArea))
+    <*> wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped ^. #wix </> WId "textarea-layer") <: #size @= textLayerArea <: getConfig cfg)
+    <*> wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped ^. #wix </> WId "letters-layer") <: #size @= letterLayerArea <: getConfig cfg)
     <*> return (V2 0 0)
     <*> return Selecting
 
