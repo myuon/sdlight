@@ -16,10 +16,13 @@ import SDLight.Stylesheet
 import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 
-type AnimatedConfig =
-  [ "texture" >: SDL.Texture
-  , "pictureSize" >: V2 Int
-  ]
+instance Conf "animated" where
+  type Require "animated" =
+    [ "texture" >: SDL.Texture
+    , "pictureSize" >: V2 Int
+    ]
+  type Optional "animated" = '[]
+  def = emptyRecord
 
 data Animated
   = Animated
@@ -36,7 +39,7 @@ type Op'Animated =
   , Op'Run
   ]
 
-wAnimated :: Given StyleSheet => WConfig AnimatedConfig -> GameM (Widget Op'Animated)
+wAnimated :: Given StyleSheet => WConfig "animated" -> GameM (Widget Op'Animated)
 wAnimated (giveWid "animated" -> cfg) = go <$> new where
   new = do
     query <- SDL.queryTexture (cfg ^. _Wrapped . #texture)

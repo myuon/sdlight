@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PolyKinds #-}
@@ -24,14 +25,13 @@ module SDLight.Widgets.Core
   , runSwitchM
   , op'isFreeze
 
-  , Config(..)
   , Wix
   , WConfig
 
   , giveWid
   , getLocation
 
-  , cfgs
+  , Conf(..)
   , module M
   ) where
 
@@ -41,8 +41,7 @@ import qualified Data.Map as M
 import Data.Functor.Sum
 import Data.Reflection
 import Data.Extensible
-import Data.Default
-import SDLight.Util
+import GHC.TypeLits
 import SDLight.Types
 import SDLight.Stylesheet
 import SDLight.Widgets.Internal.Widget as M
@@ -118,24 +117,23 @@ op'isFreeze w op = runSwitch w op isFreeze
 
 -- config
 
-newtype Config xs = Config { getConfig :: Record xs }
-makeWrapped ''Config
+class Conf symbol where
+  type Require symbol :: [Assoc Symbol *]
+  type Optional symbol :: [Assoc Symbol *]
+  def :: Record (Optional symbol)
 
 type Wix cfg = "wix" >: WidgetId : cfg
-
-instance Default (Config cfg) => Default (Config (Wix cfg)) where
-  def = Config $ #wix @= WEmpty <: getConfig def
-
-type WConfig xs = Config (Wix xs)
-type HasWix xs = Associate "wix" WidgetId (Wix xs)
+type WConfig k = Record (Wix (Require k))
+type HasWix k = Associate "wix" WidgetId (Wix (Require k))
+-- これするとRequireはinjectiveじゃないかもエラーになる
 
 giveWid :: HasWix cfg => String -> WConfig cfg -> WConfig cfg
-giveWid w wcfg = wcfg & _Wrapped . #wix %~ (</> WId w)
+giveWid w wcfg = wcfg & #wix %~ (</> WId w)
 
 getLocation :: (HasWix cfg, Given StyleSheet) => WConfig cfg -> SDL.V2 Int
-getLocation (Config cfg) = given ^. wlocation (cfg ^. #wix)
+getLocation cfg = given ^. wlocation (cfg ^. #wix)
 
-cfgs :: (Default d, IncludeAssoc ys xs)
-     => Iso' d (Record ys) -> Record xs -> d
-cfgs wr hx = def & wr %~ hmergeAssoc hx
+--cfgs :: (Default d, IncludeAssoc ys xs)
+--     => Iso' d (Record ys) -> Record xs -> d
+--cfgs wr hx = def & wr %~ hmergeAssoc hx
 

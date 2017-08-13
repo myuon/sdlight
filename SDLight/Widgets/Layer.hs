@@ -1,4 +1,3 @@
-{-# LANGUAGE IncoherentInstances #-}
 module SDLight.Widgets.Layer
   ( wLayer
   , Op'Layer
@@ -11,8 +10,6 @@ module SDLight.Widgets.Layer
   , wDelay
   , Op'Delay
   , op'getCounter
-
-  , LayerConfig
   ) where
 
 import qualified SDL as SDL
@@ -23,7 +20,6 @@ import Control.Monad
 import Control.Monad.Reader
 import Data.Reflection
 import Data.Extensible
-import Data.Default
 import Linear.V2
 import SDLight.Types
 import SDLight.Stylesheet
@@ -91,27 +87,25 @@ type Op'Layer =
   '[ Op'Render
   ]
 
-type LayerConfig =
-  [ "windowTexture" >: SDL.Texture
-  , "size" >: V2 Int
-  ]
+instance Conf "layer" where
+  type Require "layer" =
+    [ "windowTexture" >: SDL.Texture
+    , "size" >: V2 Int
+    ]
 
-instance Default (Config LayerConfig) where
-  def = Config $
-    #windowTexture @= error "not initialized"
-    <: #size @= V2 100 100
-    <: emptyRecord
+  type Optional "layer" = '[]
+  def = emptyRecord
 
-wLayer :: Given StyleSheet => WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
-wLayer (giveWid "layer" -> cfg) = wNamed (cfg ^. _Wrapped . #wix) . go <$> new where
-  new = newLayer (cfg ^. _Wrapped . #windowTexture) (cfg ^. _Wrapped . #size)
+wLayer :: Given StyleSheet => WConfig "layer" -> GameM (NamedWidget Op'Layer)
+wLayer (giveWid "layer" -> cfg) = wNamed (cfg ^. #wix) . go <$> new where
+  new = newLayer (cfg ^. #windowTexture) (cfg ^. #size)
   
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
     (\(Op'Render alpha) -> lift $ layer ^. op'renderLayer (getLocation cfg) alpha)
     @> emptyUnion
 
-wLayerFilePath :: Given StyleSheet => FilePath -> WConfig LayerConfig -> GameM (NamedWidget Op'Layer)
+wLayerFilePath :: Given StyleSheet => FilePath -> WConfig (Require "layer") -> GameM (NamedWidget Op'Layer)
 wLayerFilePath path cfg = do
   rend <- use renderer
   texture <- SDL.loadTexture rend path

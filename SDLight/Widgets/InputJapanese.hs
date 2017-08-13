@@ -45,6 +45,8 @@ data InputJapanese
 
 makeLenses ''InputJapanese
 
+instance Conf "input-japanese" where
+
 type InputJapaneseConfig = LayerConfig
 
 wInputJapanese :: Given StyleSheet => WConfig InputJapaneseConfig -> GameM (Widget Op'InputJapanese)

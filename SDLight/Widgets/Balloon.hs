@@ -2,8 +2,6 @@ module SDLight.Widgets.Balloon
   ( Op'Balloon
   , op'fly
   , wBalloon
-
-  , BalloonConfig
   ) where
 
 import qualified SDL as SDL
@@ -12,7 +10,6 @@ import Control.Monad
 import Control.Monad.Trans (lift)
 import Data.Reflection
 import Data.Extensible
-import Data.Default
 import Linear.V2
 import SDLight.Util
 import SDLight.Types
@@ -50,35 +47,37 @@ data Balloon
 
 makeLenses ''Balloon
 
-type BalloonConfig =
-  [ "windowTexture" >: SDL.Texture
-  , "size" >: V2 Int
-  , "text" >: String
-  , "stayTime" >: Int
-  ]
+instance Conf "balloon" where
+  type Require "balloon" =
+    [ "windowTexture" >: SDL.Texture
+    , "size" >: V2 Int
+    ]
 
-instance Default (Config BalloonConfig) where
-  def = Config
-    $ shrinkAssoc
-    $ #text @= ""
+  type Optional "balloon" =
+    [ "text" >: String
+    , "stayTime" >: Int
+    ]
+  
+  def = 
+    #text @= ""
     <: #stayTime @= 10
-    <: getConfig (def @(Config LayerConfig))
+    <: emptyRecord
 
-wBalloon :: Given StyleSheet => WConfig BalloonConfig -> GameM (Widget Op'Balloon)
-wBalloon (giveWid "balloon" -> cfg) = go <$> new where
+wBalloon :: Given StyleSheet => WConfig (Require "balloon") -> Record (Optional "balloon") -> GameM (Widget Op'Balloon)
+wBalloon (giveWid "balloon" -> req) opt = go <$> new where
   new :: GameM Balloon
   new = Balloon
-    <$> wLayer (Config $ shrinkAssoc $ getConfig cfg)
-    <*> return (getConfig cfg ^. #text)
+    <$> wLayer req
+    <*> return (opt ^. #text)
     <*> return (effDisplay EaseOut 40 40)
     <*> return NotReady
     <*> return 0
-    <*> return (getConfig cfg ^. #stayTime)
+    <*> return (opt ^. #stayTime)
 
   go :: Balloon -> Widget Op'Balloon
   go model = Widget $
     (\(Op'Reset t) -> continue $ go $ reset t model)
-    @> (\(Op'Render _) -> lift $ render (getLocation cfg) model)
+    @> (\(Op'Render _) -> lift $ render (getLocation req) model)
     @> (\Op'Run -> continueM $ fmap go $ run model)
     @> (\Op'Fly -> continue $ go $ model & _state .~ Running & eff %~ (^.op'appear))
     @> (\Op'Switch -> (if model^._state == Finished && model^.eff^.op'isDisappeared then freeze' else continue) $ go model)
