@@ -1,25 +1,29 @@
-select-layer {
+select_layer {
   selector {
     margin: 10, 20
   }
 }
 
-input-japanese {
-  textarea-layer {
+input_japanese {
+  textarea_layer {
   }
 
-  letters-layer {
+  letters_layer {
     margin: 0, 50
   }
 }
 
-message-layer {
+message_layer {
   _ {
     position: 0, 450
   }
 
-  message-writer {
+  message_writer {
     margin: 15, 10
+  }
+
+  animated {
+    margin: 385, 135
   }
 }
 

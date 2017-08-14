@@ -145,7 +145,7 @@ instance Conf "message_layer" where
     ]
   
   def =
-    #size @= V2 800 200
+    #size @= V2 800 150
     <: #messages @= []
     <: emptyRecord
 

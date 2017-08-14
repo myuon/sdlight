@@ -79,7 +79,7 @@ pstylesheet = StyleSyntax . Node Wild <$> expr where
   pselector = try wild <|> deps where
     wild = symbol "_" *> return Wild
     deps = do
-      a <- (some (letter <|> oneOf "-")) <* spaces
+      a <- (some (letter <|> oneOf "-_")) <* spaces
       try (fmap (a :>:) $ symbol ">" *> deps)
         <|> try (fmap (a :>>:) $ symbol ">>" *> deps)
         <|> return (StyleId a)

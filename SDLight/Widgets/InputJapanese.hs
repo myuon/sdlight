@@ -57,8 +57,8 @@ wInputJapanese (wconf #input_japanese -> ViewWConfig wix req opt) = go <$> new w
   new =
     InputJapanese
     <$> return ""
-    <*> wLayer (conf @"layer" (wix </> WId "textarea-layer") (shrinkAssoc $ #size @= textLayerArea <: req) (def @"layer"))
-    <*> wLayer (conf @"layer" (wix </> WId "letters-layer") (shrinkAssoc $ #size @= letterLayerArea <: req) (def @"layer"))
+    <*> wLayer (conf @"layer" (wix </> WId "textarea_layer") (shrinkAssoc $ #size @= textLayerArea <: req) (def @"layer"))
+    <*> wLayer (conf @"layer" (wix </> WId "letters_layer") (shrinkAssoc $ #size @= letterLayerArea <: req) (def @"layer"))
     <*> return (V2 0 0)
     <*> return Selecting
 
