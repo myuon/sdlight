@@ -36,12 +36,15 @@ data MessageWriter
 
 makeLenses ''MessageWriter
 
+makeOp "IsWaiting" [t| _ Value Identity Bool |]
+
 type Op'MessageWriter =
   [ Op'Reset [String]
   , Op'Render
   , Op'Run
   , Op'HandleEvent
   , Op'Switch
+  , Op'IsWaiting
   ]
 
 instance Conf "message_writer" where
@@ -65,6 +68,7 @@ wMessageWriter (wconf #message_writer -> ViewWConfig wix req opt) = wNamed wix .
     @> (\Op'Run -> continueM $ fmap go $ run mw)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys mw)
     @> (\Op'Switch -> (if mw^._state == Finished then freeze' else continue) $ go mw)
+    @> (\Op'IsWaiting -> finish $ mw ^. _state == Waiting)
     @> emptyUnion
 
   reset :: [String] -> MessageWriter -> MessageWriter
@@ -112,7 +116,13 @@ wMessageWriter (wconf #message_writer -> ViewWConfig wix req opt) = wNamed wix .
     | otherwise = return mes
 
 
-type Op'MessageLayer = Op'MessageWriter
+type Op'MessageLayer =
+  [ Op'Reset [String]
+  , Op'Render
+  , Op'Run
+  , Op'HandleEvent
+  , Op'Switch
+  ]
 
 data MessageLayer
   = MessageLayer
@@ -151,12 +161,22 @@ wMessageLayer (wconf #message_layer -> ViewWConfig wix req opt) = go <$> new whe
   go :: MessageLayer -> Widget Op'MessageLayer
   go wm = Widget $
     (\(Op'Reset args) -> continue $ go $ wm & delay ^%~ op'reset () & messager ^%~ op'reset args)
-    @> (\(Op'Render _) -> lift $ wm^.windowLayer^.op'render >> wm^.messager^.op'render >> wm^.clickwait^.op'render)
-    @> (\Op'Run -> continueM $ fmap go $ (wm & delay ^%%~ op'run) >>= run)
+    @> (\(Op'Render _) -> lift $ render wm)
+    @> (\Op'Run -> continueM $ fmap go $ (wm & delay ^%%~ op'run) >>= run >>= runClickwait)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ wm & messager ^%%~ op'handleEvent keys)
     @> (\Op'Switch -> bimapT (go . (\z -> wm & messager .~ z)) id $ wm^.messager^.op'switch)
     @> emptyUnion
 
+  render wm = do
+    wm^.windowLayer^.op'render
+    wm^.messager^.op'render
+
+    when (wm^.messager^.op'isWaiting) $ wm^.clickwait^.op'render
+
   run wm | wm^.delay^.op'getCounter == 0 = wm & messager ^%%~ op'run
   run wm = return wm
+
+  runClickwait wm | wm^.messager^.op'isWaiting = wm & clickwait ^%%~ op'run
+  runClickwait wm = return wm
+    
 
