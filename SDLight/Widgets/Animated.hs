@@ -1,6 +1,5 @@
 module SDLight.Widgets.Animated
-  ( AnimatedConfig
-  , Op'Animated
+  ( Op'Animated
   , wAnimated
   ) where
 
@@ -17,7 +16,7 @@ import SDLight.Widgets.Core
 import SDLight.Widgets.Layer
 
 instance Conf "animated" where
-  type Require "animated" =
+  type Required "animated" =
     [ "texture" >: SDL.Texture
     , "pictureSize" >: V2 Int
     ]
@@ -40,18 +39,18 @@ type Op'Animated =
   ]
 
 wAnimated :: Given StyleSheet => WConfig "animated" -> GameM (Widget Op'Animated)
-wAnimated (giveWid "animated" -> cfg) = go <$> new where
+wAnimated (wconf #animated -> ViewWConfig wix req opt) = go <$> new where
   new = do
-    query <- SDL.queryTexture (cfg ^. _Wrapped . #texture)
+    query <- SDL.queryTexture (req ^. #texture)
     let sx = fromEnum $ SDL.textureWidth query
     let sy = fromEnum $ SDL.textureHeight query
     let size = V2 sx sy
-    let tile = liftM2 div size (cfg ^. _Wrapped . #pictureSize)
+    let tile = liftM2 div size (req ^. #pictureSize)
     
     return $ Animated
-      (cfg ^. _Wrapped . #pictureSize)
+      (req ^. #pictureSize)
       tile
-      (cfg ^. _Wrapped . #texture)
+      (req ^. #texture)
       (wDelay (tile ^. _x * tile ^. _y))
 
   go :: Animated -> Widget Op'Animated
@@ -65,7 +64,7 @@ wAnimated (giveWid "animated" -> cfg) = go <$> new where
     rend <- use renderer
     let c = model^.counter^.op'getCounter
     let ivx = V2 (c `mod` (model^.tile^._x)) (c `div` (model^.tile^._x))
-    let tgt = SDL.Rectangle (SDL.P $ fmap toEnum (getLocation cfg)) (fmap toEnum $ model^.pictureSize)
+    let tgt = SDL.Rectangle (SDL.P $ fmap toEnum (getLocation wix)) (fmap toEnum $ model^.pictureSize)
     let src = SDL.Rectangle (SDL.P $ fmap toEnum $ (model^.pictureSize) * ivx) (fmap toEnum $ model^.pictureSize)
 
     alpha0 <- SDL.get $ SDL.textureAlphaMod (model^.texture)

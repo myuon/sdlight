@@ -25,13 +25,17 @@ module SDLight.Widgets.Core
   , runSwitchM
   , op'isFreeze
 
-  , Wix
   , WConfig
+  , Conf(..)
+  , ViewWConfig(..)
 
   , giveWid
   , getLocation
+  , mkCfg
+  , viewWConfig
+  , wconf
+  , conf
 
-  , Conf(..)
   , module M
   ) where
 
@@ -41,6 +45,7 @@ import qualified Data.Map as M
 import Data.Functor.Sum
 import Data.Reflection
 import Data.Extensible
+import Data.Proxy
 import GHC.TypeLits
 import SDLight.Types
 import SDLight.Stylesheet
@@ -117,23 +122,40 @@ op'isFreeze w op = runSwitch w op isFreeze
 
 -- config
 
-class Conf symbol where
-  type Require symbol :: [Assoc Symbol *]
-  type Optional symbol :: [Assoc Symbol *]
-  def :: Record (Optional symbol)
+type WConfigR a b = Record
+  [ "wix" >: WidgetId
+  , "required" >: a
+  , "optional" >: b
+  ]
 
-type Wix cfg = "wix" >: WidgetId : cfg
-type WConfig k = Record (Wix (Require k))
-type HasWix k = Associate "wix" WidgetId (Wix (Require k))
--- これするとRequireはinjectiveじゃないかもエラーになる
+type WConfig k = WConfigR (Record (Required k)) (Record (Optional k))
 
-giveWid :: HasWix cfg => String -> WConfig cfg -> WConfig cfg
-giveWid w wcfg = wcfg & #wix %~ (</> WId w)
+class Conf k where
+  type Required k :: [Assoc Symbol *]
+  type Optional k :: [Assoc Symbol *]
+  def :: Record (Optional k)
 
-getLocation :: (HasWix cfg, Given StyleSheet) => WConfig cfg -> SDL.V2 Int
-getLocation cfg = given ^. wlocation (cfg ^. #wix)
+conf :: WidgetId -> Record (Required k) -> Record (Optional k) -> WConfig k
+conf wix req opt = #wix @= wix <: #required @= req <: #optional @= opt <: emptyRecord
 
---cfgs :: (Default d, IncludeAssoc ys xs)
---     => Iso' d (Record ys) -> Record xs -> d
---cfgs wr hx = def & wr %~ hmergeAssoc hx
+giveWid :: (KnownSymbol k) => Proxy k -> WConfig k -> WConfig k
+giveWid w wcfg = wcfg & #wix %~ (</> WId (symbolVal w))
+
+getLocation :: (Given StyleSheet) => WidgetId -> SDL.V2 Int
+getLocation wix = given ^. wlocation wix
+
+mkCfg :: WidgetId -> a -> b -> WConfigR a b
+mkCfg wid req opt
+  = #wix @= wid
+  <: #required @= req
+  <: #optional @= opt
+  <: emptyRecord
+
+data ViewWConfig a b = ViewWConfig WidgetId a b
+
+viewWConfig :: WConfigR a b -> ViewWConfig a b
+viewWConfig cfg = ViewWConfig (cfg ^. #wix) (cfg ^. #required) (cfg ^. #optional)
+
+wconf :: (KnownSymbol k) => Proxy k -> WConfig k -> ViewWConfig (Record (Required k)) (Record (Optional k))
+wconf p = viewWConfig . giveWid p
 

@@ -1,10 +1,9 @@
+{-# LANGUAGE UndecidableInstances #-}
 module SDLight.Widgets.MessageLayer
   ( wMessageWriter
   , Op'MessageWriter
   , wMessageLayer
   , Op'MessageLayer
-
-  , MessageLayerConfig
   ) where
 
 import qualified SDL as SDL
@@ -14,7 +13,6 @@ import Control.Monad
 import Control.Monad.State.Strict
 import Data.Reflection
 import Data.Extensible
-import Data.Default
 import Linear.V2
 import SDLight.Util
 import SDLight.Types
@@ -46,23 +44,24 @@ type Op'MessageWriter =
   , Op'Switch
   ]
 
-type MessageWriterConfig =
-  '[ "messages" >: [String]
-  ]
-
-instance Default (Config MessageWriterConfig) where
-  def = Config $
+instance Conf "message_writer" where
+  type Required "message_writer" = '[]
+  type Optional "message_writer" =
+    '[ "messages" >: [String]
+     ]
+  
+  def =
     #messages @= []
     <: emptyRecord
 
-wMessageWriter :: Given StyleSheet => WConfig MessageWriterConfig -> GameM (NamedWidget Op'MessageWriter)
-wMessageWriter (giveWid "message-writer" -> cfg) = wNamed (cfg ^. _Wrapped . #wix) . go <$> new where
-  new = return $ reset (cfg ^. _Wrapped . #messages) $ MessageWriter [] 0 [] Typing 1
+wMessageWriter :: Given StyleSheet => WConfig "message_writer" -> GameM (NamedWidget Op'MessageWriter)
+wMessageWriter (wconf #message_writer -> ViewWConfig wix req opt) = wNamed wix . go <$> new where
+  new = return $ reset (opt ^. #messages) $ MessageWriter [] 0 [] Typing 1
 
   go :: MessageWriter -> Widget Op'MessageWriter
   go mw = Widget $
     (\(Op'Reset mes') -> continue $ go $ reset mes' mw)
-    @> (\(Op'Render _) -> lift $ render mw (getLocation cfg))
+    @> (\(Op'Render _) -> lift $ render mw (given ^. wlocation wix))
     @> (\Op'Run -> continueM $ fmap go $ run mw)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys mw)
     @> (\Op'Switch -> (if mw^._state == Finished then freeze' else continue) $ go mw)
@@ -125,29 +124,29 @@ data MessageLayer
 
 makeLenses ''MessageLayer
 
-type MessageLayerConfig =
-  [ "windowTexture" >: SDL.Texture
-  , "clickwaitConfig" >: Record AnimatedConfig
-  , "size" >: V2 Int
-  , "messages" >: [String]
-  ]
-
-instance Default (Config MessageLayerConfig) where
-  def = Config
-    $ #windowTexture @= error "not initialized"
-    <: #clickwaitConfig @= error "not initialized"
-    <: #size @= V2 800 200
+instance Conf "message_layer" where
+  type Required "message_layer" =
+    [ "windowTexture" >: SDL.Texture
+    , "clickwaitConfig" >: Record (Required "animated")
+    ]
+  type Optional "message_layer" =
+    [ "size" >: V2 Int
+    , "messages" >: [String]
+    ]
+  
+  def =
+    #size @= V2 800 200
     <: #messages @= []
     <: emptyRecord
 
-wMessageLayer :: Given StyleSheet => WConfig MessageLayerConfig -> GameM (Widget Op'MessageLayer)
-wMessageLayer (giveWid "message-layer" -> cfg) = go <$> new where
+wMessageLayer :: Given StyleSheet => WConfig "message_layer" -> GameM (Widget Op'MessageLayer)
+wMessageLayer (wconf #message_layer -> ViewWConfig wix req opt) = go <$> new where
   new :: GameM MessageLayer
   new = liftM4 MessageLayer
-    (wLayer $ Config $ #wix @= (cfg ^. _Wrapped . #wix) <: shrinkAssoc (cfg ^. _Wrapped))
+    (wLayer $ conf @"layer" wix (#windowTexture @= (req ^. #windowTexture) <: #size @= (opt ^. #size) <: emptyRecord) (def @"layer"))
     (return $ wDelay 2)
-    (wMessageWriter $ cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped . #wix) <: #messages @= (cfg ^. _Wrapped . #messages) <: emptyRecord)
-    (wAnimated $ Config $ #wix @= (cfg ^. _Wrapped . #wix) <: (cfg ^. _Wrapped . #clickwaitConfig))
+    (wMessageWriter $ conf @"message_writer" wix emptyRecord (shrinkAssoc opt))
+    (wAnimated $ conf @"animated" wix (req ^. #clickwaitConfig) (def @"animated"))
   
   go :: MessageLayer -> Widget Op'MessageLayer
   go wm = Widget $

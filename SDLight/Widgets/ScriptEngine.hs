@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 module SDLight.Widgets.ScriptEngine
   ( wMiniScriptEngine
   , Op'MiniScriptEngine
@@ -32,7 +33,6 @@ import Linear.V2
 import SDLight.Types
 import SDLight.Stylesheet
 import SDLight.Widgets.Core
-import SDLight.Widgets.Layer hiding (Layer)
 import SDLight.Widgets.MessageLayer
 import qualified Text.Trifecta as Tf
 
@@ -225,10 +225,17 @@ data ScriptEngine
 
 makeLenses ''ScriptEngine
 
-type ScriptEngineConfig = LayerConfig
+instance Conf "script_engine" where
+  type Required "script_engine" =
+    [ "windowTexture" >: SDL.Texture
+    , "clickwaitConfig" >: Record (Required "animated")
+    ]
 
-wMiniScriptEngine :: Given StyleSheet => WConfig ScriptEngineConfig -> GameM (Widget Op'MiniScriptEngine)
-wMiniScriptEngine (giveWid "script-engine" -> cfg) = go <$> new where
+  type Optional "script_engine" = '[ "size" >: V2 Int ]
+  def = shrinkAssoc $ def @"message_layer"
+
+wMiniScriptEngine :: Given StyleSheet => WConfig "script_engine" -> GameM (Widget Op'MiniScriptEngine)
+wMiniScriptEngine (wconf #script_engine -> ViewWConfig wix req opt) = go <$> new where
   new :: GameM ScriptEngine
   new =
     ScriptEngine
@@ -237,12 +244,12 @@ wMiniScriptEngine (giveWid "script-engine" -> cfg) = go <$> new where
     <*> return []
     <*> return (return ())
     <*> return 0
-    <*> wMessageLayer (cfgs _Wrapped $ cfg ^. _Wrapped)
+    <*> wMessageLayer (conf @"message_layer" wix req (def @"message_layer"))
 
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $
     (\(Op'Reset _) -> continue $ go $ reset model)
-    @> (\(Op'Render _) -> lift $ render (getLocation cfg) model)
+    @> (\(Op'Render _) -> lift $ render (given ^. wlocation wix) model)
     @> (\Op'Run -> continueM $ fmap go $ run model)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys model)
     @> (\Op'Switch -> (if model^._state == Finished then freeze' else continue) $ go model)

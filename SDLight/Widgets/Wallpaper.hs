@@ -33,15 +33,19 @@ type Op'Wallpaper =
   , Op'HandleEvent
   ]
 
-type WallpaperConfig =
-  '[ "bgfile" >: FilePath
-  ]
+instance Conf "wallpaper" where
+  type Required "wallpaper" =
+    '[ "bgfile" >: FilePath
+     ]
+  type Optional "wallpaper" = '[]
 
-wWallpaper :: Given StyleSheet => WConfig WallpaperConfig -> GameM (Widget Op'Wallpaper)
-wWallpaper (giveWid "wallpaper" -> cfg) = go <$> new where
+  def = emptyRecord
+
+wWallpaper :: Given StyleSheet => WConfig "wallpaper" -> GameM (Widget Op'Wallpaper)
+wWallpaper (wconf #wallpaper -> ViewWConfig wix req opt) = go <$> new where
   new :: GameM Wallpaper
   new = Wallpaper
-    <$> (use renderer >>= \r -> SDL.loadTexture r (cfg ^. _Wrapped . #bgfile))
+    <$> (use renderer >>= \r -> SDL.loadTexture r (req ^. #bgfile))
     <*> return Running
 
   go :: Wallpaper -> Widget Op'Wallpaper
@@ -58,7 +62,7 @@ wWallpaper (giveWid "wallpaper" -> cfg) = go <$> new where
     Running -> do
       rend <- use renderer
       query <- SDL.queryTexture (model^.texture)
-      let loc = SDL.Rectangle (SDL.P $ fmap toEnum (getLocation cfg)) (V2 (SDL.textureWidth query) (SDL.textureHeight query))
+      let loc = SDL.Rectangle (SDL.P $ fmap toEnum (getLocation wix)) (V2 (SDL.textureWidth query) (SDL.textureHeight query))
       lift $ SDL.copy rend (model^.texture) Nothing (Just loc)
     Finished -> return ()
 

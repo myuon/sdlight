@@ -2,8 +2,6 @@ module SDLight.Widgets.InputJapanese
   ( op'getText
   , Op'InputJapanese
   , wInputJapanese
-
-  , InputJapaneseConfig
   ) where
 
 import qualified SDL as SDL
@@ -45,12 +43,13 @@ data InputJapanese
 
 makeLenses ''InputJapanese
 
-instance Conf "input-japanese" where
+instance Conf "input_japanese" where
+  type Required "input_japanese" = '[ "windowTexture" >: SDL.Texture ]
+  type Optional "input_japanese" = '[]
+  def = emptyRecord
 
-type InputJapaneseConfig = LayerConfig
-
-wInputJapanese :: Given StyleSheet => WConfig InputJapaneseConfig -> GameM (Widget Op'InputJapanese)
-wInputJapanese (giveWid "input-japanese" -> cfg) = go <$> new where
+wInputJapanese :: Given StyleSheet => WConfig "input_japanese" -> GameM (Widget Op'InputJapanese)
+wInputJapanese (wconf #input_japanese -> ViewWConfig wix req opt) = go <$> new where
   textLayerArea = V2 800 50
   letterLayerArea = V2 800 550
   
@@ -58,8 +57,8 @@ wInputJapanese (giveWid "input-japanese" -> cfg) = go <$> new where
   new =
     InputJapanese
     <$> return ""
-    <*> wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped ^. #wix </> WId "textarea-layer") <: #size @= textLayerArea <: getConfig cfg)
-    <*> wLayer (cfgs _Wrapped $ #wix @= (cfg ^. _Wrapped ^. #wix </> WId "letters-layer") <: #size @= letterLayerArea <: getConfig cfg)
+    <*> wLayer (conf @"layer" (wix </> WId "textarea-layer") (shrinkAssoc $ #size @= textLayerArea <: req) (def @"layer"))
+    <*> wLayer (conf @"layer" (wix </> WId "letters-layer") (shrinkAssoc $ #size @= letterLayerArea <: req) (def @"layer"))
     <*> return (V2 0 0)
     <*> return Selecting
 

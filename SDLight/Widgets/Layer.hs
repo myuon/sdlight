@@ -88,7 +88,7 @@ type Op'Layer =
   ]
 
 instance Conf "layer" where
-  type Require "layer" =
+  type Required "layer" =
     [ "windowTexture" >: SDL.Texture
     , "size" >: V2 Int
     ]
@@ -97,15 +97,15 @@ instance Conf "layer" where
   def = emptyRecord
 
 wLayer :: Given StyleSheet => WConfig "layer" -> GameM (NamedWidget Op'Layer)
-wLayer (giveWid "layer" -> cfg) = wNamed (cfg ^. #wix) . go <$> new where
-  new = newLayer (cfg ^. #windowTexture) (cfg ^. #size)
+wLayer (giveWid #layer -> cfg) = wNamed (cfg ^. #wix) . go <$> new where
+  new = newLayer (cfg ^. #required ^. #windowTexture) (cfg ^. #required ^. #size)
   
   go :: Layer -> Widget Op'Layer
   go layer = Widget $
-    (\(Op'Render alpha) -> lift $ layer ^. op'renderLayer (getLocation cfg) alpha)
+    (\(Op'Render alpha) -> lift $ layer ^. op'renderLayer (getLocation (cfg ^. #wix)) alpha)
     @> emptyUnion
 
-wLayerFilePath :: Given StyleSheet => FilePath -> WConfig (Require "layer") -> GameM (NamedWidget Op'Layer)
+wLayerFilePath :: Given StyleSheet => FilePath -> WConfig "layer" -> GameM (NamedWidget Op'Layer)
 wLayerFilePath path cfg = do
   rend <- use renderer
   texture <- SDL.loadTexture rend path

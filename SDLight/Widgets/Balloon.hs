@@ -48,7 +48,7 @@ data Balloon
 makeLenses ''Balloon
 
 instance Conf "balloon" where
-  type Require "balloon" =
+  type Required "balloon" =
     [ "windowTexture" >: SDL.Texture
     , "size" >: V2 Int
     ]
@@ -63,11 +63,11 @@ instance Conf "balloon" where
     <: #stayTime @= 10
     <: emptyRecord
 
-wBalloon :: Given StyleSheet => WConfig (Require "balloon") -> Record (Optional "balloon") -> GameM (Widget Op'Balloon)
-wBalloon (giveWid "balloon" -> req) opt = go <$> new where
+wBalloon :: Given StyleSheet => WConfig "balloon" -> GameM (Widget Op'Balloon)
+wBalloon (viewWConfig . giveWid #balloon -> ViewWConfig wix req opt) = go <$> new where
   new :: GameM Balloon
   new = Balloon
-    <$> wLayer req
+    <$> wLayer (conf @"layer" wix req (def @"layer"))
     <*> return (opt ^. #text)
     <*> return (effDisplay EaseOut 40 40)
     <*> return NotReady
@@ -77,7 +77,7 @@ wBalloon (giveWid "balloon" -> req) opt = go <$> new where
   go :: Balloon -> Widget Op'Balloon
   go model = Widget $
     (\(Op'Reset t) -> continue $ go $ reset t model)
-    @> (\(Op'Render _) -> lift $ render (getLocation req) model)
+    @> (\(Op'Render _) -> lift $ render (given ^. wlocation wix) model)
     @> (\Op'Run -> continueM $ fmap go $ run model)
     @> (\Op'Fly -> continue $ go $ model & _state .~ Running & eff %~ (^.op'appear))
     @> (\Op'Switch -> (if model^._state == Finished && model^.eff^.op'isDisappeared then freeze' else continue) $ go model)
