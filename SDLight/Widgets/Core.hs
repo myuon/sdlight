@@ -3,10 +3,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PolyKinds #-}
 module SDLight.Widgets.Core
-  ( (^%~)
-  , (^%%~)
-
-  , Op'Render(..)
+  ( Op'Render(..)
   , op'render
   , op'renderAlpha
   , Op'Run(..)
@@ -53,17 +50,6 @@ import SDLight.Widgets.Internal.Widget as M
 import SDLight.Widgets.Internal.TH as M
 import SDLight.Widgets.Internal.Named as M
 import SDLight.Widgets.Internal.Freeze as M
-
-infixr 4 ^%~
-(^%~) :: Lens' s a -> (Getter a a) -> s -> s
-s ^%~ f = s %~ (^. f)
-
-infixr 4 ^%%~
-(^%%~) :: Functor m => Lens' s a -> (Getter a (m a)) -> s -> m s
-s ^%%~ f = s %%~ (^. f)
-
-
---
 
 data Op'Render br m r where
   Op'Render :: Double -> Op'Render Value GameM ()

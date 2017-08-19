@@ -30,6 +30,7 @@ import Data.List
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import Linear.V2
+import SDLight.Util ((^%~), (^%%~))
 import SDLight.Types
 import SDLight.Stylesheet
 import SDLight.Widgets.Core

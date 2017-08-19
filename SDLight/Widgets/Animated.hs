@@ -10,6 +10,7 @@ import Control.Monad.Trans
 import Data.Extensible
 import Data.Reflection
 import Linear.V2
+import SDLight.Util
 import SDLight.Types
 import SDLight.Stylesheet
 import SDLight.Widgets.Core

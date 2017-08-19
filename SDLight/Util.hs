@@ -3,6 +3,7 @@ module SDLight.Util where
 
 import qualified SDL as SDL
 import Control.Monad
+import Control.Monad.State
 import Control.Lens
 import Data.Extensible
 import Linear.V2
@@ -58,6 +59,24 @@ functorial l = to $ fmap (^.l)
 
 monadic :: Monad m => Lens' a b -> Lens' (m a) (m b)
 monadic l = lens (^. functorial l) (liftM2 (\a b -> a & l .~ b))
+
+infixr 4 ^%~
+(^%~) :: Lens' s a -> (Getter a a) -> s -> s
+s ^%~ f = s %~ (^. f)
+
+infixr 4 ^%%~
+(^%%~) :: Functor m => Lens' s a -> (Getter a (m a)) -> s -> m s
+s ^%%~ f = s %%~ (^. f)
+
+infixr 4 ^%=
+(^%=) :: MonadState s m => Lens' s a -> (Getter a a) -> m ()
+s ^%= f = s %= (^. f)
+
+infixr 4 ^%%=
+(^%%=) :: MonadState s m => Lens' s a -> (Getter a (m a)) -> m ()
+s ^%%= f = do
+  x <- use s
+  s <~ x ^. f
 
 -- extensible
 
