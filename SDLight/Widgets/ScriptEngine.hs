@@ -73,6 +73,7 @@ data SimpleDSL a where
   DestroyImage :: RefImage -> SimpleDSL ()
   RunEffect :: Either EffectIn EffectOut -> RefImage -> SimpleDSL ()
   Speak :: Maybe RefImage -> [String] -> SimpleDSL ()
+  Yield :: SimpleDSL ()
 
   ResetOpacity :: SimpleDSL ()
 
@@ -122,6 +123,7 @@ data MiniSyntax
   | SynLoadCharacter FilePath Position CharaName
   | SynShowCharacter CharaName [MiniSyntax]
   | SynSpeak (Maybe CharaName) [String]
+  | SynYield
   deriving (Eq, Show)
 
 interpret :: [MiniSyntax] -> MiniScript ()
@@ -138,18 +140,21 @@ interpret = go M.empty where
     SynSpeak name s -> do
       speak ((mp M.!) <$> name) s
       go mp xs
+    SynYield -> bone Yield
 
 pminisyntax :: Tf.Parser [MiniSyntax]
 pminisyntax = Tf.option [] $ Tf.many expr where
   select :: Tf.Parsing m => [m a] -> m a
   select = Tf.choice . fmap Tf.try
-  
+
+  expr :: Tf.Parser MiniSyntax
   expr = Tf.try Tf.whiteSpace
     *> select
     [ pwait Tf.<?> "@wait"
     , ploadCharacter Tf.<?> "@load"
     , pshowCharacter Tf.<?> "@show"
     , pspeak Tf.<?> "@speak"
+    , pyield Tf.<?> "@yield"
     ]
 
   pwait = do
@@ -172,13 +177,16 @@ pminisyntax = Tf.option [] $ Tf.many expr where
     name <- Tf.option Nothing (Just <$> Tf.some Tf.letter <* Tf.spaces)
     s <- select [praw Tf.<?> "raw strings", plit Tf.<?> "literals"]
     return $ SynSpeak name s
-
     where
       plit = Tf.braces $ Tf.many Tf.stringLiteral
       praw = do
         Tf.symbolic '<'
         t <- Tf.manyTill Tf.anyChar (Tf.try (Tf.char '>'))
         return $ lines t
+
+  pyield = do
+    Tf.symbol "@yield"
+    return SynYield
 
 parseMiniScript :: FilePath -> IO (Maybe (MiniScript ()))
 parseMiniScript path = fmap interpret <$> Tf.parseFromFile pminisyntax path
@@ -202,6 +210,7 @@ data ScriptEngineState
   | Running
   | Message
   | PerformEffect (Either EffectIn EffectOut) RefImage
+  | Break
   | Finished
   deriving (Eq, Show)
 
@@ -253,12 +262,17 @@ wMiniScriptEngine (wconf #script_engine -> ViewWConfig wix req opt) = go <$> new
     @> (\(Op'Render _) -> lift $ render (given ^. wlocation wix) model)
     @> (\Op'Run -> continueM $ fmap go $ run model)
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys model)
-    @> (\Op'Switch -> (if model^._state == Finished then freeze' else continue) $ go model)
+    @> (\Op'Switch -> switch model)
     @> (\(Op'LoadMiniScript ms) -> continue $ go $ model & script .~ ms & _state .~ Running)
     @> emptyUnion
 
   reset :: ScriptEngine -> ScriptEngine
   reset model = model & _state .~ NotReady
+
+  switch model = case model^._state of
+    Finished -> freeze' $ go model
+    Break -> freeze' $ go $ model & _state .~ Running
+    _ -> continue $ go model
 
   renderImage :: V2 Int -> SDL.Texture -> Double -> GameM ()
   renderImage v texture alpha = do
@@ -304,6 +318,7 @@ wMiniScriptEngine (wconf #script_engine -> ViewWConfig wix req opt) = go <$> new
     Running ->
       case debone $ model^.script of
         Return () -> return $ model & _state .~ Finished
+        (Yield :>>= k) -> return $ model & _state .~ Break & script .~ k ()
         (Wait n :>>= k) -> return $ model
           & _state .~ Suspended
           & counter .~ n
