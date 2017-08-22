@@ -3,8 +3,13 @@ module SDLight.Widgets.ScriptEngine
   ( wMiniScriptEngine
   , Op'MiniScriptEngine
   , op'loadMiniScript
+  , Op'Goto
+  , op'goto
+  , Op'SetFields
+  , op'setFields
   , parseMiniScript
   , isReturn
+  , (=:)
 
   , EffectIn(..)
   , EffectOut(..)
@@ -18,9 +23,11 @@ module SDLight.Widgets.ScriptEngine
   , speak
   , resetOpacity
   ) where
+
 import qualified SDL as SDL
 import qualified SDL.Image as SDL
 import Control.Lens
+import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans (lift)
 import Control.Monad.Skeleton
@@ -29,6 +36,7 @@ import Data.Reflection
 import Data.List
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
+import qualified Data.Text as T
 import Linear.V2
 import SDLight.Util ((^%~), (^%%~))
 import SDLight.Types
@@ -74,6 +82,7 @@ data SimpleDSL a where
   RunEffect :: Either EffectIn EffectOut -> RefImage -> SimpleDSL ()
   Speak :: Maybe RefImage -> [String] -> SimpleDSL ()
   Yield :: SimpleDSL ()
+  Label :: Maybe String -> SimpleDSL ()
 
   ResetOpacity :: SimpleDSL ()
 
@@ -114,6 +123,15 @@ speak ref s = bone $ Speak ref s
 resetOpacity :: MiniScript ()
 resetOpacity = bone ResetOpacity
 
+infix 2 =:
+(=:) = (,)
+
+replaceVars :: [(T.Text, T.Text)] -> MiniScript () -> MiniScript ()
+replaceVars vs = hoistSkeleton go where
+  go :: SimpleDSL a -> SimpleDSL a
+  go (Speak m xs) = Speak m (fmap T.unpack $ foldl (\ys (v,new) -> fmap (T.replace (T.cons '$' v) new) ys) (fmap T.pack xs) vs)
+  go d = d
+
 -- MiniScript parser
 
 type CharaName = String
@@ -124,6 +142,7 @@ data MiniSyntax
   | SynShowCharacter CharaName [MiniSyntax]
   | SynSpeak (Maybe CharaName) [String]
   | SynYield
+  | SynLabelled String [MiniSyntax]
   deriving (Eq, Show)
 
 interpret :: [MiniSyntax] -> MiniScript ()
@@ -141,6 +160,11 @@ interpret = go M.empty where
       speak ((mp M.!) <$> name) s
       go mp xs
     SynYield -> bone Yield
+    SynLabelled label ys -> do
+      bone $ Label (Just label)
+      go mp ys
+      bone $ Label Nothing
+      go mp xs
 
 pminisyntax :: Tf.Parser [MiniSyntax]
 pminisyntax = Tf.option [] $ Tf.many expr where
@@ -155,6 +179,7 @@ pminisyntax = Tf.option [] $ Tf.many expr where
     , pshowCharacter Tf.<?> "@show"
     , pspeak Tf.<?> "@speak"
     , pyield Tf.<?> "@yield"
+    , plabel Tf.<?> "@label"
     ]
 
   pwait = do
@@ -187,6 +212,11 @@ pminisyntax = Tf.option [] $ Tf.many expr where
   pyield = do
     Tf.symbol "@yield"
     return SynYield
+  plabel = do
+    Tf.symbol "@label"
+    name <- Tf.some (Tf.letter <|> Tf.oneOf "-_") <* Tf.spaces
+    prog <- Tf.braces pminisyntax
+    return $ SynLabelled name prog
 
 parseMiniScript :: FilePath -> IO (Maybe (MiniScript ()))
 parseMiniScript path = fmap interpret <$> Tf.parseFromFile pminisyntax path
@@ -194,6 +224,8 @@ parseMiniScript path = fmap interpret <$> Tf.parseFromFile pminisyntax path
 --
 
 makeOp "LoadMiniScript" [t| MiniScript () -> _ Self Identity () |]
+makeOp "Goto" [t| String -> _ Self GameM () |]
+makeOp "SetFields" [t| [(String, String)] -> _ Self Identity () |]
 
 type Op'MiniScriptEngine =
   [ Op'Reset ()
@@ -202,6 +234,8 @@ type Op'MiniScriptEngine =
   , Op'HandleEvent
   , Op'Switch
   , Op'LoadMiniScript
+  , Op'Goto
+  , Op'SetFields
   ]
 
 data ScriptEngineState
@@ -231,6 +265,8 @@ data ScriptEngine
   , _script :: MiniScript ()
   , _counter :: Int
   , _message :: Widget Op'MessageLayer
+  , _label :: Maybe String
+  -- TODO: これだとlabelのnestに対応できないので[String]にして構造をもたせる
   }
 
 makeLenses ''ScriptEngine
@@ -255,6 +291,7 @@ wMiniScriptEngine (wconf #script_engine -> ViewWConfig wix req opt) = go <$> new
     <*> return (return ())
     <*> return 0
     <*> wMessageLayer (conf @"message_layer" wix req (def @"message_layer"))
+    <*> return Nothing
 
   go :: ScriptEngine -> Widget Op'MiniScriptEngine
   go model = Widget $
@@ -264,10 +301,18 @@ wMiniScriptEngine (wconf #script_engine -> ViewWConfig wix req opt) = go <$> new
     @> (\(Op'HandleEvent keys) -> continueM $ fmap go $ handler keys model)
     @> (\Op'Switch -> switch model)
     @> (\(Op'LoadMiniScript ms) -> continue $ go $ model & script .~ ms & _state .~ Running)
+    @> (\(Op'Goto lbl) -> continueM $ fmap go $ skipUntil lbl model)
+    @> (\(Op'SetFields fs) -> continue $ go $ model & script %~ replaceVars (fmap (\(a,b) -> (T.pack a, T.pack b)) fs))
     @> emptyUnion
 
   reset :: ScriptEngine -> ScriptEngine
   reset model = model & _state .~ NotReady
+
+  skipUntil :: String -> ScriptEngine -> GameM ScriptEngine
+  skipUntil lbl model = go model where
+    go s = do
+      s' <- run s
+      if s'^.label == Just lbl then return s else go s'
 
   switch model = case model^._state of
     Finished -> freeze' $ go model
@@ -317,8 +362,8 @@ wMiniScriptEngine (wconf #script_engine -> ViewWConfig wix req opt) = go <$> new
     Suspended -> return $ model & counter -~ 1
     Running ->
       case debone $ model^.script of
-        Return () -> return $ model & _state .~ Finished
-        (Yield :>>= k) -> return $ model & _state .~ Break & script .~ k ()
+        Return () -> (lift (print "return") >>) $ return $ model & _state .~ Finished
+        (Yield :>>= k) -> (lift (print "yield") >>) $ return $ model & _state .~ Break & script .~ k ()
         (Wait n :>>= k) -> return $ model
           & _state .~ Suspended
           & counter .~ n
@@ -350,14 +395,13 @@ wMiniScriptEngine (wconf #script_engine -> ViewWConfig wix req opt) = go <$> new
             & counter .~ effectTime eff
             & displaying %~ uniqueInsert ref
         (Speak ref text :>>= k) -> do
-          return $ model
+          (lift (print "speak") >>) $ return $ model
             & _state .~ Message
             & script .~ k ()
             & message ^%~ op'reset text
             & layers %~ IM.mapWithKey (\key -> if Just (RefImage key) == ref then opacity .~ 1 else opacity .~ 0.5)
-        (ResetOpacity :>>= k) -> do
-          return $ model
-            & layers %~ fmap (opacity .~ 1.0)
+        (ResetOpacity :>>= k) -> return $ model & layers %~ fmap (opacity .~ 1.0)
+        (Label lb :>>= k) -> (lift (print "label") >>) $ run $ model & label .~ lb & script .~ k ()
     Message | op'isFreeze (model^.message) op'switch -> return $ model & _state .~ Running
     Message -> model & message ^%%~ op'run
     PerformEffect _ _ | model^.counter <= 0 -> return $ model & _state .~ Running
