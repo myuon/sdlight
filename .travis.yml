@@ -1,5 +1,6 @@
 before_install:
-  - sudo apt -qq update
   - sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev
+language:
+  - haskell
 ghc:
   - 8.0.2
