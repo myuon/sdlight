@@ -93,10 +93,6 @@ override updater wx fu = Widget $ elim id (bimapT updater id . runWidget wx) . f
     InL a -> f a
     InR a -> g a
 
-type family (++) (a :: [k]) (b :: [k]) where
-  '[] ++ bs = bs
-  (a : as) ++ bs = a : (as ++ bs)
-
 runSwitch :: Widget xs -> Getter (Widget xs) (FreezeT (Widget xs) Identity a) -> (Freeze (Widget xs) a -> r) -> r
 runSwitch w op k = k $ runIdentity $ runFreezeT (w ^. op)
 

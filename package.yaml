@@ -3,18 +3,60 @@ version:             0.1.0.0
 #synopsis:
 #description:
 homepage:            https://github.com/myuon/sdlight#readme
-license:             BSD3
+license:             MIT
 author:              myuon
 maintainer:          ioi.joi.koi.loi@gmail.com
 copyright:           2017 myuon
-category:            Web
+category:            UI
 extra-source-files:
 - README.md
 
 dependencies:
-  - base >= 4.7 && < 5
+- base >=4.7 && <5
+- monad-skeleton
+- trifecta
+- template-haskell
+- intervals
+- sdl2
+- sdl2-image
+- sdl2-ttf
+- containers
+- lens
+- linear
+- mtl
+- either
+- data-default
+- reflection
+- extensible
+- text
 
-executables:
-  sdlight:
-    source-dirs:      src
-    main:             Main.hs
+default-extensions:
+- Strict
+- StrictData
+- DataKinds
+- GADTs
+- TemplateHaskell
+- LambdaCase
+- TypeApplications
+- TypeOperators
+- FlexibleContexts
+- Rank2Types
+- KindSignatures
+- OverloadedLabels
+- MultiParamTypeClasses
+- FlexibleInstances
+- TypeFamilies
+- ViewPatterns
+
+ghc-options:
+#- -ddump-splices
+- -Wunused-imports
+- -Wunused-local-binds
+
+data-files:
+- src/widgets.style
+
+library:
+  source-dirs: src
+  other-modules:
+  - Paths_sdlight

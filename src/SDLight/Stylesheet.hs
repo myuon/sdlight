@@ -10,7 +10,7 @@ import Data.Default
 import Text.Trifecta
 import Linear.V2
 import System.IO.Unsafe
-import Paths_magiclabo
+import Paths_sdlight
 
 data WidgetId
   = WId String
