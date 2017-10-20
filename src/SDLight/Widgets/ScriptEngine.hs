@@ -1,12 +1,24 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-|
+ScriptEngine is a script engine that will load script file and manage images, texts, effects and so on
+-}
 module SDLight.Widgets.ScriptEngine
-  ( wMiniScriptEngine
+  (
+
+  -- * Widget
+    wMiniScriptEngine
+
+  -- * Method
   , Op'MiniScriptEngine
+
+  -- * Operators
   , op'loadMiniScript
   , Op'Goto
   , op'goto
   , Op'SetFields
   , op'setFields
+
+  -- * Script
   , parseMiniScript
   , isReturn
   , (=:)

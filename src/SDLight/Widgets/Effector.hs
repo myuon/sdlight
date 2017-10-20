@@ -1,17 +1,27 @@
+{-|
+Effector widget will give a temporary effect on screen
+-}
 module SDLight.Widgets.Effector
-  ( op'appear
+  (
+  -- * Widget
+  effector
+  , effDisplay
+
+  -- * Method
+  , Op'Effector
+  , Eff'Display
+
+  -- * Operator
+  , op'appear
   , op'disappear
   , op'getAlpha
   , op'isAppeared
   , op'isDisappeared
-  , Eff'Display
 
   , op'start
   , op'getValue
-  , effector
-  , Op'Effector
 
-  , effDisplay
+  -- * Datatype
   , Transition(..)
   ) where
 
@@ -26,6 +36,7 @@ data EffectorState
   | Finished
   deriving (Eq, Show)
 
+-- | Types of effect transition
 data Transition
   = Linear
   | EaseOut
@@ -52,6 +63,7 @@ makeLenses ''Effector
 makeOp "Start" [t| _ Self Identity () |]
 makeOp "GetValue" [t| _ Value Identity Double |]
 
+-- | Method of 'effector'
 type Op'Effector =
   [ Op'Reset ()
   , Op'Run
@@ -60,6 +72,16 @@ type Op'Effector =
   , Op'GetValue
   ]
 
+-- | A widget with changing its alpha value (transparency) by itself
+--
+-- == Methods
+--
+-- * 'op'reset' Reset operator
+-- * 'op'run' Run operator
+-- * 'op'start' Start a transition
+-- * 'op'switch' Check if this widget is alive/dead
+-- * 'op'getValue' Get its alpha value
+--
 effector :: Transition -> Int -> Widget Op'Effector
 effector = \tr n -> go (new tr n) where
   new :: Transition -> Int -> Effector
@@ -92,6 +114,7 @@ makeOp "GetAlpha" [t| _ Value Identity Double |]
 makeOp "IsAppeared" [t| _ Value Identity Bool |]
 makeOp "IsDisappeared" [t| _ Value Identity Bool |]
 
+-- | Method of 'effDisplay'
 type Eff'Display =
   [ Op'Reset ()
   , Op'Run
@@ -109,6 +132,18 @@ data EffDisplayeState
   | Visible
   deriving (Eq, Show)
 
+-- | Effector that will fade in and out
+--
+-- == Methods
+--
+-- * 'op'reset' Reset operator
+-- * 'op'run' Run operator
+-- * 'op'appear' Start appearing this widget
+-- * 'op'disappear' Start disappearing this widget
+-- * 'op'getAlpha' Get the alpha value of this widget
+-- * 'op'isAppeared' Is this widget appeared completely?
+-- * 'op'isDisappeared' Is this widget disappeared completely?
+--
 effDisplay :: Transition -> Int -> Int -> Widget Eff'Display
 effDisplay = \tr n1 n2 -> go Invisible (effector tr n1) (effector (Inverse tr) n2) where
   uncurry' f (a,b,c) = f a b c

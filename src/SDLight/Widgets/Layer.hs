@@ -1,15 +1,24 @@
+{-|
+A widget with layer
+-}
 module SDLight.Widgets.Layer
-  ( wLayer
-  , Op'Layer
+  (
+  -- * Widget
+    wLayer
+  , wDelay
 
+  -- * Method
+  , Op'Layer
+  , Op'Delay
+
+  -- * Operator
+  , op'renderLayer
+  , op'getCounter
+
+  -- * Combinator
   , Layer
   , newLayer
   , resizeLayer
-  , op'renderLayer
-
-  , wDelay
-  , Op'Delay
-  , op'getCounter
   ) where
 
 import qualified SDL as SDL
@@ -25,6 +34,7 @@ import SDLight.Types
 import SDLight.Stylesheet
 import SDLight.Widgets.Core
 
+-- | Layer datatype
 data Layer
   = Layer
   { _layerWidth :: Int
@@ -47,12 +57,13 @@ source/target
 
 -}
 
--- Now, this functon does *not* destroy given texture
+-- | Construct a layer from texture (consists of 3x3 parts) and size. This functon does not destroy given texture.
 newLayer :: SDL.Texture -> V2 Int -> GameM Layer
 newLayer imgTexture (V2 width height) = do
   layer <- resizeLayer imgTexture width height
   return layer
 
+-- | Resize layer with given width and height
 resizeLayer :: SDL.Texture -> Int -> Int -> GameM Layer
 resizeLayer imgTexture width height = do
   rend <- use renderer
@@ -73,6 +84,7 @@ resizeLayer imgTexture width height = do
   
   return $ Layer width height emptyTexture
 
+-- | Render a layer
 op'renderLayer :: V2 Int -> Double -> Getter Layer (GameM ())
 op'renderLayer pos alpha = to $ \layer -> do
   rend <- use renderer
@@ -83,6 +95,7 @@ op'renderLayer pos alpha = to $ \layer -> do
   lift $ SDL.copy rend (layer^.layerTexture) Nothing (Just $ fmap toEnum $ loc)
   SDL.textureAlphaMod (layer^.layerTexture) SDL.$= alpha0
 
+-- | Method of 'wLayer'
 type Op'Layer =
   '[ Op'Render
   ]
@@ -96,6 +109,27 @@ instance Conf "layer" where
   type Optional "layer" = '[]
   def = emptyRecord
 
+-- | Layer widget
+--
+-- == Config Parameter
+-- === Required
+--
+-- @
+-- [ "windowTexture" >: SDL.Texture  -- Texture of layer
+-- , "size" >: V2 Int  -- Size of this widget
+-- ]
+-- @
+--
+-- === Optional
+--
+-- @
+-- []
+-- @
+--
+-- == Methods
+--
+-- * 'op'render' Render operator
+--
 wLayer :: Given StyleSheet => WConfig "layer" -> GameM (NamedWidget Op'Layer)
 wLayer (giveWid #layer -> cfg) = wNamed (cfg ^. #wix) . go <$> new where
   new = newLayer (cfg ^. #required ^. #windowTexture) (cfg ^. #required ^. #size)
@@ -105,6 +139,7 @@ wLayer (giveWid #layer -> cfg) = wNamed (cfg ^. #wix) . go <$> new where
     (\(Op'Render alpha) -> lift $ layer ^. op'renderLayer (getLocation (cfg ^. #wix)) alpha)
     @> emptyUnion
 
+-- | Layer widget and its texture will be loaded using given filepath
 wLayerFilePath :: Given StyleSheet => FilePath -> WConfig "layer" -> GameM (NamedWidget Op'Layer)
 wLayerFilePath path cfg = do
   rend <- use renderer
@@ -112,7 +147,6 @@ wLayerFilePath path cfg = do
   wLayer cfg
 
 -- Delayed
-
 data Delay
   = Delay
   { _counter :: Int
@@ -124,12 +158,21 @@ makeLenses ''Delay
 
 makeOp "GetCounter" [t| _ Value Identity Int |]
 
+-- | Method of 'wDelay'
 type Op'Delay =
   [ Op'Reset ()
   , Op'Run
   , Op'GetCounter
   ]
 
+-- | Delay widget, this widget has a looped counter
+--
+-- == Methods
+--
+-- * 'op'reset' Reset operator
+-- * 'op'run' Run operator, this increments the counter
+-- * 'op'getCounter' Get the current counter
+--
 wDelay :: Int -> Widget Op'Delay
 wDelay = \n -> go (Delay 0 n) where
   go :: Delay -> Widget Op'Delay

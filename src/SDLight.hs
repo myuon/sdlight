@@ -3,6 +3,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
+{-|
+SDLight package
+-}
 module SDLight
   ( runGame
 

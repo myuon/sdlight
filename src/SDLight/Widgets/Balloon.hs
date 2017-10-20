@@ -1,7 +1,16 @@
+{-|
+Popup or balloon is a widget that will display and disappear after a while
+-}
 module SDLight.Widgets.Balloon
-  ( Op'Balloon
+  (
+  -- * Widget
+  wBalloon
+
+  -- * Method
+  , Op'Balloon
+
+  -- * Operator
   , op'fly
-  , wBalloon
   ) where
 
 import qualified SDL as SDL
@@ -21,6 +30,7 @@ import SDLight.Widgets.Effector
 
 makeOp "Fly" [t| _ Self Identity () |]
 
+-- | Method of 'wBalloon'
 type Op'Balloon =
   [ Op'Reset String
   , Op'Render
@@ -63,6 +73,34 @@ instance Conf "balloon" where
     <: #stayTime @= 10
     <: emptyRecord
 
+
+-- | Ballon widget
+--
+-- == Config Parameter
+-- === Required
+--
+-- @
+-- [ "windowTexture" >: SDL.Texture  -- Texture of layer
+-- , "size" >: V2 Int  -- Size of this widget
+-- ]
+-- @
+--
+-- === Optional
+--
+-- @
+-- [ "text" >: String  -- Text rendered in the balloon
+-- , "stayTime" >: Int  -- How many frames this widget will stay on screen?
+-- ]
+-- @
+--
+-- == Methods
+--
+-- * 'op'reset' Reset operator
+-- * 'op'render' Render operator
+-- * 'op'run' Run operator; tick the internal counter
+-- * 'op'fly' Start appearing this balloon
+-- * 'op'switch' Check if this widget is alive/dead
+--
 wBalloon :: Given StyleSheet => WConfig "balloon" -> GameM (Widget Op'Balloon)
 wBalloon (viewWConfig . giveWid #balloon -> ViewWConfig wix req opt) = go <$> new where
   new :: GameM Balloon

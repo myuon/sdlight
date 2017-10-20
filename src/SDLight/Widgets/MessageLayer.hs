@@ -1,8 +1,15 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-|
+MessageLayer will render characters one by one
+-}
 module SDLight.Widgets.MessageLayer
-  ( wMessageWriter
-  , Op'MessageWriter
+  (
+  -- * Widget
+    wMessageWriter
   , wMessageLayer
+
+  -- * Methods
+  , Op'MessageWriter
   , Op'MessageLayer
   ) where
 
@@ -38,6 +45,7 @@ makeLenses ''MessageWriter
 
 makeOp "IsWaiting" [t| _ Value Identity Bool |]
 
+-- | Method of 'wMessageWriter'
 type Op'MessageWriter =
   [ Op'Reset [String]
   , Op'Render
@@ -57,6 +65,31 @@ instance Conf "message_writer" where
     #messages @= []
     <: emptyRecord
 
+-- | MessageWriter widget
+--
+-- == Config Parameter
+-- === Required
+--
+-- @
+-- []
+-- @
+--
+-- === Optional
+--
+-- @
+-- [ "messages" >: [String]  -- Texts that will be rendered
+-- ]
+-- @
+--
+-- == Methods
+--
+-- * 'op'reset' Reset operator
+-- * 'op'render' Render operator
+-- * 'op'run' Run operator
+-- * 'op'handleEvent' Keyevent handler operator
+-- * 'op'switch' Check if this widget is alive/dead
+-- * 'op'isWaiting' Check if the widget is waiting for click
+--
 wMessageWriter :: Given StyleSheet => WConfig "message_writer" -> GameM (NamedWidget Op'MessageWriter)
 wMessageWriter (wconf #message_writer -> ViewWConfig wix req opt) = wNamed wix . go <$> new where
   new = return $ reset (opt ^. #messages) $ MessageWriter [] 0 [] Typing 1
@@ -116,6 +149,7 @@ wMessageWriter (wconf #message_writer -> ViewWConfig wix req opt) = wNamed wix .
     | otherwise = return mes
 
 
+-- | Method of 'wMessageLayer'
 type Op'MessageLayer =
   [ Op'Reset [String]
   , Op'Render
@@ -149,6 +183,33 @@ instance Conf "message_layer" where
     <: #messages @= []
     <: emptyRecord
 
+-- | MessageLayer widget is MessageWriter with a layer
+--
+-- == Config Parameter
+-- === Required
+--
+-- @
+-- [ "windowTexture" >: SDL.Texture  -- Texture of layer
+-- , "clickwaitConfig" >: Record (Required "animated")  -- Clickwait animation
+-- ]
+-- @
+--
+-- === Optional
+--
+-- @
+-- [ "size" >: V2 Int  -- Size of this widget
+-- , "messages" >: [String]  -- Texts that will be rendered
+-- ]
+-- @
+--
+-- == Methods
+--
+-- * 'op'reset' Reset operator
+-- * 'op'render' Render operator
+-- * 'op'run' Run operator
+-- * 'op'handleEvent' Keyevent handler operator
+-- * 'op'switch' Check if this widget is alive/dead
+--
 wMessageLayer :: Given StyleSheet => WConfig "message_layer" -> GameM (Widget Op'MessageLayer)
 wMessageLayer (wconf #message_layer -> ViewWConfig wix req opt) = go <$> new where
   new :: GameM MessageLayer

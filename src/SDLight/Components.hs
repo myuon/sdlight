@@ -1,3 +1,6 @@
+{-|
+SDL Components
+-}
 module SDLight.Components where
 
 import qualified SDL as SDL
@@ -9,19 +12,20 @@ import Linear.V2
 import SDLight.Types
 import SDLight.Util
 
+-- | @Int@-specialized Rectangle
 type Area = SDL.Rectangle Int
 
+-- | Renderable Object with 'Color' and size information
 newtype Component = Component {
   runComponent :: Color -> GameM (SDL.Texture, Maybe Area, Area) }
 
+-- | Operations and constructors
 class Picture t where
-  -- operation
   translate :: V2 Int -> t -> t
   scale :: V2 Int -> t -> t
   color :: Color -> t -> t
   resize :: V2 Int -> t -> t
 
-  -- constructor
   text :: String -> t
   fillRectangle :: V2 Int -> t
   shaded :: Color -> t -> t
@@ -73,6 +77,7 @@ instance Picture Component where
 
     return (texture, Nothing, SDL.Rectangle (tgt^._position) (tgt^._size + V2 2 2))
 
+-- | Component arrangements
 class Arrangement t where
   -- arrangement
   (<=>) :: t -> t -> t
@@ -123,6 +128,7 @@ instance Arrangement Component where
   divideVin area comps =
     fmap (\(i,comp) -> translate (V2 0 (i * area^._x `div` length comps)) comp) $ zip [0..] comps
 
+-- | Render components with color
 renders :: Color -> [Component] -> GameM ()
 renders color xs = mapM_ (\pic -> render =<< runComponent pic color) xs
   where
