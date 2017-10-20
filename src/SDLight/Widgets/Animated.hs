@@ -1,6 +1,13 @@
+{-|
+Animation layer from sprite image file
+-}
 module SDLight.Widgets.Animated
-  ( Op'Animated
-  , wAnimated
+  (
+  -- * Widget
+  wAnimated
+
+  -- * Method
+  , Op'Animated
   ) where
 
 import qualified SDL as SDL
@@ -34,11 +41,37 @@ data Animated
 
 makeLenses ''Animated
 
+-- | Method of 'wAnimated'
 type Op'Animated = 
   [ Op'Render
   , Op'Run
   ]
 
+-- |
+-- Animated widget
+--
+-- Animation goes from left in the first line to right in the first line, and goes in the second line, and so on.
+--
+-- == Config Parameter
+-- === Required
+--
+-- @
+-- [ "texture" >: SDL.Texture  -- A texture connected horizontally and/or vertically
+-- , "pictureSize" >: V2 Int  -- Size of each frame
+-- ]
+-- @
+--
+-- === Optional
+--
+-- @
+-- []
+-- @
+--
+-- == Methods
+--
+-- * 'op'render' Render operator
+-- * 'op'run' Tick an animation by one frame
+--
 wAnimated :: Given StyleSheet => WConfig "animated" -> GameM (Widget Op'Animated)
 wAnimated (wconf #animated -> ViewWConfig wix req opt) = go <$> new where
   new = do

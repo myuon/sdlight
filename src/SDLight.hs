@@ -3,9 +3,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE StrictData #-}
+{-|
+SDLight package
+-}
 module SDLight
   ( runGame
-  , module M
+
+  -- * SDLight Modules
+  , module SDLight.Types
+  , module SDLight.Util
+  , module SDLight.Components
+  , module SDLight.Stylesheet
+  , module SDLight.Widgets
   ) where
 
 import qualified SDL as SDL
@@ -15,21 +24,26 @@ import Control.Monad.State.Strict
 import qualified Data.Map as M
 import Data.IORef
 import Linear.V4
-import SDLight.Types as M
-import SDLight.Util as M
-import SDLight.Components as M
-import SDLight.Stylesheet as M
-import SDLight.Widgets as M
+import SDLight.Types
+import SDLight.Util
+import SDLight.Components
+import SDLight.Stylesheet
+import SDLight.Widgets
 
+-- | minimal example:
+--
+-- @
+-- main = 'runGame' (return ()) (\_ -> return ()) return (\_ -> return)
+-- @
 runGame
-  :: GameM s -- initial state
-  -> (s -> GameM ()) -- draw
-  -> (s -> GameM s) -- update
-  -> (M.Map SDL.Scancode Int -> s -> GameM s) -- key event handler
+  :: GameM s -- ^ initial state
+  -> (s -> GameM ()) -- ^ draw function
+  -> (s -> GameM s) -- ^ update function
+  -> (M.Map SDL.Scancode Int -> s -> GameM s) -- ^ key event handler
   -> IO ()
 runGame initialize draw step keyevent = do
   with SDL.initializeAll (\_ -> SDL.quit) $ \_ -> do
-    with (SDL.createWindow "magic labo" SDL.defaultWindow) SDL.destroyWindow $ \w' -> do
+    with (SDL.createWindow "default window" SDL.defaultWindow) SDL.destroyWindow $ \w' -> do
       with (SDL.createRenderer w' (-1) SDL.defaultRenderer) SDL.destroyRenderer $ \r' -> do
         TTF.withInit $ do
           True <- TTF.wasInit

@@ -1,7 +1,16 @@
+{-|
+Japanese character (hiragana) input box
+-}
 module SDLight.Widgets.InputJapanese
-  ( op'getText
+  (
+  -- * Widget
+  wInputJapanese
+
+  -- * Method
   , Op'InputJapanese
-  , wInputJapanese
+
+  -- * Operator
+  , op'getText
   ) where
 
 import qualified SDL as SDL
@@ -21,6 +30,7 @@ import SDLight.Widgets.Layer
 
 makeOp "GetText" [t| _ Value Identity String |]
 
+-- | Method of 'wInputJapanese'
 type Op'InputJapanese =
   [ Op'Reset ()
   , Op'Render
@@ -48,6 +58,31 @@ instance Conf "input_japanese" where
   type Optional "input_japanese" = '[]
   def = emptyRecord
 
+-- | Input Japanese widget, this will always use whole screen
+--
+-- == Config Parameter
+-- === Required
+--
+-- @
+-- [ "windowTexture" >: SDL.Texture  -- Texture of layer
+-- ]
+-- @
+--
+-- === Optional
+--
+-- @
+-- []
+-- @
+--
+-- == Methods
+--
+-- * 'op'reset' Reset operator
+-- * 'op'render' Render operator
+-- * 'op'run' Run operator
+-- * 'op'handleEvent' Keyevent handler operator
+-- * 'op'switch' Check if this widget is alive/dead
+-- * 'op'getText' Get the current text in input box
+--
 wInputJapanese :: Given StyleSheet => WConfig "input_japanese" -> GameM (Widget Op'InputJapanese)
 wInputJapanese (wconf #input_japanese -> ViewWConfig wix req opt) = go <$> new where
   textLayerArea = V2 800 50

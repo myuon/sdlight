@@ -1,13 +1,22 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PolyKinds #-}
+{-|
+An fading in/out effector
+-}
 module SDLight.Widgets.FadeInOut
-  ( eff'widget
+  (
+  -- * Effector
+  eff'fadeInOut
+
+  -- * Method
+  , Eff'FadeInOut
+
+  -- * Operations
+  , eff'widget
   , eff'reset
   , eff'run
   , eff'switch
-  , eff'fadeInOut
-  , Eff'FadeInOut
   ) where
 
 import Control.Lens

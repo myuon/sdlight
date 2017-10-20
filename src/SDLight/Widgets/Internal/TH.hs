@@ -1,3 +1,6 @@
+{-|
+Builder by TH
+-}
 module SDLight.Widgets.Internal.TH
   ( makeOp
   ) where
@@ -142,6 +145,29 @@ parseWithWild n = getArgs getOpTypes
     getOpTypes :: Type -> Operator
     getOpTypes (AppT (AppT (AppT WildCardT br) m) r) = Operator [] n br m r
 
+-- | Build a operator datatype and its getter function
+--
+-- @
+-- makeOp "Piyo1" [t| A -> B -> _ Self m a |]
+-- makeOp "Piyo2" [t| A -> B -> _ Value Identity a |]
+-- makeOp "Piyo3" [t| A -> B -> _ t m a |]
+-- @
+--
+-- will generate
+--
+-- @
+-- data Op'Piyo1 br m r where
+--   Op'Piyo1 :: A -> B -> Op'Piyo1 Self m a
+-- op'piyo1 :: Op'Piyo1 ∈ xs => A -> B -> Getter (Widget xs) (m (Widget xs))
+--
+-- data Op'Piyo2 br m r where
+--   Op'Piyo2 :: A -> B -> Op'Piyo2 Value Identity a
+-- op'piyo2 :: Op'Piyo2 ∈ xs => A -> B -> Getter (Widget xs) a
+--
+-- data Op'Piyo3 br m r where
+--   Op'Piyo3 :: A -> B -> Op'Piyo3 t m a
+-- op'piyo1 :: Op'Piyo3 ∈ xs => A -> B -> Getter (Widget xs) (FreezeT (Widget xs) m ())
+-- @
 makeOp :: String -> TypeQ -> DecsQ
 makeOp name typQ = typQ >>= \typ -> do
   let n = mkName $ "Op'" ++ name

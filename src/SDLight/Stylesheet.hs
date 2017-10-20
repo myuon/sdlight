@@ -1,5 +1,8 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveFoldable #-}
+{-|
+Stylesheet for widgets with id
+-}
 module SDLight.Stylesheet where
 
 import Control.Lens
@@ -12,6 +15,7 @@ import Linear.V2
 import System.IO.Unsafe
 import Paths_sdlight
 
+-- | Id for each widget, like @foo '</>' bar '</>' baz@
 data WidgetId
   = WId String
   | Wapp WidgetId WidgetId
@@ -28,14 +32,19 @@ instance Monoid WidgetId where
   mappend = Wapp
 
 infixl 1 </>
+-- | Concat operation, works as monoid product
+--
+-- > (</>) = mappend
 (</>) :: WidgetId -> WidgetId -> WidgetId
 (</>) = mappend
 
+-- | Flatten 'WidgetId' into string list from left to right
 toIdListL :: WidgetId -> [String]
 toIdListL (WId a) = [a]
 toIdListL (Wapp x y) = toIdListL x ++ toIdListL y
 toIdListL WEmpty = []
 
+-- | Attributes in stylesheet
 data StyleAttr r where
   Padding :: StyleAttr (V2 Int)
   Margin :: StyleAttr (V2 Int)
@@ -43,13 +52,16 @@ data StyleAttr r where
   Height :: StyleAttr Int
   Position :: StyleAttr (V2 Int)
 
+-- | Pair of Attributes and its value
 data StyleAttrValue = forall r. StyleAttrValue { getStyleAttrValue :: (StyleAttr r, r) }
 
+-- | Tree with additional information @k@ for each Node
 data Tree k a
   = Leaf a
   | Node k [Tree k a]
   deriving (Eq, Show, Foldable)
 
+-- | Query datatype used for searching widget ids
 data StyleQuery
   = Wild
   | StyleId String
@@ -65,8 +77,10 @@ instance Monoid StyleQuery where
   mappend (s :>: sx) y = s :>: mappend sx y
   mappend (s :>>: sx) y = s :>>: mappend sx y
 
+-- | Syntax of StyleSheet
 newtype StyleSyntax = StyleSyntax { getStyleSyntax :: Tree StyleQuery [StyleAttrValue] }
 
+-- | A Parser
 pstylesheet :: Parser StyleSyntax
 pstylesheet = StyleSyntax . Node Wild <$> expr where
   expr :: Parser [Tree StyleQuery [StyleAttrValue]]
@@ -99,14 +113,17 @@ pstylesheet = StyleSyntax . Node Wild <$> expr where
   toStyleAttr ("height", [x]) = StyleAttrValue $ (,) Height x
   toStyleAttr ("position", [x,y]) = StyleAttrValue $ (,) Position (V2 x y)
 
+-- | datatype of StyleSheet
 newtype StyleSheet = StyleSheet { getStyleSheet :: M.Map StyleQuery [StyleAttrValue] }
 
+-- | Syntax to StyleSheet value
 fromSyntax :: StyleSyntax -> StyleSheet
 fromSyntax (StyleSyntax syntax) = StyleSheet $ go Wild syntax where
   go :: StyleQuery -> Tree StyleQuery a -> M.Map StyleQuery a
   go k (Leaf a) = M.singleton k a
   go k (Node k' xs) = foldr (M.union . go (k `mappend` k')) M.empty xs
 
+-- | Matcher
 matchOf :: WidgetId -> (StyleAttrValue -> Maybe r) -> Getter StyleSheet [r]
 matchOf w attrj = to $ \sty -> catMaybes $ fmap attrj $ concat $ M.elems $ M.filterWithKey (\q _ -> match q (toIdListL w)) $ getStyleSheet sty where
   match :: StyleQuery -> [String] -> Bool
@@ -122,6 +139,7 @@ matchOf w attrj = to $ \sty -> catMaybes $ fmap attrj $ concat $ M.elems $ M.fil
   matchHere (q :>>: ps) (x:ys) | q == x = match ps ys
   matchHere _ _ = False
 
+-- | Matching exact attributes
 matches :: WidgetId -> StyleAttr r -> Getter StyleSheet [r]
 matches w attr = matchOf w (matchAttr attr) where
   matchAttr :: StyleAttr r -> StyleAttrValue -> Maybe r
@@ -133,9 +151,11 @@ matches w attr = matchOf w (matchAttr attr) where
     (Position, StyleAttrValue (Position,v)) -> Just v
     _ -> Nothing
 
+-- | Get a value of given attributes in stylesheet
 wix :: WidgetId -> StyleAttr r -> Getter StyleSheet (Maybe r)
 wix w attr = to $ \sty -> (\xs -> if null xs then Nothing else Just $ last xs) $ sty ^. matches w attr
 
+-- | Get a location of the widget corresponding to given id
 wlocation :: WidgetId -> Getter StyleSheet (V2 Int)
 wlocation w = styles . to (foldl loc (V2 0 0)) where
   styles = matchOf w $ \case
@@ -156,6 +176,7 @@ instance Default StyleSheet where
     Just style <- parseFromFile pstylesheet sname
     return $ fromSyntax style
 
+-- | Load a stylesheet file by FilePath
 loadStyleFile :: FilePath -> IO (Maybe StyleSheet)
 loadStyleFile = fmap (fmap (genStyleSheet . fromSyntax)) <$> parseFromFile pstylesheet where
   genStyleSheet sty = StyleSheet $ getStyleSheet def `M.union` getStyleSheet sty

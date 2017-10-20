@@ -1,5 +1,12 @@
+{-|
+Wallpaper will display a picture on whole screen
+-}
 module SDLight.Widgets.Wallpaper
-  ( wWallpaper
+  (
+  -- * Widget
+    wWallpaper
+
+  -- * Method
   , Op'Wallpaper
   ) where
 
@@ -27,6 +34,7 @@ data Wallpaper
 
 makeLenses ''Wallpaper
 
+-- | Method of 'wWallpaper'
 type Op'Wallpaper =
   [ Op'Reset ()
   , Op'Render

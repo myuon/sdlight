@@ -1,20 +1,31 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-|
+Selector is a widget that user can select one or multiple items with a pointer
+-}
 module SDLight.Widgets.Selector
-  ( wSelector
+  (
+
+  -- * Widget
+    wSelector
+  , wSelectLayer
+
+  -- * Method
   , Op'Selector
-  , SelectorRenderConfig
+  , Op'SelectLayer
+
+  -- * Operator
   , op'renderSelector
   , op'getSelecting
   , op'getPointer
   , op'getLabels
   , op'setLabels
 
-  , wSelectLayer
-  , Op'SelectLayer
-
   , Op'GetSelecting(..)
   , Op'GetPointer(..)
   , Op'GetLabels(..)
+
+  -- * Config Parameter
+  , SelectorRenderConfig
   ) where
 
 import qualified SDL as SDL
@@ -47,6 +58,7 @@ data Selector
 
 makeLenses ''Selector
 
+-- | Custom Renderer
 type SelectorRenderConfig = Record
   [ "label" >: String
   , "index" >: Int
@@ -61,6 +73,7 @@ makeOp "GetPointer" [t| _ Value Identity (Maybe Int) |]
 makeOp "GetLabels" [t| _ Value Identity [String] |]
 makeOp "SetLabels" [t| [String] -> Maybe Int -> _ Self Identity () |]
 
+-- | Method of 'wSelector'
 type Op'Selector =
   [ Op'Reset ()
   , Op'Render
@@ -91,6 +104,37 @@ instance Conf "selector" where
     <: #pager @= Nothing
     <: emptyRecord
     
+-- | Selector widget
+--
+-- == Config Parameter
+-- === Required
+--
+-- @
+-- []
+-- @
+--
+-- === Optional
+--
+-- @
+-- [ "labels" >: [String]  -- initial labels of this widget
+-- , "selectNum" >: Int  -- How many items can I select?
+-- , "pager" >: Maybe Int  -- Number of lines that single page can contain
+-- ]
+-- @
+--
+-- == Methods
+--
+-- * 'op'reset' Reset operator
+-- * 'op'render' Render operator; dropdown style
+-- * 'op'renderSelector' Render operator with custom renderer
+-- * 'op'run' Run operator
+-- * 'op'handleEvent' Keyevent handle operator
+-- * 'op'switch' Check if this widget is alive/dead
+-- * 'op'getSelecting' Get selecting indices as integer list
+-- * 'op'getPointer' Get the current pointer index
+-- * 'op'getLabels' Get the current labels
+-- * 'op'setLabels' Set labels
+--
 wSelector :: Given StyleSheet => WConfig "selector" -> NamedWidget Op'Selector
 wSelector (wconf #selector -> ViewWConfig wix _ opt) = wNamed (wix </> WId "selector") $ go $ new where
   pointerFromPagerStyle labels pager = maybe (rangeScope labels (length labels - 1)) (rangeScope labels) pager
@@ -161,6 +205,7 @@ wSelector (wconf #selector -> ViewWConfig wix _ opt) = wNamed (wix </> WId "sele
       keyjudge n | n < 100 = n `mod` 20 == 1
       keyjudge n = n `mod` 7 == 1
 
+-- | Method of 'wSelectLayer'
 type Op'SelectLayer =
   [ Op'Reset ()
   , Op'Render
@@ -190,6 +235,39 @@ instance Conf "select_layer" where
     
   def = def @"selector"
   
+-- | Selector widget with window layer and cursor layer
+--
+-- == Config Parameter
+-- === Required
+--
+-- @
+-- [ "windowTexture" >: SDL.Texture  -- Texture of window layer
+-- , "cursorTexture" >: SDL.Texture  -- Texture of cursor layer
+-- , "size" >: V2 Int  -- Size of this widget
+-- ]
+-- @
+--
+-- === Optional
+--
+-- @
+-- [ "labels" >: [String]  -- initial labels of this widget
+-- , "selectNum" >: Int  -- How many items can I select?
+-- , "pager" >: Maybe Int  -- Number of lines that single page can contain
+-- ]
+-- @
+--
+-- == Methods
+--
+-- * 'op'reset' Reset operator
+-- * 'op'render' Render operator; dropdown style
+-- * 'op'run' Run operator
+-- * 'op'handleEvent' Keyevent handle operator
+-- * 'op'switch' Check if this widget is alive/dead
+-- * 'op'getSelecting' Get selecting indices as integer list
+-- * 'op'getPointer' Get the current pointer index
+-- * 'op'getLabels' Get the current labels
+-- * 'op'setLabels' Set labels
+--
 wSelectLayer :: Given StyleSheet => WConfig "select_layer" -> GameM (Widget Op'SelectLayer)
 wSelectLayer (wconf #select_layer -> ViewWConfig wix req opt) = go <$> new where
   new :: GameM SelectLayer

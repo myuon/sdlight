@@ -1,13 +1,23 @@
+{-|
+Widget with tabs and each tab contains a "SDLight.Widgets.Selector"
+-}
 module SDLight.Widgets.TabSelector
-  ( op'getTabName
+  (
+  -- * Widget
+  wTabSelector
+  , wTabSelectLayer
+
+  -- * Method
+  , Op'TabSelector
+  , Op'TabSelectLayer
+
+  -- * Operator
+  , op'getTabName
   , op'renderTabSelector
   , op'getCurrentSelector
   , op'setTabs
-  , Op'TabSelector
-  , wTabSelector
-  , Op'TabSelectLayer
-  , wTabSelectLayer
 
+  -- * Config Parameter
   , TabSelectorRenderConfig
   ) where
 
@@ -36,6 +46,7 @@ data TabSelector
 
 makeLenses ''TabSelector
 
+-- | Custom Renderer
 type TabSelectorRenderConfig = Record
   [ "tabName" >: String
   , "tabIndex" >: Int
@@ -47,6 +58,7 @@ makeOp "RenderTabSelector" [t| (TabSelectorRenderConfig -> SelectorRenderConfig 
 makeOp "GetCurrentSelector" [t| _ Value Identity (Maybe (NamedWidget Op'Selector)) |]
 makeOp "SetTabs" [t| [(String, [String])] -> _ Self Identity () |]
 
+-- | Methods of 'wTabSelector'
 type Op'TabSelector =
   [ Op'Reset ()
   , Op'Render
@@ -73,6 +85,37 @@ instance Conf "tab_selector" where
     <: #pager @= Nothing
     <: emptyRecord
 
+-- | TabSelector widget
+--
+-- == Config Parameter
+-- === Required
+--
+-- @
+-- []
+-- @
+-- 
+-- === Optional
+--
+-- @
+-- [ "selectNum" >: Int  -- How many items can I select?
+-- , "pager" >: Maybe Int  -- Number of lines that single page can contain
+-- ]
+-- @
+--
+-- == Methods
+--
+-- * 'op'reset' Reset operator
+-- * 'op'render' Render operator; dropdown style
+-- * 'op'renderTabSelector' Render operator with custom renderer
+-- * 'op'run' Run operator
+-- * 'op'handleEvent' Keyevent handle operator
+-- * 'op'switch' Check if this widget is alive/dead
+-- * 'op'getSelecting' Get selecting indices as integer list
+-- * 'op'getPointer' Get the current pointer index
+-- * 'op'getCurrentSelector' Get the current selector (named-)widget, this returns @Nothing@ when current pointer is not initialized
+-- * 'op'getTabName' Get name of the current tab
+-- * 'op'setTabs' Set tabs by a list of a pair of tabname and selector labels
+--
 wTabSelector :: Given StyleSheet => WConfig "tab_selector" -> Widget Op'TabSelector
 wTabSelector (wconf #tab_selector -> ViewWConfig wix req opt) = go new where
   new = TabSelector [] Nothing
@@ -125,6 +168,7 @@ wTabSelector (wconf #tab_selector -> ViewWConfig wix req opt) = go new where
       return $ model & pointer .~ if tab == 0 then Just (length (model^.wtabs) - 1) else Just (tab - 1)
     Just tab -> fmap (\w -> model & wtabs.ix tab._2 .~ w) $ model^.wtabs^?!ix tab^._2^.op'handleEvent keys
 
+-- | Methods of 'wTabSelectLayer'
 type Op'TabSelectLayer =
   [ Op'Reset ()
   , Op'Render
@@ -156,6 +200,41 @@ instance Conf "tab_select_layer" where
     #tabWidth @= 100
     <: def @"tab_selector"
 
+-- | TabSelector widget with window layer and cursor layer
+--
+-- == Config Parameter
+-- === Required
+--
+-- @
+-- [ "windowTexture" >: SDL.Texture  -- Texture of window layer
+-- , "cursorTexture" >: SDL.Texture  -- Texture of cursor layer
+-- , "size" >: V2 Int  -- Size of this widget
+-- ]
+-- @
+--
+-- === Optional
+--
+-- @
+-- [ "tabWidth" >: Int  -- Width of each tab
+-- , "selectNum" >: Int  -- How many items can I select?
+-- , "pager" >: Maybe Int  -- Number of lines that single page can contain
+-- ]
+-- @
+--
+-- == Methods
+--
+-- * 'op'reset' Reset operator
+-- * 'op'render' Render operator; dropdown style
+-- * 'op'renderTabSelector' Render operator with custom renderer
+-- * 'op'run' Run operator
+-- * 'op'handleEvent' Keyevent handle operator
+-- * 'op'switch' Check if this widget is alive/dead
+-- * 'op'getSelecting' Get selecting indices as integer list
+-- * 'op'getPointer' Get the current pointer index
+-- * 'op'getCurrentSelector' Get the current selector (named-)widget, this returns @Nothing@ when current pointer is not initialized
+-- * 'op'getTabName' Get name of the current tab
+-- * 'op'setTabs' Set tabs by a list of a pair of tabname and selector labels
+--
 wTabSelectLayer :: Given StyleSheet => WConfig "tab_select_layer" -> GameM (Widget Op'TabSelectLayer)
 wTabSelectLayer (wconf #tab_select_layer -> ViewWConfig wix req opt) = go <$> new where
   new :: GameM TabSelectLayer
